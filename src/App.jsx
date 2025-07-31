@@ -1,10 +1,10 @@
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import { Routes, Route, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from "./lib/supabase"
+import Auth from './components/Auth'
 
+// Pages
 function Home() {
   const [problems, setProblems] = useState([]);
 
@@ -49,15 +49,38 @@ function About() {
 }
 
 export default function App() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    // get current session
+    supabase.auth.getSession().then(({ datra: { session } }) => {
+      setSession(session);
+    });
+
+    // listen for changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    }
+  }, []);
+
   return (
     <div className="p-4">
       <nav className="space-x-4">
         <Link to="/" className="text-lg underline">Home</Link>
         <Link to="/about" className="text-lg underline">About</Link>
+        <Link to="/auth" className="text-lg underline">Auth</Link>
       </nav>
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/auth" element={<Auth />} />
       </Routes>
     </div>
   )
