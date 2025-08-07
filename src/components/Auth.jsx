@@ -16,21 +16,54 @@ export default function Auth() {
             email,
             password,
         })
-        if (error) showToast(error.message, "error");
-        else showToast("Login successful");
+
+        if (error) {
+            showToast(error.message, "error");
+        }
+        else {
+            showToast("Login successful");
+        }
         setLoading(false)
     }
 
     const handleSignup = async () => {
         setLoading(true);
+
         const { error } = await supabase.auth.signUp({
             email,
             password,
-        })
-        if (error) showToast(error.message, "error");
-        else showToast("Signup successful, please check your email for confirmation");
-        setLoading(false)
-    }
+        });
+
+        if (error) {
+            showToast(error.message, "error");
+            setLoading(false);
+            return;
+        }
+
+        // If signup is successful, show a success message
+        const userId = data?.user?.id;
+        if (userId) {
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: userId,
+                    username: email.split('@')[0], // Use email prefix as username
+                    title: 'New User',
+                    avatar_url: '', // 
+                    tags: { level: '', style: [] } // Default tags
+                });
+
+            if (profileError) {
+                showToast("Signup successful, but failed to create profile", "error");
+            } else {
+                showToast("Signup successful, check your email for confirmation");
+            }
+        } else {
+            showToast("Signup successful, but user not returned. Check email.", "error");
+        }
+
+        setLoading(false);
+    };
 
     // callback
     const showToast = (message, type = "success") => {
@@ -38,7 +71,7 @@ export default function Auth() {
     };
 
     return (
-        <div className="space-y-4 p-6 max-w-md mx-auto">
+        <div className="space-y-4 flex flex-col justify-center h-screen max-w-md mx-auto">
             {toast && (
                 <Toast
                     message={toast.message}

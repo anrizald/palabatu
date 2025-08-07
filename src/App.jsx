@@ -1,8 +1,11 @@
 import './App.css'
-import { Routes, Route, Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import 'leaflet/dist/leaflet.css'
+// import Profile from './pages/profile'
 import { supabase } from "./lib/supabase"
-import Auth from './components/Auth'
+import { Auth, Header } from './components'
+import { useEffect, useState } from 'react'
+import { MapPage, Landing, Profile } from './pages'
+import { Routes, Route, Link } from 'react-router-dom'
 
 // Pages
 function Home() {
@@ -70,18 +73,20 @@ export default function App() {
   }, []);
 
   return (
-    <div className="p-4">
-      <nav className="space-x-4">
-        <Link to="/" className="text-lg underline">Home</Link>
-        <Link to="/about" className="text-lg underline">About</Link>
-        <Link to="/auth" className="text-lg underline">Auth</Link>
-      </nav>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      {/* <div className="flex-1 overflow-y-auto ">
+      </div> */}
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/auth" element={<Auth />} />
-      </Routes>
-    </div>
+      <main className="flex-1 overflow-y-auto">
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+      </main>
+    </div >
   )
 }
