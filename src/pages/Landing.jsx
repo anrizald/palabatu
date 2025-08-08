@@ -24,7 +24,8 @@ export default function Landing() {
 
                 {/* Footer Section */}
                 <footer className="py-6 text-center text-sm bg-gray-100 text-gray-500 items-end">
-                    © {new Date().getFullYear()} palabatu — WC Ass Production.
+                    <p>© {new Date().getFullYear()} palabatu — WC Ass Production.</p>
+                    <p>Ghul Dev</p>
                 </footer>
             </section>
         </div>

@@ -12,7 +12,7 @@ export default function Profile() {
         },
         avatar_url: '',
     })
-    const [loading, setLoading] = useState(true)
+    const [isLoading, setIsLoading] = useState(true)
 
     // Load profile from Supabase
     useEffect(() => {
@@ -37,7 +37,7 @@ export default function Profile() {
                     avatar_url: data.avatar_url || '',
                 })
             }
-            setLoading(false)
+            setIsLoading(false)
         }
 
         loadProfile()
@@ -65,7 +65,7 @@ export default function Profile() {
         }
     }
 
-    if (loading) return <div>Loading Profile...</div>
+    if (isLoading) return <div>Loading Profile...</div>
 
     return (
         <div className="max-w-2xl mx-auto h-screen justify-center flex flex-col">
