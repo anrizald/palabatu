@@ -1,13 +1,19 @@
-import Toast from './Toast'
+import Toast from './Toast.js'
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import type { ToastProps } from './Toast.js'
+import { supabase } from '../lib/supabase.js';
 
 export default function Auth() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
-    const [toast, setToast] = useState(null);
+    const [toast, setToast] = useState<ToastProps | null>(null);
+
+    // callback
+    const showToast = (message: string, type: "success" | "error" = "success") => {
+        setToast({ message, type, onClose: () => setToast(null) });
+    };
 
     // auth
     const handleLogin = async () => {
@@ -44,7 +50,7 @@ export default function Auth() {
                 if (!userId) throw new Error('User ID not found in signup response')
             }
             catch (error) {
-                showToast(err?.message || 'Something went wrong, please try again', 'error');
+                showToast((error as Error).message || 'Something went wrong, please try again', 'error');
             }
             // if (!userId) {
             //     showToast('Signup successful, but user not returned. Check email.', 'error'); // userId should always exist after a successful signup (inside the data object); if it's undefined, something unexpected occurred. We guard this case and alert the user, but it could indicate a bug or a malformed response (likely a bug since it passed the error validation above)
@@ -65,7 +71,7 @@ export default function Auth() {
 
             showToast('Signup successful, check your email for confirmation');
         } catch (error) {
-            showToast(error?.message || 'Something went wrong please try again', 'error');
+            showToast((error as Error)?.message || 'Something went wrong please try again', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -104,11 +110,6 @@ export default function Auth() {
         // }
 
         // setLoading(false);
-    };
-
-    // callback
-    const showToast = (message, type = "success") => {
-        setToast({ message, type });
     };
 
     return (

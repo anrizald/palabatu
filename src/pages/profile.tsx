@@ -1,14 +1,28 @@
-import Header from '../components/Header'
-import { supabase } from '../lib/supabase'
+import type { ChangeEvent } from 'react'
 import { useState, useEffect } from 'react'
+import Header from '../components/Header.js'
+import { supabase } from '../lib/supabase.js'
+
+type climbingStyle = "Boulder" | "Lead" | "Toprope";
+type Title = "Council" | "Associate"
+
+type Profile = {
+    username: string;
+    title: Title[]; // multiple selections allowed
+    tags: {
+        level: string; // could also be a union like "Beginner" | "Intermediate" | "Advanced"
+        styles: climbingStyle[];
+    };
+    avatar_url: string;
+};
 
 export default function Profile() {
-    const [profile, setProfile] = useState({
-        username: '',
-        title: '',
+    const [profile, setProfile] = useState<Profile>({
+        username: "",
+        title: [],
         tags: {
-            level: '',
-            styles: [], // e.g. [Boulder / Lead]
+            level: "",
+            styles: [],
         },
         avatar_url: '',
     })
@@ -32,7 +46,11 @@ export default function Profile() {
             if (data) {
                 setProfile({
                     username: data.username || '',
-                    title: data.title || '',
+                    title: Array.isArray(data.title)
+                        ? (data.title as Title[])
+                        : data.title
+                            ? ([data.title as Title])
+                            : [],
                     tags: data.tags || { level: '', styles: [] },
                     avatar_url: data.avatar_url || '',
                 })
@@ -47,25 +65,33 @@ export default function Profile() {
         const { data: { user } } = await supabase.auth.getUser();
 
         const updates = {
-            id: user.id,
+            id: user?.id,
             username: profile.username,
             title: profile.title,
             tags: profile.tags,
             avatar_url: profile.avatar_url,
-            // update_at: new Date().toISOString(),
         }
 
         const { error } = await supabase
             .from('profiles')
             .update(updates)
         if (error) {
-            alert('Error saving profile:', error.message)
+            alert(`Error saving profile: ${error.message}`)
         } else {
             alert('Profile saved successfully')
         }
     }
 
     if (isLoading) return <div>Loading Profile...</div>
+
+    const handleTitleChange = (e: ChangeEvent<HTMLSelectElement>) => {
+        const selectedTitles = Array.from(e.target.selectedOptions).map(
+            (option) => option.value as Title
+        )
+        setProfile({ ...profile, title: selectedTitles })
+    }
+
+    const ALL_STYLES: climbingStyle[] = ['Boulder', 'Lead', 'Toprope']
 
     return (
         <div className="max-w-2xl mx-auto h-screen justify-center flex flex-col">
@@ -99,11 +125,11 @@ export default function Profile() {
             <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                 <select
+                    multiple
                     value={profile.title}
-                    onChange={(e) => setProfile({ ...profile, title: e.target.value })}
+                    onChange={handleTitleChange}
                     className="w-full border px-3 py-2 rounded"
                 >
-                    <option value="">Select title</option>
                     <option value="Council">Council</option>
                     <option value="Associate">Associate</option>
                 </select>
@@ -129,7 +155,7 @@ export default function Profile() {
             <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Styles</label>
                 <div className="flex gap-2">
-                    {['Boulder', 'Lead', 'Toprope'].map((style) => (
+                    {ALL_STYLES.map((style) => (
                         <label key={style} className="flex items-center gap-1">
                             <input
                                 type="checkbox"

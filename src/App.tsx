@@ -1,21 +1,27 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css'
 // import Profile from './pages/profile'
-import { supabase } from "./lib/supabase"
-import { Auth, Header } from './components'
 import { useEffect, useState } from 'react'
-import { MapPage, Landing, Profile } from './pages'
+import { supabase } from "./lib/supabase.js"
+import { Auth, Header } from './components/index.js'
+import type { Session } from '@supabase/supabase-js'
 import { Routes, Route, Link } from 'react-router-dom'
+import { MapPage, Landing, Profile } from './pages/index.js'
 
 // Pages
+type ProblemRow = {
+  id: string | number
+  name: string
+  location_name: string
+}
 function Home() {
-  const [problems, setProblems] = useState([]);
+  const [problems, setProblems] = useState<ProblemRow[]>([]);
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase.from("problems").select("*");
+      const { data, error } = await supabase.from('problems').select('*');
       if (error) console.error(error);
-      else setProblems(data);
+      else if (data) setProblems(data as ProblemRow[]);
     }
 
     fetchData();
@@ -52,11 +58,11 @@ function About() {
 }
 
 export default function App() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     // get current session
-    supabase.auth.getSession().then(({ datra: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
