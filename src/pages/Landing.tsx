@@ -4,7 +4,7 @@ export default function Landing() {
             {/* Hero Section */}
             <section className="h-screen w-full snap-start flex flex-col justify-center items-center bg-gradient-to-b from-green-100 to-white text-center">
                 <h1 className="text-4xl md:text-6xl font-bold mb-4 text-black">palabatu</h1>
-                <p className="text-lg md:text-xl mb-8 text-black">Lorem Ipsum</p>
+                <p className="text-lg md:text-xl mb-8 text-black">kuat, pinter, boleh</p>
                 <a
                     href="/map"
                     className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"

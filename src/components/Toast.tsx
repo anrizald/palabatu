@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type ToastProps = {
     message: string;
@@ -18,8 +19,18 @@ export default function Toast({ message, type = "success", onClose }: ToastProps
     const color = type === "error" ? "bg-red-500" : "bg-green-500";
 
     return (
-        <div className={`fixed top-4 right-4 text-white px-4 py-2 rounded shadow ${color}`}>
-            {message}
-        </div>
+        <AnimatePresence>
+            {message && (
+                <motion.div
+                    key="toast"
+                    initial={{ x: 100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 100, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className={`fixed top-20 right-4 text-white px-4 py-2 rounded shadow ${color}`}>
+                    {message}
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }
