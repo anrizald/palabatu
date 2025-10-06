@@ -27,59 +27,67 @@ export default function Profile() {
         avatar_url: '',
     })
     const [isLoading, setIsLoading] = useState(true)
+    const [session, setSession] = useState<any>(null)
 
-    // Load profile from Supabase
+    // Handle Supabase session updates
+    useEffect(() => {
+        const getSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            setSession(session)
+        }
+        getSession()
+
+        // listen for login/logout/token refresh
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session)
+        })
+
+        return () => {
+            subscription.unsubscribe()
+        }
+    }, [])
+
+    // Load profile from whenever session changes
     useEffect(() => {
         const loadProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                window.location.href = '/auth' // Redirect to auth page if not logged in
+            if (!session?.user) {
+                window.location.href = '/login'
                 return
             }
 
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', session.user.id)
                 .single()
 
             if (data) {
                 setProfile({
                     username: data.username || '',
-                    title: Array.isArray(data.title)
-                        ? (data.title as Title[])
-                        : data.title
-                            ? ([data.title as Title])
-                            : [],
+                    title: data.title || [],
                     tags: data.tags || { level: '', styles: [] },
                     avatar_url: data.avatar_url || '',
                 })
             }
             setIsLoading(false)
+
         }
 
-        loadProfile()
-    }, [])
+        if (session) loadProfile()
+    }, [session])
 
     const saveProfile = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-
+        if (!session?.user) return
         const updates = {
-            id: user?.id,
+            id: session.user.id,
             username: profile.username,
             title: profile.title,
             tags: profile.tags,
             avatar_url: profile.avatar_url,
         }
-
-        const { error } = await supabase
-            .from('profiles')
-            .update(updates)
-        if (error) {
-            alert(`Error saving profile: ${error.message}`)
-        } else {
-            alert('Profile saved successfully')
-        }
+        const { error } = await supabase.from('profiles').upsert(updates)
+        if (error) alert(`Error updating profile: ${error.message}`)
+        else alert('Profile updated successfully!')
     }
 
     if (isLoading) return <div>Loading Profile...</div>
@@ -108,6 +116,17 @@ export default function Profile() {
                 )}
                 {/* We'll handle upload later */}
                 <input type="file" accept="image/*" />
+            </div>
+
+            {/* Email (read-only) */}
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Registered Email</label>
+                <input
+                    type="email"
+                    className="w-full border px-3 py-2 rounded bg-gray-100 text-gray-600"
+                    value={session?.user?.email || ""}
+                    readOnly
+                />
             </div>
 
             {/* Username */}

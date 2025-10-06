@@ -3,10 +3,10 @@ import 'leaflet/dist/leaflet.css'
 // import Profile from './pages/profile'
 import { useEffect, useState } from 'react'
 import { supabase } from "./lib/supabase.js"
-import { Auth, Header } from './components/index.js'
+import { Header } from './components/index.js'
 import type { Session } from '@supabase/supabase-js'
 import { Routes, Route, Link } from 'react-router-dom'
-import { MapPage, Landing, Profile } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup } from './pages/index.js'
 
 // Pages
 type ProblemRow = {
@@ -89,7 +89,9 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/about" element={<About />} />
-          <Route path="/auth" element={<Auth />} />
+          {/* <Route path="/auth" element={<Auth />} /> */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </main>

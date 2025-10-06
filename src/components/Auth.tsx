@@ -2,6 +2,7 @@ import Toast from './Toast.js'
 import { useState } from 'react';
 import type { ToastProps } from './Toast.js'
 import { supabase } from '../lib/supabase.js';
+import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
     const [email, setEmail] = useState('')
@@ -42,74 +43,31 @@ export default function Auth() {
             if (error) {
                 showToast(error?.message || 'Something went wrong, please try again', 'error');
                 return;
+            } else {
+                showToast('Signup successful, check your email for confirmation');
             }
 
-            const userId = data?.user?.id;
-            try {
-                const userId = data?.user?.id
-                if (!userId) throw new Error('User ID not found in signup response')
-            }
-            catch (error) {
-                showToast((error as Error).message || 'Something went wrong, please try again', 'error');
-            }
-            // if (!userId) {
-            //     showToast('Signup successful, but user not returned. Check email.', 'error'); // userId should always exist after a successful signup (inside the data object); if it's undefined, something unexpected occurred. We guard this case and alert the user, but it could indicate a bug or a malformed response (likely a bug since it passed the error validation above)
+            // const userId = data?.user?.id;
+            // if (!userId) throw new Error('User ID not found in signup response')
+
+            // const { error: profileError } = await supabase.from('profiles').insert({
+            //     id: userId,
+            //     username: email.split('@')[0],
+            //     title: [],
+            //     avatar_url: '',
+            //     tags: { level: '', style: [] },
+            // });
+            // if (profileError) {
+            //     console.error('Error creating profile:', profileError);
+            //     showToast('Signup successful, but failed to create profile', 'error');
             //     return;
             // }
 
-            const { error: profileError } = await supabase.from('profiles').insert({
-                id: userId,
-                username: email.split('@')[0],
-                title: 'New User',
-                avatar_url: '',
-                tags: { level: '', style: [] },
-            });
-            if (profileError) {
-                showToast('Signup successful, but failed to create profile', 'error');
-                return;
-            }
-
-            showToast('Signup successful, check your email for confirmation');
         } catch (error) {
             showToast((error as Error)?.message || 'Something went wrong please try again', 'error');
         } finally {
             setIsLoading(false);
         }
-
-        // const { data, error } = await supabase.auth.signUp({
-        //     email,
-        //     password,
-        // });
-
-        // if (error) {
-        //     showToast(error.message, "error");
-        //     setLoading(false);
-        //     return;
-        // }
-
-        // // If signup is successful, show a success message
-        // const userId = data?.user?.id;
-        // if (userId) {
-        //     const { error: profileError } = await supabase
-        //         .from('profiles')
-        //         .insert({
-        //             id: userId,
-        //             username: email.split('@')[0], // Use email prefix as username
-        //             title: 'New User',
-        //             avatar_url: '', // 
-        //             tags: { level: '', style: [] } // Default tags
-        //         });
-
-        //     if (profileError) {
-        //         showToast("Signup successful, but failed to create profile", "error");
-        //     } else {
-        //         showToast("Signup successful, check your email for confirmation");
-        //     }
-        // } else {
-        //     showToast("Signup successful, but user not returned. Check email.", "error");
-        // }
-
-        // setLoading(false);
     };
 
     return (
