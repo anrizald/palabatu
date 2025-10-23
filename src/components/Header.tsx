@@ -10,10 +10,21 @@ export default function Header() {
     return (
         <nav className="h-16 fixed top-0 left-0 right-4 bg-transparent z-50 shadow px-4 flex items-center justify-between">
             {/* Left Links */}
-            <div className="space-x-4">
-                <Link to="/" className="text-lg underline">Home</Link>
-                <Link to="/map" className="text-lg underline">Map</Link>
-                <Link to="/about" className="text-lg underline">About</Link>
+            <div className="flex items-center space-x-6">
+                {/* Site Title */}
+                <Link
+                    to="/"
+                    className="text-2xl font-bold tracking-wide text-gray-800 hover:text-gray-600"
+                >
+                    palabatu
+                </Link>
+
+                {/* Nav Links*/}
+                <div className="space-x-4">
+                    {/* <Link to="/" className="text-lg underline">Home</Link> */}
+                    <Link to="/map" className="text-lg underline">Map</Link>
+                    <Link to="/about" className="text-lg underline">About</Link>
+                </div>
             </div>
 
             {/* Right Links */}
