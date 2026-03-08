@@ -1,15 +1,17 @@
 import Toast from './Toast.js'
 import { useState } from 'react';
 import type { ToastProps } from './Toast.js'
-import { supabase } from '../lib/supabase.js';
+import { api } from '../lib/api.js';
 import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [username, setUsername] = useState('')
     const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState(null)
     const [toast, setToast] = useState<ToastProps | null>(null);
+    const navigate = useNavigate();
+    // const [error, setError] = useState(null)
 
     // callback
     const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -19,52 +21,35 @@ export default function Auth() {
     // auth
     const handleLogin = async () => {
         setIsLoading(true);
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
-
-        if (error) {
-            showToast(error.message, "error");
+        try {
+            const data = await api.post('/auth/signin', { email, password });
+            if (data.error) {
+                showToast(data.error, 'error')
+            } else {
+                localStorage.setItem('token', data.token);
+                showToast('Login Successful');
+                navigate('/');
+            }
+        } catch (err) {
+            showToast('An error occurred during login', 'error');
+        } finally {
+            setIsLoading(false);
         }
-        else {
-            showToast("Login successful");
-        }
-        setIsLoading(false)
-    }
+    };
 
     const handleSignup = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-            });
-            if (error) {
-                showToast(error?.message || 'Something went wrong, please try again', 'error');
-                return;
+            const { data } = await api.post('/auth/signup', { email, password, username });
+            if (data.error) {
+                showToast(data.error, 'error');
             } else {
+                localStorage.setItem('token', data.token);
                 showToast('Signup successful, check your email for confirmation');
+                navigate('/');
             }
-
-            // const userId = data?.user?.id;
-            // if (!userId) throw new Error('User ID not found in signup response')
-
-            // const { error: profileError } = await supabase.from('profiles').insert({
-            //     id: userId,
-            //     username: email.split('@')[0],
-            //     title: [],
-            //     avatar_url: '',
-            //     tags: { level: '', style: [] },
-            // });
-            // if (profileError) {
-            //     console.error('Error creating profile:', profileError);
-            //     showToast('Signup successful, but failed to create profile', 'error');
-            //     return;
-            // }
-
         } catch (error) {
-            showToast((error as Error)?.message || 'Something went wrong please try again', 'error');
+            showToast('Something went wrong, please try again', 'error');
         } finally {
             setIsLoading(false);
         }

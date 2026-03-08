@@ -1,7 +1,7 @@
+import { api } from '../lib/api.js'
 import type { ChangeEvent } from 'react'
 import { useState, useEffect } from 'react'
 import Header from '../components/Header.js'
-import { supabase } from '../lib/supabase.js'
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"
@@ -27,68 +27,61 @@ export default function Profile() {
         avatar_url: '',
     })
     const [isLoading, setIsLoading] = useState(true)
-    const [session, setSession] = useState<any>(null)
+    const [user, setUser] = useState<any>(null)
 
-    // Handle Supabase session updates
     useEffect(() => {
-        const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            setSession(session)
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+            return;
         }
-        getSession()
 
-        // listen for login/logout/token refresh
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session)
-        })
+        const loadSession = async () => {
+            const data = await api.get('/auth/session');
+            if (data.error) {
+                window.location.href = '/login';
+                return;
+            }
+            setUser(data.user);
+        };
 
-        return () => {
-            subscription.unsubscribe()
-        }
-    }, [])
+        loadSession();
+    }, []);
 
     // Load profile from whenever session changes
     useEffect(() => {
+        if (!user) return;
+
         const loadProfile = async () => {
-            if (!session?.user) {
-                window.location.href = '/login'
-                return
-            }
-
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single()
-
+            const data = await api.get(`/api/profiles/${user.id}`);
             if (data) {
                 setProfile({
                     username: data.username || '',
                     title: data.title || [],
-                    tags: data.tags || { level: '', styles: [] },
+                    tags: {
+                        level: data.tags?.level || '',
+                        styles: data.tags?.styles || [],
+                    },
                     avatar_url: data.avatar_url || '',
                 })
+                setIsLoading(false);
             }
-            setIsLoading(false)
+        };
 
-        }
-
-        if (session) loadProfile()
-    }, [session])
+        loadProfile();
+    }, [user]);
 
     const saveProfile = async () => {
-        if (!session?.user) return
-        const updates = {
-            id: session.user.id,
+        if (!user) return;
+        const data = await api.put(`/api/profiles/${user.id}`, {
             username: profile.username,
             title: profile.title,
             tags: profile.tags,
             avatar_url: profile.avatar_url,
-        }
-        const { error } = await supabase.from('profiles').upsert(updates)
-        if (error) alert(`Error updating profile: ${error.message}`)
-        else alert('Profile updated successfully!')
-    }
+        });
+        if (data.error) alert(`Error Updating profile: ${data.error}`);
+        else alert('Profile updated successfully!');
+    };
 
     if (isLoading) return <div>Loading Profile...</div>
 
@@ -124,7 +117,7 @@ export default function Profile() {
                 <input
                     type="email"
                     className="w-full border px-3 py-2 rounded bg-gray-100 text-gray-600"
-                    value={session?.user?.email || ""}
+                    value={user?.email || ""}
                     readOnly
                 />
             </div>

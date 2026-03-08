@@ -1,8 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/useAuth.js';
-import { useState } from 'react';
-import { supabase } from '../lib/supabase.js';
-import type { User } from '@supabase/supabase-js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
@@ -12,10 +9,7 @@ export default function Header() {
             {/* Left Links */}
             <div className="flex items-center space-x-6">
                 {/* Site Title */}
-                <Link
-                    to="/"
-                    className="text-2xl font-bold tracking-wide text-gray-800 hover:text-gray-600"
-                >
+                <Link to="/" className="text-2xl font-bold tracking-wide text-gray-800 hover:text-gray-600">
                     palabatu
                 </Link>
 

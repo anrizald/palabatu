@@ -1,11 +1,9 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css'
-// import Profile from './pages/profile'
 import { useEffect, useState } from 'react'
-import { supabase } from "./lib/supabase.js"
+import { api } from "./lib/api.js"
 import { Header } from './components/index.js'
-import type { Session } from '@supabase/supabase-js'
-import { Routes, Route, Link } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { MapPage, Landing, Profile, Login, Signup } from './pages/index.js'
 
 // Pages
@@ -19,7 +17,7 @@ function Home() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase.from('problems').select('*');
+      const { data, error } = await api.get('api/problems');
       if (error) console.error(error);
       else if (data) setProblems(data as ProblemRow[]);
     }
@@ -58,24 +56,14 @@ function About() {
 }
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('token'));
 
   useEffect(() => {
-    // get current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    // listen for changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    }
+    const handleStorageChange = () => {
+      setIsLoggedIn(!!localStorage.getItem('token'));
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   return (
@@ -89,7 +77,6 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/about" element={<About />} />
-          {/* <Route path="/auth" element={<Auth />} /> */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile" element={<Profile />} />

@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import Header from '../components/Header.js'
-import { supabase } from '../lib/supabase.js'
+import { api } from '../lib/api.js'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
@@ -19,19 +19,13 @@ export default function MapPage() {
 
     useEffect(() => {
         async function fetchProblems() {
-            const { data, error } = await supabase
-                .from('problems')
-                .select('*')
-
-            console.log('Fetched problems:', data, error);
-
-            if (error) {
-                console.error('Error fetching problems:', error)
-            } else if (data) {
+            const data = await api.get('/api/problems');
+            if (data.error) {
+                console.error('Error fetching problems:', data.error)
+            } else {
                 setProblems(data as ProblemRow[])
             }
         }
-
         fetchProblems()
     }, [])
 
