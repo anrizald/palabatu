@@ -17,7 +17,7 @@ type AuthContextType = {
     setToast: (toast: ToastProps | null) => void;
     showToast: (message: string, type?: "success" | "error") => void;
     handleLogin: (email: string, password: string) => Promise<void>;
-    handleSignup: (email: string, password: string, username: string) => Promise<void>;
+    handleSignup: (email: string, password: string) => Promise<void>;
     handleLogout: () => void;
 };
 
@@ -61,10 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleSignup = async (email: string, password: string, username: string) => {
+    const handleSignup = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const data = await api.post('/auth/signup', { email, password, username });
+            const data = await api.post('/auth/signup', { email, password });
             if (data.error) {
                 showToast(data.error, 'error');
             } else {
