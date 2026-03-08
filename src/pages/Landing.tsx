@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase.js";
-import { p } from "framer-motion/client";
+import { api } from "../lib/api.js";
 
 export default function Landing() {
     const [problems, setProblems] = useState<any[]>([]);
 
     useEffect(() => {
         async function fetchProblems() {
-            const { data, error } = await supabase
-                .from('problems')
-                .select('*')
-                .limit(5);
-            if (error) {
-                console.error("Error fetching problems:", error);
+            const data = await api.get('/api/problems');
+            if (data.error) {
+                console.error("Error fetching problems:", data.error);
             } else {
                 setProblems(data || []);
             }

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ToastProps } from './Toast.js'
 import { api } from '../lib/api.js';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/AuthContext.js';
 
 export default function Auth() {
     const [email, setEmail] = useState('')

@@ -2,6 +2,7 @@ import { api } from '../lib/api.js'
 import type { ChangeEvent } from 'react'
 import { useState, useEffect } from 'react'
 import Header from '../components/Header.js'
+import { useAuth } from '../lib/AuthContext.js';
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"

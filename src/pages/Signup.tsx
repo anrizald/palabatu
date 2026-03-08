@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Toast from '../components/Toast.js';
-import { useAuth } from '../lib/useAuth.js';
+import { useAuth } from '../lib/AuthContext.js';
 
 export default function Signup() {
     const { handleSignup, isLoading, toast, setToast } = useAuth();
