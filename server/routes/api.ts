@@ -6,7 +6,9 @@ const router = Router();
 
 router.get('/problems', async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT * FROM problems');
+        const { rows } = await pool.query(
+            'SELECT id, name, grade, location AS location_name, lat AS latitude, lng AS longitude FROM problems'
+        );
         res.json(rows);
     } catch (err) {
         console.error('Problems error:', err);

@@ -1,8 +1,4 @@
 declare module '*.css';
-declare module '../lib/supabase.ts' {
-    import { SupabaseClient } from '@supabase/supabase-js';
-    export const supabase: SupabaseClient;
-}
 
 // Minimal Leaflet type shims to satisfy react-leaflet without @types/leaflet
 declare module 'leaflet' {
