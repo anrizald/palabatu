@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useState } from 'react'
 import { api } from "./lib/api.js"
 import { Header } from './components/index.js'
+import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import { MapPage, Landing, Profile, Login, Signup } from './pages/index.js'
 
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
         </Routes>
       </main>
     </div >
