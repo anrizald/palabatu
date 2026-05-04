@@ -18,66 +18,148 @@ export default function Landing() {
     }, []);
 
     return (
-        <div className="h-screen w-full snap-y snap-mandatory overflow-y-scroll scroll-smooth ">
-            {/* Hero Section */}
-            <section className="h-screen w-full snap-start flex flex-col justify-center items-center bg-gradient-to-b from-green-100 to-white text-center">
-                <p className="text-3xl md:text-5xl mb-6 text-black">kuat, pinter, boleh</p>
-                <a
-                    href="/map"
-                    className="mb-8 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                > Open Map </a>
+        <>
+            <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+        .landing-wrap {
+            height: 100vh; width: 100%;
+            snap-type: y mandatory;
+            overflow-y: scroll;
+            scroll-behavior: smooth;
+            background: #0f0d0b;
+        }
+        .problem-card {
+            min-width: 240px;
+            background: #141210;
+            border: 1px solid #2a2420;
+            border-radius: 16px;
+            padding: 18px;
+            transition: transform 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .problem-card:hover { transform: translateY(-4px); border-color: #c87a30; }
+        .skeleton { background: #1a1612; border-radius: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2a2420; border-radius: 4px; }
+    `}</style>
 
-                {/* Recently Added Problems Section */}
-                {/* <section className="min-h-[60vh] w-full snap-start flex flex-col justify-center items-center bg-gradient-to-b from-white to-green-100 text-center px-6"> */}
-                <div className="w-full max-w-6xl mt-4">
-                    <h2 className="text-2xl md:text-3xl font-bold mb-4 text-black">Recently Added Problems</h2>
-                    <div className="w-full max-w-6xl overflow-x-auto flex gap-6 pb-4 scrollbar-hide">
-                        {problems.length > 0 ? (
-                            problems.map((problem) => (
-                                <div
-                                    key={problem.id}
-                                    className="min-w-[250px] bg-white rounded-2xl shadow-lg p-4 hover:scale-105 transition"
-                                >
-                                    <h3 className="text-xl font-semibold text-green-700 mb-2">{problem.name || "Problem Name"}</h3>
-                                    <p className="text-gray-600 text-sm">{problem.location_name || "Unknown Location"}</p>
-                                    <p className="text-gray-400 text-xs mt-2">Grade: {problem.grade || "—"}</p>
+            <div className="landing-wrap">
+                {/* Hero */}
+                <section style={{
+                    height: '100vh', width: '100%', scrollSnapAlign: 'start',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    padding: '0 24px', textAlign: 'center'
+                }}>
+                    <img
+                        src="/favicon_transparent.png"
+                        alt="Palabatu"
+                        style={{
+                            width: '96px',
+                            height: '96px',
+                            objectFit: 'contain',
+                            marginBottom: '16px',
+                            filter: 'drop-shadow(0 4px 8px rgba(200,122,48,0.4))'
+                        }}
+                    />
+                    <p style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: 'clamp(32px, 6vw, 64px)',
+                        fontWeight: 900, color: '#f0e0c8',
+                        marginBottom: '8px', letterSpacing: '-0.01em'
+                    }}>kuat, pinter, boleh</p>
+                    <p style={{ fontSize: '15px', color: '#6a5848', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
+                        Indonesia's bouldering community
+                    </p>
+                    <a href="/map" style={{
+                        padding: '12px 28px',
+                        background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
+                        color: '#fef3e6', borderRadius: '12px',
+                        textDecoration: 'none', fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px', fontWeight: 500,
+                        boxShadow: '0 2px 16px rgba(200,122,48,0.35)',
+                        marginBottom: '48px', transition: 'opacity 0.2s'
+                    }}>Open Map</a>
+
+                    <div style={{ width: '100%', maxWidth: '1100px' }}>
+                        <h2 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '20px', fontWeight: 700,
+                            color: '#8a7060', marginBottom: '16px',
+                            letterSpacing: '0.05em', textTransform: 'uppercase'
+                        }}>Recently Added</h2>
+                        <div style={{ overflowX: 'auto', display: 'flex', gap: '16px', paddingBottom: '8px' }}>
+                            {problems.length > 0 ? problems.map(problem => (
+                                <div key={problem.id} className="problem-card">
+                                    <h3 style={{
+                                        fontFamily: "'Playfair Display', serif",
+                                        fontSize: '16px', fontWeight: 700,
+                                        color: '#f0e0c8', marginBottom: '6px'
+                                    }}>{problem.name || 'Problem Name'}</h3>
+                                    <p style={{ fontSize: '12px', color: '#6a5848', marginBottom: '8px', fontFamily: "'DM Sans', sans-serif" }}>
+                                        {problem.location_name || 'Unknown Location'}
+                                    </p>
+                                    <span style={{
+                                        fontSize: '11px', padding: '3px 10px',
+                                        background: 'rgba(200,122,48,0.12)',
+                                        border: '1px solid #c87a3040',
+                                        color: '#c87a30', borderRadius: '20px',
+                                        fontFamily: "'DM Sans', sans-serif"
+                                    }}>{problem.grade || '—'}</span>
                                 </div>
-                            ))
-                        ) : (
-                            // Dummy placeholders if DB empty
-                            [...Array(5)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="min-w-[250px] bg-white rounded-2xl shadow-lg p-4 animate-pulse"
-                                >
-                                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                                    <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                            )) : [...Array(5)].map((_, i) => (
+                                <div key={i} style={{ minWidth: '240px', background: '#141210', border: '1px solid #2a2420', borderRadius: '16px', padding: '18px' }}>
+                                    <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
+                                    <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
+                                    <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
                                 </div>
-                            ))
-                        )}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-
-            {/* About Section */}
-            <section className="h-screen w-full snap-start flex flex-col justify-center items-center bg-gradient-to-b from-green-100 to-white text-center">
-                <h1 className="text-4xl md:text-6xl font-bold mb-4 text-black">about palabatu</h1>
-                <p className="text-lg md:text-xl mb-8 text-black">Lorem Ipsum</p>
-            </section>
-
-            {/* Explore Preview Section */}
-            <section className="min-h-screen w-full snap-start flex flex-col justify-center items-center bg-gradient-to-b from-green-100 to-white text-center">
-                <h1 className="text-4xl md:text-6xl font-bold mb-4 text-black">palabatu</h1>
-                <p className="text-lg md:text-xl mb-8">Lorem Ipsum</p>
+                {/* About */}
+                <section style={{
+                    height: '100vh', scrollSnapAlign: 'start',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    padding: '0 24px', textAlign: 'center'
+                }}>
+                    <h1 style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: 'clamp(36px, 7vw, 72px)',
+                        fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
+                    }}>about palabatu</h1>
+                    <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '480px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif" }}>
+                        Lorem Ipsum
+                    </p>
+                </section>
 
                 {/* Footer Section */}
-                <footer className="py-6 text-center text-sm bg-gray-100 text-gray-500 items-end">
-                    <p>© {new Date().getFullYear()} palabatu — WC Ass Production.</p>
-                    <p>Ghul Dev</p>
-                </footer>
-            </section>
-        </div>
+                <section style={{
+                    minHeight: '100vh', scrollSnapAlign: 'start',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    padding: '0 24px', textAlign: 'center'
+                }}>
+                    <h1 style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: 'clamp(36px, 7vw, 72px)',
+                        fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
+                    }}>palabatu</h1>
+                    <p style={{ fontSize: '16px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif" }}>Lorem Ipsum</p>
+                    <footer style={{
+                        position: 'absolute', bottom: '24px',
+                        fontSize: '11px', color: '#2a2420',
+                        fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.05em'
+                    }}>
+                        <p>© {new Date().getFullYear()} palabatu — WC Ass Production.</p>
+                        <p>Ghul Dev</p>
+                    </footer>
+                </section>
+            </div>
+        </>
     )
 }

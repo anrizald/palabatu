@@ -64,14 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleSignup = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const data = await api.post('/auth/signup', { email, password });
+            const username = email.split('@')[0];
+            const data = await api.post('/auth/signup', { email, password, username });
             if (data.error) {
                 showToast(data.error, 'error');
             } else {
-                localStorage.setItem('token', data.token);
-                setUser(data.user);
-                showToast('Signup successful');
-                navigate('/map');
+                showToast('Signup successful! Check your email for verification');
+                navigate('/login');
             }
         } catch {
             showToast('Something went wrong', 'error');

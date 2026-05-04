@@ -1,7 +1,7 @@
 import { api } from '../lib/api.js'
-import type { ChangeEvent } from 'react'
 import { useState, useEffect } from 'react'
 import Header from '../components/Header.js'
+import Toast, { type ToastProps } from '../components/Toast.js';
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"
@@ -33,6 +33,7 @@ export default function Profile() {
     const [isSaving, setIsSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [user, setUser] = useState<any>(null)
+    const [toast, setToast] = useState<ToastProps | null>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -80,7 +81,13 @@ export default function Profile() {
             avatar_url: profile.avatar_url,
         });
         setIsSaving(false);
-        if (data.error) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+        if (data.error) {
+            setToast({ message: `Error updating profile: ${data.error}`, type: 'error', onClose: () => setToast(null) });
+        } else {
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+            setToast({ message: 'Profile updated!', type: 'success', onClose: () => setToast(null) });
+        }
     };
 
     if (isLoading) return (
@@ -307,6 +314,7 @@ export default function Profile() {
             <Header />
 
             <div className="profile-page">
+                {toast && <Toast {...toast} />}
                 <div className="profile-wrap">
                     {/* Sidebar */}
                     <div className="profile-sidebar">

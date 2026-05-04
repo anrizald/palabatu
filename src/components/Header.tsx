@@ -54,6 +54,11 @@ export default function Header() {
                 justifyContent: 'space-between'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+                    <img
+                        src="/person_only-32.png"
+                        alt="Palabatu"
+                        style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+                    />
                     <Link to="/" style={{
                         fontFamily: "'Playfair Display', serif",
                         fontSize: '20px', fontWeight: 900,
