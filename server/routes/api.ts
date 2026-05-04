@@ -38,7 +38,8 @@ router.put('/profiles/:id', requireAuth, async (req, res) => {
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (id) DO UPDATE SET username = $2, title = $3, tags = $4, avatar_url = $5
             RETURNING *`,
-            [req.params.id, username, title, JSON.stringify(tags), avatar_url]
+            [req.params.id, username, JSON.stringify(title), JSON.stringify(tags), avatar_url]
+
         );
         res.json({
             ...rows[0],
