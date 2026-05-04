@@ -91,7 +91,7 @@ export default function Landing() {
                             letterSpacing: '0.05em', textTransform: 'uppercase'
                         }}>Recently Added</h2>
                         <div style={{ overflowX: 'auto', display: 'flex', gap: '16px', paddingBottom: '8px' }}>
-                            {problems.length > 0 ? problems.map(problem => (
+                            {problems.length > 0 ? problems.reverse().map(problem => (
                                 <div key={problem.id} className="problem-card">
                                     <h3 style={{
                                         fontFamily: "'Playfair Display', serif",

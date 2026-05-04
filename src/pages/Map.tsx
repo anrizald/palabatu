@@ -1,9 +1,11 @@
 import 'leaflet/dist/leaflet.css'
-import Header from '../components/Header.js'
 import { api } from '../lib/api.js'
+import Header from '../components/Header.js'
+import { useAuth } from '../lib/AuthContext.js'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
+import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 
 type ProblemRow = {
     id: string | number
@@ -13,8 +15,26 @@ type ProblemRow = {
     longitude: number
 }
 
+type NewProblem = {
+    name: string
+    grade: string
+    location: string
+    lat: number | null
+    lng: number | null
+}
+
 export default function MapPage() {
     const [problems, setProblems] = useState<ProblemRow[]>([])
+    const [showModal, setShowModal] = useState(false)
+    const [pickingLocation, setPickingLocation] = useState(false)
+    const [newProblem, setNewProblem] = useState<NewProblem>({
+        name: '',
+        grade: 'V0',
+        location: '',
+        lat: null,
+        lng: null
+    })
+    const { user } = useAuth()
     const center: [number, number] = [-7.797068, 110.370529]
 
     useEffect(() => {
@@ -29,14 +49,63 @@ export default function MapPage() {
         fetchProblems()
     }, [])
 
-    return (
-        <div className="h-[calc(100vh-64px)] w-full pt-16 -z-1">
-            <Header />
-            <MapContainer center={center} zoom={5} className="h-full w-full">
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+    const handleFAB = () => {
+        if (!user) {
+            alert('Please log in to add a problem');
+            return;
+        }
+        setShowModal(true)
+    }
 
+    return (
+        // <div className="h-[calc(100vh-64px)] w-full pt-16 -z-1">
+        <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
+            <Header />
+            {/* <MapContainer center={center} zoom={5} className="h-full w-full"> */}
+            <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <ProximityClusters problems={problems} />
+                {pickingLocation && (
+                    <LocationPicker onPick={(lat, lng) => {
+                        setNewProblem(prev => ({ ...prev, lat, lng }));
+                        setPickingLocation(false);
+                        setShowModal(true);
+                    }} />
+                )}
             </MapContainer>
+
+            {/* FAB */}
+            <img
+                src="/plus_button.png"
+                alt="Add Problem"
+                onClick={handleFAB}
+                style={{
+                    position: 'fixed',
+                    bottom: '32px',
+                    right: '32px',
+                    width: '56px',
+                    height: '56px',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
+                    transition: 'transform 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+            />
+
+            {showModal && (
+                <AddProblemModal
+                    onClose={() => { setShowModal(false); setPickingLocation(false) }}
+                    onAdded={(problem) => {
+                        setProblems(prev => [...prev, problem]);
+                    }}
+                    pickingLocation={pickingLocation}
+                    setPickingLocation={setPickingLocation}
+                    newProblem={newProblem}
+                    setNewProblem={setNewProblem}
+                />
+            )}
         </div>
     )
 }

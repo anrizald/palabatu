@@ -35,7 +35,7 @@ router.put('/profiles/:id', requireAuth, async (req, res) => {
     try {
         const { rows } = await pool.query(
             `INSERT INTO profiles (id, username, title, tags, avatar_url)
-            VALUES ($1, $2, $3, $4, $5)
+             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (id) DO UPDATE SET username = $2, title = $3, tags = $4, avatar_url = $5
             RETURNING *`,
             [req.params.id, username, JSON.stringify(title), JSON.stringify(tags), avatar_url]
@@ -47,6 +47,23 @@ router.put('/profiles/:id', requireAuth, async (req, res) => {
         });
     } catch (err) {
         console.error('Profile update error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/problems', requireAuth, async (req, res) => {
+    const { name, grade, location, lat, lng } = req.body;
+    const userId = (req as any).user.id;
+    try {
+        const { rows } = await pool.query(
+            `INSERT INTO problems (name, grade, location, lat, lng, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING 
+             id, name, grade, location AS location_name, lat AS latitude, lng AS longitude`,
+            [name, grade, location, lat, lng, userId]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Problem error:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });
