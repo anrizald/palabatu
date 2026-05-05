@@ -90,7 +90,7 @@ export default function Landing() {
                             color: '#8a7060', marginBottom: '16px',
                             letterSpacing: '0.05em', textTransform: 'uppercase'
                         }}>Recently Added</h2>
-                        <div style={{ overflowX: 'auto', display: 'flex', gap: '16px', paddingBottom: '8px' }}>
+                        <div style={{ overflowX: 'auto', display: 'flex', gap: '16px', paddingBottom: '8px', paddingTop: '4px' }}>
                             {problems.length > 0 ? problems.reverse().map(problem => (
                                 <div key={problem.id} className="problem-card">
                                     <h3 style={{
