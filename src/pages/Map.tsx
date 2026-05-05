@@ -25,8 +25,8 @@ type NewProblem = {
 
 export default function MapPage() {
     const [problems, setProblems] = useState<ProblemRow[]>([])
+    const [isPicking, setIsPicking] = useState(false)
     const [showModal, setShowModal] = useState(false)
-    const [pickingLocation, setPickingLocation] = useState(false)
     const [newProblem, setNewProblem] = useState<NewProblem>({
         name: '',
         grade: 'V0',
@@ -65,11 +65,10 @@ export default function MapPage() {
             <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <ProximityClusters problems={problems} />
-                {pickingLocation && (
+                {showModal && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
                         setNewProblem(prev => ({ ...prev, lat, lng }));
-                        setPickingLocation(false);
-                        setShowModal(true);
+                        setIsPicking(false);
                     }} />
                 )}
             </MapContainer>
@@ -96,14 +95,14 @@ export default function MapPage() {
 
             {showModal && (
                 <AddProblemModal
-                    onClose={() => { setShowModal(false); setPickingLocation(false) }}
+                    onClose={() => setShowModal(false)}
                     onAdded={(problem) => {
                         setProblems(prev => [...prev, problem]);
                     }}
-                    pickingLocation={pickingLocation}
-                    setPickingLocation={setPickingLocation}
                     newProblem={newProblem}
                     setNewProblem={setNewProblem}
+                    isPicking={isPicking}
+                    setIsPicking={setIsPicking}
                 />
             )}
         </div>
