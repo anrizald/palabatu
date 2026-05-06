@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export type ToastProps = {
     message: string;
-    type: "success" | "error";
+    type: "success" | "error" | "info";
     onClose: () => void;
 };
 

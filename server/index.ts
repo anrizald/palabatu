@@ -7,7 +7,10 @@ import apiRoutes from './routes/api';
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' }));
+
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:4173']
+}));
 app.use(express.json());
 
 app.use('/auth', authRoutes);

@@ -1,5 +1,5 @@
 import { api } from '../lib/api.js'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Header from '../components/Header.js'
 import Toast, { type ToastProps } from '../components/Toast.js';
 
@@ -34,6 +34,9 @@ export default function Profile() {
     const [saved, setSaved] = useState(false)
     const [user, setUser] = useState<any>(null)
     const [toast, setToast] = useState<ToastProps | null>(null);
+
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -87,6 +90,44 @@ export default function Profile() {
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
             setToast({ message: 'Profile updated!', type: 'success', onClose: () => setToast(null) });
+        }
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        setIsUploading(true);
+        setToast({ message: 'Uploading avatar...', type: 'info', onClose: () => setToast(null) });
+
+        try {
+            const formData = new FormData();
+            formData.append('avatar', file);
+
+            // Upload the image to your backend
+            const uploadRes = await api.upload('/api/upload/avatar/', formData);
+
+            if (uploadRes.avatar_url) {
+                // Update local state immediately so the user sees it
+                setProfile(prev => ({ ...prev, avatar_url: uploadRes.avatar_url }));
+
+                // Save it to the database so it persists
+                await api.put(`/api/profiles/${user.id}`, {
+                    ...profile,
+                    avatar_url: uploadRes.avatar_url
+                });
+
+                setToast({ message: 'Avatar updated successfully!', type: 'success', onClose: () => setToast(null) });
+            } else if (uploadRes.error) {
+                setToast({ message: `Upload failed: ${uploadRes.error}`, type: 'error', onClose: () => setToast(null) });
+            }
+        } catch (error) {
+            console.error('Failed to upload avatar', error);
+            setToast({ message: 'Upload failed due to network error.', type: 'error', onClose: () => setToast(null) });
+        } finally {
+            setIsUploading(false);
+            // Clear the input so the user can upload the same file again if needed
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -318,13 +359,26 @@ export default function Profile() {
                 <div className="profile-wrap">
                     {/* Sidebar */}
                     <div className="profile-sidebar">
-                        <div className="avatar-ring">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef}
+                            onChange={handleAvatarChange}
+                            style={{ display: 'none' }}
+                        />
+                        <div
+                            className="avatar-ring"
+                            onClick={() => !isUploading && fileInputRef.current?.click()}
+                            style={{ opacity: isUploading ? 0.5 : 1, cursor: isUploading ? 'wait' : 'pointer' }}
+                        >
                             {profile.avatar_url
                                 ? <img src={profile.avatar_url} alt="avatar" />
                                 : initials
                             }
                         </div>
-                        <div className="avatar-hint">click to change photo<br />(coming soon)</div>
+                        <div className="avatar-hint" style={{ color: isUploading ? '#c87a30' : '#4a3c30' }}>
+                            {isUploading ? 'Uploading...' : 'click to change photo'}
+                        </div>
                         <div className="sidebar-username">@{profile.username || 'climber'}</div>
                         <div className="sidebar-email">{user?.email}</div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>

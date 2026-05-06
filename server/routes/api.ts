@@ -1,14 +1,26 @@
+import multer from 'multer';
 import { Router } from 'express';
 import { pool } from '../db/client';
+import { v2 as cloudinary } from 'cloudinary';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+const upload = multer({ storage: multer.memoryStorage() });
+
 router.get('/problems', async (req, res) => {
     try {
-        const { rows } = await pool.query(
-            'SELECT id, name, grade, location AS location_name, lat AS latitude, lng AS longitude FROM problems'
-        );
+        const { rows } = await pool.query(`
+            SELECT 
+            p.id, p.name, p.grade, p.location AS location_name, p.lat AS latitude, p.lng AS longitude, pr.username AS creator_name
+            FROM problems p
+            LEFT JOIN profiles pr ON p.created_by = pr.id
+        `);
         res.json(rows);
     } catch (err) {
         console.error('Problems error:', err);
@@ -64,6 +76,33 @@ router.post('/problems', requireAuth, async (req, res) => {
         res.json(rows[0]);
     } catch (err) {
         console.error('Problem error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/upload/avatar', requireAuth, upload.single('avatar'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Upload to Cloudinary via stream
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: 'kepalabatu_avatars' },
+            (error, result) => {
+                if (error) {
+                    console.error('Cloudinary error:', error);
+                    return res.status(500).json({ error: 'Cloudinary upload failed' });
+                }
+                // Send the secure URL back to the frontend
+                res.json({ avatar_url: result?.secure_url });
+            }
+        );
+
+        // Pipe the multer memory buffer into the Cloudinary stream
+        uploadStream.end(req.file.buffer);
+    } catch (err) {
+        console.error('Upload route error:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });

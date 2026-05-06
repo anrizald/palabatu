@@ -13,6 +13,8 @@ type ProblemRow = {
     location_name: string
     latitude: number
     longitude: number
+    grade: string
+    creator_name: string
 }
 
 type NewProblem = {
@@ -58,10 +60,8 @@ export default function MapPage() {
     }
 
     return (
-        // <div className="h-[calc(100vh-64px)] w-full pt-16 -z-1">
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             <Header />
-            {/* <MapContainer center={center} zoom={5} className="h-full w-full"> */}
             <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <ProximityClusters problems={problems} />
@@ -73,7 +73,6 @@ export default function MapPage() {
                 )}
             </MapContainer>
 
-            {/* FAB */}
             <img
                 src="/plus_button.png"
                 alt="Add Problem"
@@ -181,6 +180,8 @@ function ProximityClusters({ problems }: { problems: ProblemRow[] }) {
                             position={[item.latitude, item.longitude]}
                             name={item.name}
                             location={item.location_name}
+                            grade={item.grade}
+                            creatorName={item.creator_name}
                         />
                     )
                 }
