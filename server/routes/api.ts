@@ -107,4 +107,34 @@ router.post('/upload/avatar', requireAuth, upload.single('avatar'), (req, res) =
     }
 });
 
+router.delete('/problems/:id', requireAuth, async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const result = await pool.query(
+            'DELETE FROM problems WHERE id = $1 AND created_by = $2 RETURNING id',
+            [req.params.id, userId]
+        );
+        if (result.rowCount === 0) return res.status(403).json({ error: 'Not authorized or not found' });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.put('/problems/:id', requireAuth, async (req, res) => {
+    const { name, grade } = req.body; // Add location/lat/lng if you want them to be editable too!
+    const userId = (req as any).user.id;
+    try {
+        const result = await pool.query(
+            `UPDATE problems SET name = $1, grade = $2 
+             WHERE id = $3 AND created_by = $4 RETURNING *`,
+            [name, grade, req.params.id, userId]
+        );
+        if (result.rowCount === 0) return res.status(403).json({ error: 'Not authorized or not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;

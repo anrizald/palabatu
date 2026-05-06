@@ -4,6 +4,7 @@ import Header from '../components/Header.js'
 import { useAuth } from '../lib/AuthContext.js'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
+import ProblemDetails from '../components/ProblemDetails.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 
@@ -29,6 +30,7 @@ export default function MapPage() {
     const [problems, setProblems] = useState<ProblemRow[]>([])
     const [isPicking, setIsPicking] = useState(false)
     const [showModal, setShowModal] = useState(false)
+    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [newProblem, setNewProblem] = useState<NewProblem>({
         name: '',
         grade: 'V0',
@@ -64,7 +66,7 @@ export default function MapPage() {
             <Header />
             <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <ProximityClusters problems={problems} />
+                <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
                 {showModal && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
                         setNewProblem(prev => ({ ...prev, lat, lng }));
@@ -104,6 +106,20 @@ export default function MapPage() {
                     setIsPicking={setIsPicking}
                 />
             )}
+
+            {selectedProblem && (
+                <ProblemDetails
+                    problem={selectedProblem}
+                    onClose={() => setSelectedProblem(null)}
+                    onDelete={(id) => {
+                        setProblems(prev => prev.filter(p => p.id !== id));
+                        setSelectedProblem(null);
+                    }}
+                    onUpdate={(updatedItem) => {
+                        setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
+                    }}
+                />
+            )}
         </div>
     )
 }
@@ -114,7 +130,7 @@ type Cluster = {
     items: ProblemRow[]
 }
 
-function ProximityClusters({ problems }: { problems: ProblemRow[] }) {
+function ProximityClusters({ problems, setSelectedProblem }: { problems: ProblemRow[]; setSelectedProblem: (problem: ProblemRow) => void }) {
     const map = useMap()
     const [tick, setTick] = useState(0)
 
@@ -182,6 +198,7 @@ function ProximityClusters({ problems }: { problems: ProblemRow[] }) {
                             location={item.location_name}
                             grade={item.grade}
                             creatorName={item.creator_name}
+                            onClickDetails={() => setSelectedProblem(item)}
                         />
                     )
                 }

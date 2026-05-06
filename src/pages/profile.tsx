@@ -16,7 +16,7 @@ type Profile = {
     avatar_url: string;
 };
 
-const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Elite'];
+const LEVELS = ['Novice', 'Intermediate', 'Open', 'Andi/Anto'];
 const ALL_STYLES: climbingStyle[] = ['Boulder', 'Lead', 'Toprope'];
 
 export default function Profile() {

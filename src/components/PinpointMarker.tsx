@@ -9,9 +9,10 @@ type Props = {
     type?: 'pinpoint' | 'cluster'
     grade?: string
     creatorName?: string
+    onClickDetails?: () => void;
 }
 
-export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName }: Props) {
+export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, onClickDetails }: Props) {
     const markerRef = useRef<any>(null)
 
     const markerIcon = useMemo(() => (L as any).icon({
@@ -68,6 +69,18 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                                     Added by <span style={{ fontWeight: 600, color: '#c87a30' }}>@{creatorName}</span>
                                 </div>
                             )
+                        )}
+                        {type !== 'cluster' && onClickDetails && (
+                            <button
+                                onClick={onClickDetails}
+                                style={{
+                                    marginTop: '12px', width: '100%', padding: '6px',
+                                    background: '#c87a30', color: '#fff', border: 'none',
+                                    borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+                                }}
+                            >
+                                View Details
+                            </button>
                         )}
                     </div>
                 </Popup>
