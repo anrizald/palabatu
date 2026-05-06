@@ -62,6 +62,11 @@ export default function Login() {
                             onFocus={e => e.target.style.borderColor = '#c87a30'}
                             onBlur={e => e.target.style.borderColor = '#2a2420'}
                         />
+                        <a href="/forgot-password" style={{
+                            textAlign: 'right', color: '#6a5848',
+                            fontSize: '12px', textDecoration: 'none',
+                            display: 'block'
+                        }}>Forgot password?</a>
                         <button
                             onClick={() => handleLogin(email, password)}
                             disabled={isLoading}

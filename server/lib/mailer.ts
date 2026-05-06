@@ -24,3 +24,18 @@ export const sendVerificationEmail = async (email: string, token: string) => {
         `,
     });
 };
+
+export const sendPasswordResetEmail = async (email: string, token: string) => {
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: email,
+        subject: 'Reset your Palabatu password',
+        html: `
+            <h2>Password Reset 🧗</h2>
+            <p>Click the link below to reset your password:</p>
+            <a href="${resetUrl}">${resetUrl}</a>
+            <p>Link expires in 1 hour. If you didn't request this, ignore this email.</p>
+        `,
+    });
+};

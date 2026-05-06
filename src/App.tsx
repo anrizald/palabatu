@@ -5,7 +5,7 @@ import { api } from "./lib/api.js"
 import { Header } from './components/index.js'
 import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
-import { MapPage, Landing, Profile, Login, Signup } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword } from './pages/index.js'
 
 // Pages
 type ProblemRow = {
@@ -82,6 +82,8 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </main>
     </div >
