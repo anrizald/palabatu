@@ -28,7 +28,6 @@ router.post('/signup', async (req, res) => {
             return res.status(500).json({ error: 'Failed to send verification email' });
         }
 
-        // res.json({ user: rows[0], token });
         res.json({ message: 'Signup successful, check your email for verification' });
     } catch (err) {
         console.error('Signup error:', err);

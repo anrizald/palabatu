@@ -16,6 +16,7 @@ type ProblemRow = {
     longitude: number
     grade: string
     creator_name: string
+    created_by: string
 }
 
 type NewProblem = {
@@ -55,9 +56,19 @@ export default function MapPage() {
 
     const handleFAB = () => {
         if (!user) {
+            // to do : change to Toast()
             alert('Please log in to add a problem');
             return;
         }
+
+        setNewProblem({
+            name: '',
+            grade: 'V0',
+            location: '',
+            lat: null,
+            lng: null
+        });
+
         setShowModal(true)
     }
 

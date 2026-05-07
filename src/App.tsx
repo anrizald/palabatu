@@ -5,6 +5,7 @@ import { api } from "./lib/api.js"
 import { Header } from './components/index.js'
 import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
+import { ProblemList } from './pages/ProblemList.js'
 import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword } from './pages/index.js'
 
 // Pages
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/directory" element={<ProblemList />} />
         </Routes>
       </main>
     </div >

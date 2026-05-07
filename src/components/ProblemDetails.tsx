@@ -20,29 +20,42 @@ export default function ProblemDetails({ problem, onClose, onDelete, onUpdate }:
     const handleDelete = async () => {
         if (!window.confirm('Are you sure you want to delete this problem?')) return;
         setIsProcessing(true);
-        const res = await api.post(`/api/problems/${problem.id}`, { _method: 'DELETE' }); // Fetch trick: since your api.ts might not have api.delete, we can use a standard fetch or add api.delete
-        // Better yet, assuming you add api.delete, but let's use standard fetch if api.delete isn't there:
+
         try {
-            await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/problems/${problem.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            onDelete(problem.id);
-            onClose();
+            const res = await api.delete(`/api/problems/${problem.id}`);
+
+            if (res.error) {
+                alert(`Error deleting: ${res.error}`);
+            } else {
+                onDelete(problem.id);
+                onClose();
+            }
         } catch (e) {
             console.error('Delete failed', e);
+            alert('Failed to delete problem. Check your connection.');
+        } finally {
             setIsProcessing(false);
         }
     };
 
     const handleSave = async () => {
         setIsProcessing(true);
-        const data = await api.put(`/api/problems/${problem.id}`, editForm);
-        if (!data.error) {
-            onUpdate({ ...problem, ...editForm });
-            setIsEditing(false);
+        try {
+            const data = await api.put(`/api/problems/${problem.id}`, editForm);
+
+            if (data.error) {
+                alert(`Error updating: ${data.error}`);
+            } else {
+                onUpdate({ ...problem, ...editForm });
+                setIsEditing(false);
+            }
         }
-        setIsProcessing(false);
+        catch (e) {
+            console.error('Update failed', e);
+            alert('Failed to update problem. Check your connection.');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (

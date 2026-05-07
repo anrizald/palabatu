@@ -17,7 +17,14 @@ router.get('/problems', async (req, res) => {
     try {
         const { rows } = await pool.query(`
             SELECT 
-            p.id, p.name, p.grade, p.location AS location_name, p.lat AS latitude, p.lng AS longitude, pr.username AS creator_name
+                p.id, 
+                p.name, 
+                p.grade, 
+                p.location AS location_name, 
+                p.lat AS latitude, 
+                p.lng AS longitude, 
+                p.created_by,
+                pr.username AS creator_name
             FROM problems p
             LEFT JOIN profiles pr ON p.created_by = pr.id
         `);

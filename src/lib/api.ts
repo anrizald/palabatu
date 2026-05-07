@@ -39,4 +39,11 @@ export const api = {
         },
         body: formData
     }).then(r => r.json()),
+
+    delete: (path: string) => fetch(getUrl(path), {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    }).then(r => r.json()),
 };
