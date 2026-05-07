@@ -5,29 +5,9 @@ import { useAuth } from '../lib/AuthContext.js'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
+import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
-
-type ProblemRow = {
-    id: string | number
-    name: string
-    location_name: string
-    latitude: number
-    longitude: number
-    grade: string
-    creator_name: string
-    created_by: string
-}
-
-type NewProblem = {
-    name: string
-    grade: string
-    location: string
-    lat: number | null
-    lng: number | null
-    imageFiles: File[]
-    imagePreviews: string[]
-}
 
 export default function MapPage() {
     const [problems, setProblems] = useState<ProblemRow[]>([])

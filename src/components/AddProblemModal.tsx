@@ -2,18 +2,10 @@ import { useState } from 'react'
 import { api } from '../lib/api.js'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
+import type { NewProblem } from '../types/problem.js'
+
 
 const GRADES = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10']
-
-type NewProblem = {
-    name: string
-    grade: string
-    location: string
-    lat: number | null
-    lng: number | null
-    imageFiles: File[]
-    imagePreviews: string[]
-}
 
 type Props = {
     onClose: () => void
@@ -44,8 +36,23 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             return;
         }
         setIsSubmitting(true);
-        const data = await api.post('/api/problems', newProblem);
+
+        let uploadedUrls: string[] = [];
+        if (newProblem.imageFiles.length > 0) {
+            const uploadPromises = newProblem.imageFiles.map(file => {
+                const formData = new FormData();
+                formData.append('image', file);
+                return api.upload('/api/upload/topo', formData);
+            });
+
+            const result = await Promise.all(uploadPromises);
+            uploadedUrls = result.filter(res => !res.error).map(res => res.url);
+        }
+
+        const data = await api.post('/api/problems', { ...newProblem, image_urls: uploadedUrls });
         setIsSubmitting(false);
+
+        // to do : change to Toast()
         if (data.error) { alert(data.error); return; }
         onAdded(data)
         onClose();
@@ -115,6 +122,53 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                 }}>Add Problem</h2>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Multi-Image Picker */}
+                    <div>
+                        <div style={labelStyle}>Topo Photos</div>
+                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
+                            {newProblem.imagePreviews.map((preview, idx) => (
+                                <div key={idx} style={{ position: 'relative', minWidth: '100px', height: '100px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0 }}>
+                                    <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                                    <button
+                                        onClick={() => {
+                                            const newFiles = [...newProblem.imageFiles];
+                                            const newPreviews = [...newProblem.imagePreviews];
+                                            newFiles.splice(idx, 1);
+                                            newPreviews.splice(idx, 1);
+                                            setNewProblem({ ...newProblem, imageFiles: newFiles, imagePreviews: newPreviews });
+                                        }}
+                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '10px' }}
+                                    >✕</button>
+                                </div>
+                            ))}
+
+                            <label style={{
+                                minWidth: '100px', height: '100px', background: '#1a1612',
+                                border: '1px dashed #4a3c30', borderRadius: '10px', cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                color: '#6a5848', fontSize: '20px', flexShrink: 0
+                            }}>
+                                +
+                                <span style={{ fontSize: '10px', marginTop: '4px' }}>Add Photo</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple // <-- Allows selecting multiple files at once!
+                                    style={{ display: 'none' }}
+                                    onChange={(e) => {
+                                        const files = Array.from(e.target.files || []);
+                                        const previews = files.map(f => URL.createObjectURL(f));
+                                        setNewProblem({
+                                            ...newProblem,
+                                            imageFiles: [...newProblem.imageFiles, ...files],
+                                            imagePreviews: [...newProblem.imagePreviews, ...previews]
+                                        });
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+
                     {/* Name */}
                     <div>
                         <div style={labelStyle}>Problem Name *</div>

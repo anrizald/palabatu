@@ -78,17 +78,42 @@ router.post('/problems', requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Only users with the title "Council" or "Founder" can add problems' });
     }
 
-    const { name, grade, location, lat, lng } = req.body;
+    const { name, grade, location, lat, lng, image_urls } = req.body;
     try {
         const { rows } = await pool.query(
-            `INSERT INTO problems (name, grade, location, lat, lng, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING 
+            `INSERT INTO problems (name, grade, location, lat, lng, created_by, image_urls)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING 
              id, name, grade, location AS location_name, lat AS latitude, lng AS longitude`,
-            [name, grade, location, lat, lng, userId]
+            [name, grade, location, lat, lng, userId, JSON.stringify(image_urls || [])]
         );
         res.json(rows[0]);
     } catch (err) {
         console.error('Problem error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/upload/topo', requireAuth, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: 'kepalabatu_topos' }, // Separate folder so it stays organized!
+            (error, result) => {
+                if (error) {
+                    console.error('Cloudinary error:', error);
+                    return res.status(500).json({ error: 'Cloudinary upload failed' });
+                }
+                // Notice we return { url: ... } because our frontend expects "url"
+                res.json({ url: result?.secure_url });
+            }
+        );
+
+        uploadStream.end(req.file.buffer);
+    } catch (err) {
+        console.error('Upload route error:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });
