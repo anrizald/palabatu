@@ -4,18 +4,21 @@ import { useAuth } from '../lib/AuthContext.js';
 
 type ProblemDetailsProps = {
     problem: any;
+    userTitles?: string[],
     onClose: () => void;
     onDelete: (id: string | number) => void;
     onUpdate: (updatedProblem: any) => void;
 };
 
-export default function ProblemDetails({ problem, onClose, onDelete, onUpdate }: ProblemDetailsProps) {
+export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate }: ProblemDetailsProps) {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ name: problem.name, grade: problem.grade });
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const isOwner = user && user.id === problem.created_by;
+    const isCreator = user && user.id === problem.created_by;
+    const isCouncil = userTitles.includes('Council');
+    const canEdit = isCreator || isCouncil;
 
     const handleDelete = async () => {
         if (!window.confirm('Are you sure you want to delete this problem?')) return;
@@ -115,7 +118,7 @@ export default function ProblemDetails({ problem, onClose, onDelete, onUpdate }:
                             <p>👤 Added by <span style={{ color: '#c87a30' }}>@{problem.creator_name || 'unknown'}</span></p>
                         </div>
 
-                        {isOwner && (
+                        {canEdit && (
                             <div style={{ display: 'flex', gap: '12px', borderTop: '1px solid #2a2420', paddingTop: '20px' }}>
                                 <button onClick={() => setIsEditing(true)} style={{ flex: 1, padding: '10px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer' }}>Edit</button>
                                 <button onClick={handleDelete} disabled={isProcessing} style={{ flex: 1, padding: '10px', background: 'rgba(220, 53, 69, 0.1)', border: '1px solid rgba(220, 53, 69, 0.4)', color: '#dc3545', borderRadius: '8px', cursor: 'pointer' }}>

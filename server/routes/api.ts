@@ -71,8 +71,14 @@ router.put('/profiles/:id', requireAuth, async (req, res) => {
 });
 
 router.post('/problems', requireAuth, async (req, res) => {
-    const { name, grade, location, lat, lng } = req.body;
     const userId = (req as any).user.id;
+    const titles = await getUserTitles(userId);
+
+    if (!titles.includes('Council') && !titles.includes('Founder')) {
+        return res.status(403).json({ error: 'Only users with the title "Council" or "Founder" can add problems' });
+    }
+
+    const { name, grade, location, lat, lng } = req.body;
     try {
         const { rows } = await pool.query(
             `INSERT INTO problems (name, grade, location, lat, lng, created_by)
@@ -116,12 +122,20 @@ router.post('/upload/avatar', requireAuth, upload.single('avatar'), (req, res) =
 
 router.delete('/problems/:id', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
+    const titles = await getUserTitles(userId);
+
     try {
-        const result = await pool.query(
-            'DELETE FROM problems WHERE id = $1 AND created_by = $2 RETURNING id',
-            [req.params.id, userId]
-        );
-        if (result.rowCount === 0) return res.status(403).json({ error: 'Not authorized or not found' });
+        const prob = await pool.query('SELECT created_by FROM problems WHERE id = $1', [req.params.id]);
+        if (prob.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+
+        const isCreator = prob.rows[0].created_by === userId;
+        const isCouncil = titles.includes('Council');
+
+        if (!isCreator && !isCouncil) {
+            return res.status(403).json({ error: 'Not authorized to delete this problem.' });
+        }
+
+        await pool.query('DELETE FROM problems WHERE id = $1', [req.params.id]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'Server error' });
@@ -129,19 +143,40 @@ router.delete('/problems/:id', requireAuth, async (req, res) => {
 });
 
 router.put('/problems/:id', requireAuth, async (req, res) => {
-    const { name, grade } = req.body; // Add location/lat/lng if you want them to be editable too!
     const userId = (req as any).user.id;
+    const titles = await getUserTitles(userId);
+    const { name, grade } = req.body; // Add location/lat/lng if you want them to be editable too!
+
     try {
+        const prob = await pool.query('SELECT created_by FROM problems WHERE id = $1', [req.params.id]);
+        if (prob.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+
+        const isCreator = prob.rows[0].created_by === userId;
+        const isCouncil = titles.includes('Council');
+
+        if (!isCreator && !isCouncil) {
+            return res.status(403).json({ error: 'Not authorized to edit this problem.' });
+        }
+
         const result = await pool.query(
-            `UPDATE problems SET name = $1, grade = $2 
-             WHERE id = $3 AND created_by = $4 RETURNING *`,
-            [name, grade, req.params.id, userId]
+            `UPDATE problems SET name = $1, grade = $2 WHERE id = $3 RETURNING *`,
+            [name, grade, req.params.id]
         );
-        if (result.rowCount === 0) return res.status(403).json({ error: 'Not authorized or not found' });
         res.json(result.rows[0]);
     } catch (err) {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+// --- HELPER FUNCTIONS ---
+async function getUserTitles(userId: string) {
+    const { rows } = await pool.query('SELECT title FROM profiles WHERE id = $1', [userId]);
+    if (!rows[0] || !rows[0].title) return [];
+    try {
+        return typeof rows[0].title === 'string' ? JSON.parse(rows[0].title) : rows[0].title;
+    } catch (e) {
+        return [];
+    }
+}
 
 export default router;

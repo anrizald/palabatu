@@ -11,6 +11,8 @@ type NewProblem = {
     location: string
     lat: number | null
     lng: number | null
+    imageFiles: File[]
+    imagePreviews: string[]
 }
 
 type Props = {
@@ -34,7 +36,6 @@ export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) 
 
 export default function AddProblemModal({ onClose, onAdded, newProblem, setNewProblem, isPicking, setIsPicking }: Props) {
     const [isSubmitting, setIsSubmitting] = useState(false)
-    // const [isPicking, setIsPicking] = useState(false)
 
     const handleSubmit = async () => {
         if (!newProblem.name || newProblem.lat === null || newProblem.lng === null) {

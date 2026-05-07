@@ -25,6 +25,8 @@ type NewProblem = {
     location: string
     lat: number | null
     lng: number | null
+    imageFiles: File[]
+    imagePreviews: string[]
 }
 
 export default function MapPage() {
@@ -37,10 +39,27 @@ export default function MapPage() {
         grade: 'V0',
         location: '',
         lat: null,
-        lng: null
+        lng: null,
+        imageFiles: [],
+        imagePreviews: []
     })
     const { user } = useAuth()
     const center: [number, number] = [-7.797068, 110.370529]
+    const [userTitles, setUserTitles] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (user?.id) {
+            api.get(`/api/profiles/${user.id}`).then(data => {
+                if (data && data.title) {
+                    // Handle parsing if it comes back as a string or array
+                    const parsedTitles = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
+                    setUserTitles(parsedTitles || []);
+                }
+            });
+        }
+    }, [user])
+
+    const canAdd = userTitles.includes('Council') || userTitles.includes('Associate');
 
     useEffect(() => {
         async function fetchProblems() {
@@ -66,7 +85,9 @@ export default function MapPage() {
             grade: 'V0',
             location: '',
             lat: null,
-            lng: null
+            lng: null,
+            imageFiles: [],
+            imagePreviews: []
         });
 
         setShowModal(true)
@@ -86,24 +107,27 @@ export default function MapPage() {
                 )}
             </MapContainer>
 
-            <img
-                src="/plus_button.png"
-                alt="Add Problem"
-                onClick={handleFAB}
-                style={{
-                    position: 'fixed',
-                    bottom: '32px',
-                    right: '32px',
-                    width: '56px',
-                    height: '56px',
-                    cursor: 'pointer',
-                    zIndex: 1000,
-                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
-                    transition: 'transform 0.2s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-            />
+            {canAdd && (
+                <img
+
+                    src="/plus_button.png"
+                    alt="Add Problem"
+                    onClick={handleFAB}
+                    style={{
+                        position: 'fixed',
+                        bottom: '32px',
+                        right: '32px',
+                        width: '56px',
+                        height: '56px',
+                        cursor: 'pointer',
+                        zIndex: 1000,
+                        filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
+                        transition: 'transform 0.2s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                />
+            )}
 
             {showModal && (
                 <AddProblemModal
@@ -121,6 +145,7 @@ export default function MapPage() {
             {selectedProblem && (
                 <ProblemDetails
                     problem={selectedProblem}
+                    userTitles={userTitles}
                     onClose={() => setSelectedProblem(null)}
                     onDelete={(id) => {
                         setProblems(prev => prev.filter(p => p.id !== id));
