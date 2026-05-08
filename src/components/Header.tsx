@@ -67,7 +67,7 @@ export default function Header() {
                     }}>palabatu</Link>
                     <div style={{ display: 'flex', gap: '20px' }}>
                         <Link to="/map" className="nav-link">Map</Link>
-                        <Link to="/about" className="nav-link">About</Link>
+                        {/* <Link to="/about" className="nav-link">About</Link> */}
                         <Link to="/directory" className="nav-link">Directory</Link>
                     </div>
                 </div>

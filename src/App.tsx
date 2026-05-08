@@ -5,6 +5,7 @@ import { api } from "./lib/api.js"
 import { Header } from './components/index.js'
 import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
+import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
 import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword } from './pages/index.js'
 
@@ -71,8 +72,6 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      {/* <div className="flex-1 overflow-y-auto ">
-      </div> */}
 
       <main className="flex-1 overflow-y-auto">
         <Routes>
@@ -88,6 +87,8 @@ export default function App() {
           <Route path="/directory" element={<ProblemList />} />
         </Routes>
       </main>
+
+      <FooterSection />
     </div >
   )
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import FooterSection from '../components/Footer.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export default function ResetPassword() {
     const [searchParams] = useSearchParams();
@@ -99,6 +100,7 @@ export default function ResetPassword() {
                     </div>
                 </div>
             </div>
+            <FooterSection />
         </>
     );
 }

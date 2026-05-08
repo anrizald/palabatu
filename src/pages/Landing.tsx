@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { useEffect, useState } from "react";
+import FooterSection from "../components/Footer.js";
 
 export default function Landing() {
     const [problems, setProblems] = useState<any[]>([]);
@@ -137,28 +138,7 @@ export default function Landing() {
                     </p>
                 </section>
 
-                {/* Footer Section */}
-                <section style={{
-                    minHeight: '100vh', scrollSnapAlign: 'start',
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    padding: '0 24px', textAlign: 'center'
-                }}>
-                    <h1 style={{
-                        fontFamily: "'Playfair Display', serif",
-                        fontSize: 'clamp(36px, 7vw, 72px)',
-                        fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
-                    }}>palabatu</h1>
-                    <p style={{ fontSize: '16px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif" }}>Lorem Ipsum</p>
-                    <footer style={{
-                        position: 'absolute', bottom: '24px',
-                        fontSize: '11px', color: '#2a2420',
-                        fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.05em'
-                    }}>
-                        <p>© {new Date().getFullYear()} palabatu — WC Ass Production.</p>
-                        <p>Ghul Dev</p>
-                    </footer>
-                </section>
+                {/* <FooterSection /> */}
             </div>
         </>
     )

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
+import FooterSection from "../components/Footer.js";
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
@@ -82,6 +83,7 @@ export default function ForgotPassword() {
                     )}
                 </div>
             </div>
+            <FooterSection />
         </>
     );
 }

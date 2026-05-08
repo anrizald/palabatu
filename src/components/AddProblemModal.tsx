@@ -3,7 +3,7 @@ import { api } from '../lib/api.js'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem } from '../types/problem.js'
-
+import HorizontalScrollCarousel from './HorizontalScrollCarousel.js'
 
 const GRADES = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10']
 
@@ -107,7 +107,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             zIndex: 999,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '24px'
-        }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+        }}>
             <div style={{
                 background: '#141210', border: '1px solid #2a2420',
                 borderRadius: '20px', padding: '32px',

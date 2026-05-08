@@ -47,7 +47,7 @@ export function ProblemList() {
     }, [problems, search, selectedGrade]);
 
     return (
-        <div style={{ minHeight: '100vh', background: '#0f0d0b', color: '#f0e0c8', fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ minHeight: '100vh', background: '#0f0d0b', color: '#f0e0c8', fontFamily: "'DM Sans', sans-serif", paddingBottom: '48px' }}>
             <Header />
 
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '100px 24px 40px' }}>

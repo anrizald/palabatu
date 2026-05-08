@@ -24,7 +24,9 @@ router.get('/problems', async (req, res) => {
                 p.lat AS latitude, 
                 p.lng AS longitude, 
                 p.created_by,
-                pr.username AS creator_name
+                p.image_urls,
+                pr.username AS creator_name,
+            COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count
             FROM problems p
             LEFT JOIN profiles pr ON p.created_by = pr.id
         `);
@@ -150,7 +152,7 @@ router.delete('/problems/:id', requireAuth, async (req, res) => {
     const titles = await getUserTitles(userId);
 
     try {
-        const prob = await pool.query('SELECT created_by FROM problems WHERE id = $1', [req.params.id]);
+        const prob = await pool.query('SELECT created_by, image_urls FROM problems WHERE id = $1', [req.params.id]);
         if (prob.rowCount === 0) return res.status(404).json({ error: 'Not found' });
 
         const isCreator = prob.rows[0].created_by === userId;
@@ -158,6 +160,24 @@ router.delete('/problems/:id', requireAuth, async (req, res) => {
 
         if (!isCreator && !isCouncil) {
             return res.status(403).json({ error: 'Not authorized to delete this problem.' });
+        }
+
+        const imageUrls = prob.rows[0].image_urls;
+        const urlsArray = typeof imageUrls === 'string' ? JSON.parse(imageUrls) : (imageUrls || []);
+        for (const url of urlsArray) {
+            try {
+                const parts = url.split('/upload/');
+                if (parts.length > 1) {
+                    let publicId = parts[1].replace(/^v\d+\//, '');
+                    // Remove the file extension (e.g., .jpg)
+                    publicId = publicId.substring(0, publicId.lastIndexOf('.'));
+
+                    // Tell Cloudinary to destroy it!
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            } catch (e) {
+                console.error('Failed to delete image from Cloudinary:', e);
+            }
         }
 
         await pool.query('DELETE FROM problems WHERE id = $1', [req.params.id]);
@@ -189,6 +209,47 @@ router.put('/problems/:id', requireAuth, async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET: Check if the logged-in user has sent this problem
+router.get('/problems/:id/send-status', requireAuth, async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const { rowCount } = await pool.query(
+            'SELECT 1 FROM sends WHERE problem_id = $1 AND user_id = $2',
+            [req.params.id, userId]
+        );
+        res.json({ hasSent: rowCount! > 0 });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST: Toggle the send (Add or Remove)
+router.post('/problems/:id/send', requireAuth, async (req, res) => {
+    const userId = (req as any).user.id;
+    const problemId = req.params.id;
+
+    try {
+        // Check if it already exists
+        const exist = await pool.query(
+            'SELECT id FROM sends WHERE problem_id = $1 AND user_id = $2',
+            [problemId, userId]
+        );
+
+        if (exist.rowCount! > 0) {
+            // If they already sent it, clicking again "Un-sends" it
+            await pool.query('DELETE FROM sends WHERE problem_id = $1 AND user_id = $2', [problemId, userId]);
+            res.json({ action: 'removed' });
+        } else {
+            // Otherwise, log the send!
+            await pool.query('INSERT INTO sends (problem_id, user_id) VALUES ($1, $2)', [problemId, userId]);
+            res.json({ action: 'added' });
+        }
+    } catch (err) {
+        console.error('Send error:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });
