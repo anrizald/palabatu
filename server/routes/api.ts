@@ -254,6 +254,53 @@ router.post('/problems/:id/send', requireAuth, async (req, res) => {
     }
 });
 
+// --- COMMENTS ---
+router.get('/problems/:id/comments', async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT c.id, c.content, c.created_at, p.username 
+            FROM comments c
+            JOIN profiles p ON c.user_id = p.id
+            WHERE c.problem_id = $1
+            ORDER BY c.created_at ASC
+        `, [req.params.id]);
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Fetch comments error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST: Add a new comment
+router.post('/problems/:id/comments', requireAuth, async (req, res) => {
+    const userId = (req as any).user.id;
+    const { content } = req.body;
+
+    if (!content || content.trim() === '') {
+        return res.status(400).json({ error: 'Comment cannot be empty' });
+    }
+
+    try {
+        // We use a CTE (WITH clause) to insert the comment AND grab the user's username in one step
+        const { rows } = await pool.query(`
+            WITH new_comment AS (
+                INSERT INTO comments (problem_id, user_id, content) 
+                VALUES ($1, $2, $3) 
+                RETURNING *
+            )
+            SELECT c.*, p.username 
+            FROM new_comment c
+            JOIN profiles p ON c.user_id = p.id;
+        `, [req.params.id, userId, content]);
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Post comment error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // --- HELPER FUNCTIONS ---
 async function getUserTitles(userId: string) {
     const { rows } = await pool.query('SELECT title FROM profiles WHERE id = $1', [userId]);

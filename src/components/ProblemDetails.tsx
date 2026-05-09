@@ -11,6 +11,13 @@ type ProblemDetailsProps = {
     onUpdate: (updatedProblem: any) => void;
 };
 
+type Comment = {
+    id: string;
+    content: string;
+    username: string;
+    created_at: string;
+}
+
 export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate }: ProblemDetailsProps) {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
@@ -25,7 +32,22 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [hasSent, setHasSent] = useState(false); // This would ideally come from the backend to check if the user has already logged a send for this problem
     const [isTogglingSend, setIsTogglingSend] = useState(false);
 
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [isPostingComment, setIsPostingComment] = useState(false);
+
     useEffect(() => {
+        const fetchComments = async () => {
+            try {
+                const res = await api.get(`/api/problems/${problem.id}/comments`);
+                console.log("COMMENT DATA:", res);
+                if (!res.error) setComments(res);
+            } catch (e) {
+                console.error('Failed to fetch comments', e);
+            }
+        }; fetchComments();
+
+        // checking SENT status for current user
         if (user) {
             const checkStatus = async () => {
                 try {
@@ -33,9 +55,9 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     setHasSent(res.hasSent);
                 } catch (e) {
                     console.error('Failed to check send status', e);
+                    setHasSent(false);
                 }
-            };
-            checkStatus();
+            }; checkStatus();
         }
     }, [problem.id]);
 
@@ -104,6 +126,29 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         }
     };
 
+    const handlePostComment = async () => {
+        if (!newComment.trim()) return;
+        setIsPostingComment(true);
+
+        try {
+            const res = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
+
+            if (res.error) {
+                // to do : change to Toast()
+                alert(`Error posting comment: ${res.error}`);
+            } else {
+                setComments((prev) => [...prev, res]);
+                setNewComment('');
+            }
+        } catch (e) {
+            console.error('Failed to post comment', e);
+            // to do : change to Toast()
+            alert('Failed to post comment. Check your connection.');
+        } finally {
+            setIsPostingComment(false);
+        }
+    };
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -124,8 +169,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', margin: 0 }}>{problem.name}</h2>
                     <button onClick={onClose} style={{
                         background: 'none', border: 'none', color: '#8a7060', fontSize: '24px', cursor: 'pointer',
-                        // padding: 0,      // ← kills the browser default
-                        lineHeight: 1   // ← prevents extra height from line-height
+                        lineHeight: 1
                     }}>&times;</button>
                 </div>
 
@@ -185,53 +229,51 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     <div style={{ marginTop: '32px', borderTop: '1px solid #2a2420', paddingTop: '24px' }}>
                         <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: '#f0e0c8', marginBottom: '16px' }}>Beta & Comments</h3>
 
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                            <input placeholder="Share your beta..." style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }} />
-                            <button style={{ background: '#2a2420', color: '#c87a30', border: 'none', padding: '0 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Post</button>
-                        </div>
+                        {user ? (
 
-                        {/* Dummy Comments */}
+                            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                                <input
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+                                    placeholder="Share your beta..."
+                                    style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
+                                />
+                                <button
+                                    onClick={handlePostComment}
+                                    disabled={isPostingComment || !newComment.trim()}
+                                    style={{
+                                        background: '#2a2420', color: '#c87a30', border: 'none',
+                                        padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
+                                        cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                                        opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
+                                    }}>
+                                    {isPostingComment ? '...' : 'Post'}
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic', marginBottom: '20px' }}>
+                                Log in to share your beta
+                            </div>
+                        )}
+
+                        {/* Comment List */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@send_it_steve</strong>
-                                Start on the obvious undercling. Crux is throwing to the sloppy right hand. Needs good friction!
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#d8c8b8' }}>
-                                <strong style={{ color: '#c87a30', display: 'block', marginBottom: '4px' }}>@crimp_master</strong>
-                                Landing is a bit sketchy right now, bring two pads.
-                            </div>
+                            {comments.length === 0 ? (
+                                <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
+                            ) : (
+                                comments.map(comment => (
+                                    <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <strong style={{ color: '#c87a30' }}>@{comment.username}</strong>
+                                            <span style={{ color: '#6a5848', fontSize: '11px' }}>
+                                                {new Date(comment.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
