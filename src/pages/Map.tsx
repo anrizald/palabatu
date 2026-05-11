@@ -9,6 +9,57 @@ import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 
+function LocateMeButton() {
+    const map = useMap();
+    const [isLocating, setIsLocating] = useState(false);
+
+    const handleLocate = () => {
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                map.flyTo([latitude, longitude], 20, { duration: 1.5 });
+                setIsLocating(false);
+            },
+            (err) => {
+                console.error("GPS Error:", err);
+                alert("Could not find your location. Please check your browser's location permissions.");
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
+    return (
+        <button
+            onClick={handleLocate}
+            disabled={isLocating}
+            style={{
+                position: 'absolute',
+                bottom: '100px', // Just above your Add Problem FAB
+                right: '24px',
+                zIndex: 1000, // Must be high enough to float over the map tiles
+                background: '#141210',
+                border: '1px solid #c87a30',
+                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                color: '#f0e0c8',
+                fontSize: '20px',
+                opacity: isLocating ? 0.6 : 1,
+                transition: 'all 0.2s'
+            }}
+        >
+            {isLocating ? '⏳' : '🎯'}
+        </button>
+    );
+}
+
 export default function MapPage() {
     const [problems, setProblems] = useState<ProblemRow[]>([])
     const [isPicking, setIsPicking] = useState(false)
@@ -78,6 +129,7 @@ export default function MapPage() {
             <Header />
             <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <LocateMeButton />
                 <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
                 {showModal && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
