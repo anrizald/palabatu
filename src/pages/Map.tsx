@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css'
 import { api } from '../lib/api.js'
 import Header from '../components/Header.js'
 import { useAuth } from '../lib/AuthContext.js'
+import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
@@ -24,7 +25,8 @@ export default function MapPage() {
         imagePreviews: []
     })
     const { user } = useAuth()
-    const center: [number, number] = [-7.797068, 110.370529]
+    // const center: [number, number] = [-7.797068, 110.370529]
+    const center: [number, number] = [-2.5, 118.0]
     const [userTitles, setUserTitles] = useState<string[]>([]);
 
     useEffect(() => {
@@ -76,8 +78,13 @@ export default function MapPage() {
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             <Header />
-            <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} style={{ height: '100%', width: '100%' }}>
+                {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
+                <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                />
+                <MapFlyTo />
                 <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
                 {showModal && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
@@ -214,6 +221,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                             location={item.location_name}
                             grade={item.grade}
                             creatorName={item.creator_name}
+                            creatorId={item.created_by}
                             onClickDetails={() => setSelectedProblem(item)}
                         />
                     )
@@ -238,4 +246,20 @@ function computeThresholdPx(zoom: number | undefined) {
     const minPx = 18
     const scaled = maxPx - zoom * 5
     return Math.max(minPx, Math.min(maxPx, scaled))
+}
+
+function MapFlyTo() {
+    const map = useMap();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const lat = searchParams.get('lat');
+        const lng = searchParams.get('lng');
+
+        if (lat && lng) {
+            map.flyTo([parseFloat(lat), parseFloat(lng)], 18, { duration: 1.5 });
+        }
+    }, [map, searchParams]);
+
+    return null;
 }

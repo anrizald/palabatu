@@ -1,9 +1,12 @@
 import { api } from "../lib/api.js";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import FooterSection from "../components/Footer.js";
+import type { ProblemRow } from '../types/problem.js';
+import ProblemDetails from '../components/ProblemDetails.js';
 
 export default function Landing() {
     const [problems, setProblems] = useState<any[]>([]);
+    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
 
     useEffect(() => {
         async function fetchProblems() {
@@ -91,17 +94,25 @@ export default function Landing() {
                             color: '#8a7060', marginBottom: '16px',
                             letterSpacing: '0.05em', textTransform: 'uppercase'
                         }}>Recently Added</h2>
+
                         <div style={{ overflowX: 'auto', display: 'flex', gap: '16px', paddingBottom: '8px', paddingTop: '4px' }}>
-                            {problems.length > 0 ? problems.reverse().map(problem => (
-                                <div key={problem.id} className="problem-card">
+                            {problems.length > 0 ? [...problems].reverse().slice(0, 5).map(problem => (
+                                <div
+                                    key={problem.id}
+                                    className="problem-card"
+                                    onClick={() => setSelectedProblem(problem)}
+                                    style={{ cursor: 'pointer' }} // Add pointer so users know it's clickable
+                                >
                                     <h3 style={{
                                         fontFamily: "'Playfair Display', serif",
                                         fontSize: '16px', fontWeight: 700,
                                         color: '#f0e0c8', marginBottom: '6px'
                                     }}>{problem.name || 'Problem Name'}</h3>
+
                                     <p style={{ fontSize: '12px', color: '#6a5848', marginBottom: '8px', fontFamily: "'DM Sans', sans-serif" }}>
                                         {problem.location_name || 'Unknown Location'}
                                     </p>
+
                                     <span style={{
                                         fontSize: '11px', padding: '3px 10px',
                                         background: 'rgba(200,122,48,0.12)',
@@ -109,6 +120,24 @@ export default function Landing() {
                                         color: '#c87a30', borderRadius: '20px',
                                         fontFamily: "'DM Sans', sans-serif"
                                     }}>{problem.grade || '—'}</span>
+
+                                    {/* 2. Added by section with Link to Profile */}
+                                    <div style={{
+                                        marginTop: '12px',
+                                        paddingTop: '10px',
+                                        borderTop: '1px solid #2a2420',
+                                        fontSize: '11px',
+                                        color: '#6a5848'
+                                    }}>
+                                        Added by{' '}
+                                        <Link
+                                            to={`/profile/${problem.created_by}`}
+                                            onClick={(e) => e.stopPropagation()} // 3. Stops the card click event!
+                                            style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}
+                                        >
+                                            @{problem.creator_name || 'unknown'}
+                                        </Link>
+                                    </div>
                                 </div>
                             )) : [...Array(5)].map((_, i) => (
                                 <div key={i} style={{ minWidth: '240px', background: '#141210', border: '1px solid #2a2420', borderRadius: '16px', padding: '18px' }}>
@@ -138,7 +167,20 @@ export default function Landing() {
                     </p>
                 </section>
 
-                {/* <FooterSection /> */}
+                {selectedProblem && (
+                    <ProblemDetails
+                        problem={selectedProblem}
+                        // userTitles={userTitles} // Make sure you have userTitles in Landing, or pass an empty array [] if you don't need edit permissions here
+                        onClose={() => setSelectedProblem(null)}
+                        onDelete={(id) => {
+                            setProblems(prev => prev.filter(p => p.id !== id));
+                            setSelectedProblem(null);
+                        }}
+                        onUpdate={(updatedItem) => {
+                            setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
+                        }}
+                    />
+                )}
             </div>
         </>
     )

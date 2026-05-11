@@ -1,5 +1,6 @@
 import { api } from '../lib/api.js';
 import Header from '../components/Header.js';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import ProblemDetails from '../components/ProblemDetails.js';
 
@@ -20,6 +21,8 @@ export function ProblemList() {
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         async function fetchProblems() {
@@ -89,13 +92,43 @@ export function ProblemList() {
                                 onMouseEnter={e => e.currentTarget.style.borderColor = '#c87a30'}
                                 onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2420'}
                             >
-                                <div>
+                                <div style={{ flex: 1 }}>
                                     <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', margin: '0 0 4px 0' }}>{problem.name}</h3>
                                     <div style={{ fontSize: '12px', color: '#6a5848' }}>📍 {problem.location_name}</div>
+
+                                    <div style={{ fontSize: '11px', color: '#6a5848' }}>
+                                        Added by{' '}
+                                        <Link
+                                            to={`/profile/${problem.created_by}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}
+                                        >
+                                            @{problem.creator_name || 'unknown'}
+                                        </Link>
+                                    </div>
                                 </div>
-                                <span style={{ background: 'rgba(200,122,48,0.15)', color: '#c87a30', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
-                                    {problem.grade}
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+                                    <span style={{ background: 'rgba(200,122,48,0.15)', color: '#c87a30', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
+                                        {problem.grade}
+                                    </span>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Sends them to the map with coordinates in the URL!
+                                            navigate(`/map?lat=${problem.latitude}&lng=${problem.longitude}`);
+                                        }}
+                                        style={{
+                                            background: 'transparent', border: '1px solid #4a3c30', color: '#8a7060',
+                                            padding: '4px 10px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.color = '#c87a30'; e.currentTarget.style.borderColor = '#c87a30'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.color = '#8a7060'; e.currentTarget.style.borderColor = '#4a3c30'; }}
+                                    >
+                                        🗺️ Locate
+                                    </button>
+                                </div>
                             </div>
                         ))}
                         {filteredProblems.length === 0 && (

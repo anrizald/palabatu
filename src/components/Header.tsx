@@ -80,7 +80,7 @@ export default function Header() {
                         </>
                     ) : (
                         <>
-                            <Link to="/profile" className="nav-link">Profile</Link>
+                            <Link to={`/profile/${user.id}`} className="nav-link">Profile</Link>
                             <button onClick={handleLogout} className="nav-logout">Logout</button>
                         </>
                     )}
