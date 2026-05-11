@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
+import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 
@@ -16,7 +17,8 @@ type Comment = {
     content: string;
     username: string;
     created_at: string;
-}
+    user_id: string;
+};
 
 export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate }: ProblemDetailsProps) {
     const { user } = useAuth();
@@ -40,14 +42,14 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         const fetchComments = async () => {
             try {
                 const res = await api.get(`/api/problems/${problem.id}/comments`);
-                console.log("COMMENT DATA:", res);
                 if (!res.error) setComments(res);
             } catch (e) {
                 console.error('Failed to fetch comments', e);
             }
-        }; fetchComments();
+        };
 
-        // checking SENT status for current user
+        fetchComments();
+
         if (user) {
             const checkStatus = async () => {
                 try {
@@ -59,7 +61,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                 }
             }; checkStatus();
         }
-    }, [problem.id]);
+    }, [problem.id, user]);
 
     const handleToggleSend = async () => {
         setIsTogglingSend(true);
@@ -131,19 +133,17 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         setIsPostingComment(true);
 
         try {
-            const res = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
-
-            if (res.error) {
-                // to do : change to Toast()
-                alert(`Error posting comment: ${res.error}`);
+            const data = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
+            if (data.error) {
+                alert(data.error);
             } else {
-                setComments((prev) => [...prev, res]);
-                setNewComment('');
+                // Instantly add the new comment to the list so it updates on screen!
+                setComments(prev => [...prev, data]);
+                setNewComment(''); // Clear the input box
             }
         } catch (e) {
-            console.error('Failed to post comment', e);
-            // to do : change to Toast()
-            alert('Failed to post comment. Check your connection.');
+            console.error(e);
+            alert('Failed to post comment. Are you logged in?');
         } finally {
             setIsPostingComment(false);
         }
@@ -213,7 +213,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         </button>
                     </div>
                     <div style={{ marginTop: '12px', fontSize: '12px', color: '#6a5848' }}>
-                        Added by <span style={{ color: '#c87a30' }}>@{problem.creator_name || 'unknown'}</span>
+                        Added by <Link to={`/profile/${problem.created_by}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>@{problem.creator_name || 'unknown'}</Link>
                         {' '}•🔥 {sendCount} {sendCount === 1 ? 'Send' : 'Sends'}
                     </div>
 
@@ -231,53 +231,51 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
 
                         {user ? (
 
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                                <input
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                                    placeholder="Share your beta..."
-                                    style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
-                                />
-                                <button
-                                    onClick={handlePostComment}
-                                    disabled={isPostingComment || !newComment.trim()}
-                                    style={{
-                                        background: '#2a2420', color: '#c87a30', border: 'none',
-                                        padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
-                                        cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                                        opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
-                                    }}>
-                                    {isPostingComment ? '...' : 'Post'}
-                                </button>
-                            </div>
-                        ) : (
-                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic', marginBottom: '20px' }}>
-                                Log in to share your beta
-                            </div>
-                        )}
+                            {/* Input Area */ }
+                            < div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                        <input
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+                            placeholder="Share your beta..."
+                            style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
+                        />
+                        <button
+                            onClick={handlePostComment}
+                            disabled={isPostingComment || !newComment.trim()}
+                            style={{
+                                background: '#2a2420', color: '#c87a30', border: 'none',
+                                padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
+                                cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                                opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
+                            }}>
+                            {isPostingComment ? '...' : 'Post'}
+                        </button>
+                    </div>
 
-                        {/* Comment List */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {comments.length === 0 ? (
-                                <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
-                            ) : (
-                                comments.map(comment => (
-                                    <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                            <strong style={{ color: '#c87a30' }}>@{comment.username}</strong>
-                                            <span style={{ color: '#6a5848', fontSize: '11px' }}>
-                                                {new Date(comment.created_at).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
+                    {/* Comments */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {comments.length === 0 ? (
+                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
+                        ) : (
+                            comments.map(comment => (
+                                <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
+                                            @{comment.username}
+                                        </Link>
+                                        <span style={{ color: '#6a5848', fontSize: '11px' }}>
+                                            {new Date(comment.created_at).toLocaleDateString()}
+                                        </span>
                                     </div>
-                                ))
-                            )}
-                        </div>
+                                    <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
         </div>
+        </div >
     );
 }

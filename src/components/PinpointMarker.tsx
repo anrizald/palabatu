@@ -1,4 +1,5 @@
 import L from 'leaflet'
+import { Link } from 'react-router-dom'
 import { Marker, Popup } from 'react-leaflet'
 import { useEffect, useMemo, useRef } from 'react'
 
@@ -9,10 +10,11 @@ type Props = {
     type?: 'pinpoint' | 'cluster'
     grade?: string
     creatorName?: string
+    creatorId?: string
     onClickDetails?: () => void;
 }
 
-export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, onClickDetails }: Props) {
+export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorId, onClickDetails }: Props) {
     const markerRef = useRef<any>(null)
 
     const markerIcon = useMemo(() => (L as any).icon({
@@ -66,7 +68,7 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                         ) : (
                             creatorName && (
                                 <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px' }}>
-                                    Added by <span style={{ fontWeight: 600, color: '#c87a30' }}>@{creatorName}</span>
+                                    Added by <Link to={`/profile/${creatorId}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>@{creatorName}</Link>
                                 </div>
                             )
                         )}

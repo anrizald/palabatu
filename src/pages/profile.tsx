@@ -1,6 +1,7 @@
 import { api } from '../lib/api.js'
-import { useState, useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import Header from '../components/Header.js'
+import { useState, useEffect, useRef } from 'react'
 import Toast, { type ToastProps } from '../components/Toast.js';
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
@@ -20,6 +21,7 @@ const LEVELS = ['Novice', 'Intermediate', 'Open', 'Andi/Anto'];
 const ALL_STYLES: climbingStyle[] = ['Boulder', 'Lead', 'Toprope'];
 
 export default function Profile() {
+    const { id } = useParams<{ id: string }>();
     const [profile, setProfile] = useState<Profile>({
         username: "",
         title: [],
@@ -38,25 +40,29 @@ export default function Profile() {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const isOwner = user && user.id === id;
+
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
-            window.location.href = '/login';
+            // window.location.href = '/login';
+            setUser(null);
             return;
         }
         api.get('/auth/session').then(data => {
-            if (data.error) {
-                window.location.href = '/login';
-                return;
+            if (!data.error) {
+                setUser(data.user);
+                // window.location.href = '/login';
+                // return;
             }
-            setUser(data.user);
         });
     }, []);
 
     useEffect(() => {
-        if (!user) return;
-        api.get(`/api/profiles/${user.id}`).then(data => {
-            if (data) {
+        if (!id) return;
+
+        api.get(`/api/profiles/${id}`).then(data => {
+            if (data && !data.error) {
                 console.log('title from DB:', data.title, typeof data.title);
                 setProfile({
                     username: data.username || '',
@@ -72,10 +78,10 @@ export default function Profile() {
             }
             setIsLoading(false);
         });
-    }, [user]);
+    }, [id]);
 
     const saveProfile = async () => {
-        if (!user) return;
+        if (!isOwner) return;
         setIsSaving(true);
         const data = await api.put(`/api/profiles/${user.id}`, {
             username: profile.username,
@@ -94,6 +100,7 @@ export default function Profile() {
     };
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isOwner) return;
         const file = e.target.files?.[0];
         if (!file || !user) return;
 
@@ -104,14 +111,10 @@ export default function Profile() {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            // Upload the image to your backend
             const uploadRes = await api.upload('/api/upload/avatar/', formData);
 
             if (uploadRes.avatar_url) {
-                // Update local state immediately so the user sees it
                 setProfile(prev => ({ ...prev, avatar_url: uploadRes.avatar_url }));
-
-                // Save it to the database so it persists
                 await api.put(`/api/profiles/${user.id}`, {
                     ...profile,
                     avatar_url: uploadRes.avatar_url
@@ -122,11 +125,9 @@ export default function Profile() {
                 setToast({ message: `Upload failed: ${uploadRes.error}`, type: 'error', onClose: () => setToast(null) });
             }
         } catch (error) {
-            console.error('Failed to upload avatar', error);
             setToast({ message: 'Upload failed due to network error.', type: 'error', onClose: () => setToast(null) });
         } finally {
             setIsUploading(false);
-            // Clear the input so the user can upload the same file again if needed
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -368,19 +369,29 @@ export default function Profile() {
                         />
                         <div
                             className="avatar-ring"
-                            onClick={() => !isUploading && fileInputRef.current?.click()}
-                            style={{ opacity: isUploading ? 0.5 : 1, cursor: isUploading ? 'wait' : 'pointer' }}
+                            onClick={() => isOwner && !isUploading && fileInputRef.current?.click()}
+                            style={{
+                                opacity: isUploading ? 0.5 : 1,
+                                cursor: isOwner ? (isUploading ? 'wait' : 'pointer') : 'default',
+                                boxShadow: isOwner ? '' : '0 0 0 4px #1a1612, 0 0 0 6px #2a2420'
+                            }}
                         >
                             {profile.avatar_url
                                 ? <img src={profile.avatar_url} alt="avatar" />
                                 : initials
                             }
                         </div>
-                        <div className="avatar-hint" style={{ color: isUploading ? '#c87a30' : '#4a3c30' }}>
-                            {isUploading ? 'Uploading...' : 'click to change photo'}
-                        </div>
+
+                        {isOwner && (
+                            <div className="avatar-hint" style={{ color: isUploading ? '#c87a30' : '#4a3c30' }}>
+                                {isUploading ? 'Uploading...' : 'click to change photo'}
+                            </div>
+                        )}
+
                         <div className="sidebar-username">@{profile.username || 'climber'}</div>
-                        <div className="sidebar-email">{user?.email}</div>
+
+                        {isOwner && <div className="sidebar-email">{user?.email}</div>}
+
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
                             {profile.title.map(t => (
                                 <span key={t} className={`title-badge ${t === 'Council' ? 'badge-council' : 'badge-associate'}`}>{t}</span>
@@ -397,22 +408,28 @@ export default function Profile() {
                     <div className="profile-main">
                         <div>
                             <div className="section-title">Your Profile</div>
-                            <div style={{ fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>How the community sees you</div>
+                            <div style={{ fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
+                                {isOwner ? 'How the community sees you' : 'Palabatu Community Member'}
+                            </div>
                         </div>
 
                         {/* Basic Info */}
                         <div className="field-group">
-                            <div>
-                                <div className="field-label">Email</div>
-                                <input className="field-input" value={user?.email || ''} readOnly />
-                            </div>
+                            {isOwner && (
+                                <div>
+                                    <div className="field-label">Email</div>
+                                    <input className="field-input" value={user?.email || ''} readOnly />
+                                </div>
+                            )}
                             <div>
                                 <div className="field-label">Username</div>
                                 <input
                                     className="field-input"
                                     value={profile.username}
-                                    onChange={e => setProfile({ ...profile, username: e.target.value })}
+                                    onChange={e => isOwner && setProfile({ ...profile, username: e.target.value })}
                                     placeholder="your username"
+                                    readOnly={!isOwner}
+                                    style={{ cursor: isOwner ? 'text' : 'default' }}
                                 />
                             </div>
                         </div>
@@ -427,11 +444,13 @@ export default function Profile() {
                                             key={t}
                                             className={`title-opt ${profile.title.includes(t) ? (t === 'Council' ? 'active-council' : 'active-associate') : ''}`}
                                             onClick={() => {
+                                                if (!isOwner) return;
                                                 const titles = profile.title.includes(t)
                                                     ? profile.title.filter(x => x !== t)
                                                     : [...profile.title, t];
                                                 setProfile({ ...profile, title: titles });
                                             }}
+                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && !profile.title.includes(t)) ? 0.3 : 1 }}
                                         >{t}</button>
                                     ))}
                                 </div>
@@ -447,7 +466,10 @@ export default function Profile() {
                                         <button
                                             key={l}
                                             className={`level-opt ${profile.tags.level === l ? 'active' : ''}`}
-                                            onClick={() => setProfile({ ...profile, tags: { ...profile.tags, level: l } })}
+                                            onClick={() =>
+                                                isOwner &&
+                                                setProfile({ ...profile, tags: { ...profile.tags, level: l } })}
+                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && profile.tags.level !== l) ? 0.3 : 1 }}
                                         >{l}</button>
                                     ))}
                                 </div>
@@ -460,24 +482,28 @@ export default function Profile() {
                                             key={s}
                                             className={`style-chip ${profile.tags.styles.includes(s) ? 'active' : ''}`}
                                             onClick={() => {
+                                                if (!isOwner) return;
                                                 const styles = profile.tags.styles.includes(s)
                                                     ? profile.tags.styles.filter(x => x !== s)
                                                     : [...profile.tags.styles, s];
                                                 setProfile({ ...profile, tags: { ...profile.tags, styles } });
                                             }}
+                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && !profile.tags.styles.includes(s)) ? 0.3 : 1 }}
                                         >{s}</button>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        <button
-                            className={`save-btn ${saved ? 'saved' : ''}`}
-                            onClick={saveProfile}
-                            disabled={isSaving}
-                        >
-                            {isSaving ? 'Saving...' : saved ? '✓ Saved' : 'Save Changes'}
-                        </button>
+                        {isOwner && (
+                            <button
+                                className={`save-btn ${saved ? 'saved' : ''}`}
+                                onClick={saveProfile}
+                                disabled={isSaving}
+                            >
+                                {isSaving ? 'Saving...' : saved ? '✓ Saved' : 'Save Changes'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

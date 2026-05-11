@@ -37,7 +37,8 @@ router.get('/problems', async (req, res) => {
     }
 });
 
-router.get('/profiles/:id', requireAuth, async (req, res) => {
+// get profile by user id
+router.get('/profiles/:id', async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT * FROM profiles WHERE id = $1', [req.params.id]);
         if (!rows[0]) return res.json(null);
@@ -254,11 +255,11 @@ router.post('/problems/:id/send', requireAuth, async (req, res) => {
     }
 });
 
-// --- COMMENTS ---
+// GET: Fetch all comments for a specific problem
 router.get('/problems/:id/comments', async (req, res) => {
     try {
         const { rows } = await pool.query(`
-            SELECT c.id, c.content, c.created_at, p.username 
+            SELECT c.id, c.content, c.created_at, p.username, c.user_id 
             FROM comments c
             JOIN profiles p ON c.user_id = p.id
             WHERE c.problem_id = $1
