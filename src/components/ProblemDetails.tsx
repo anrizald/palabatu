@@ -229,53 +229,55 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     <div style={{ marginTop: '32px', borderTop: '1px solid #2a2420', paddingTop: '24px' }}>
                         <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: '#f0e0c8', marginBottom: '16px' }}>Beta & Comments</h3>
 
+                        {/* Input Area */}
                         {user ? (
-
-                            {/* Input Area */ }
                             < div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                        <input
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
-                            placeholder="Share your beta..."
-                            style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
-                        />
-                        <button
-                            onClick={handlePostComment}
-                            disabled={isPostingComment || !newComment.trim()}
-                            style={{
-                                background: '#2a2420', color: '#c87a30', border: 'none',
-                                padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
-                                cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                                opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
-                            }}>
-                            {isPostingComment ? '...' : 'Post'}
-                        </button>
-                    </div>
-
-                    {/* Comments */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {comments.length === 0 ? (
-                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
+                                <input
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+                                    placeholder="Share your beta..."
+                                    style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
+                                />
+                                <button
+                                    onClick={handlePostComment}
+                                    disabled={isPostingComment || !newComment.trim()}
+                                    style={{
+                                        background: '#2a2420', color: '#c87a30', border: 'none',
+                                        padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
+                                        cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                                        opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
+                                    }}>
+                                    {isPostingComment ? '...' : 'Post'}
+                                </button>
+                            </div>
                         ) : (
-                            comments.map(comment => (
-                                <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
-                                            @{comment.username}
-                                        </Link>
-                                        <span style={{ color: '#6a5848', fontSize: '11px' }}>
-                                            {new Date(comment.created_at).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                    <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
-                                </div>
-                            ))
+                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>Log in to comment!</div>
                         )}
+
+                        {/* Comments */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {comments.length === 0 ? (
+                                <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
+                            ) : (
+                                comments.map(comment => (
+                                    <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
+                                                @{comment.username}
+                                            </Link>
+                                            <span style={{ color: '#6a5848', fontSize: '11px' }}>
+                                                {new Date(comment.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         </div >
-    );
+    )
 }
