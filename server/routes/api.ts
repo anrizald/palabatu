@@ -75,11 +75,11 @@ router.put('/profiles/:id', requireAuth, async (req, res) => {
 
 router.post('/problems', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
-    const titles = await getUserTitles(userId);
+    // const titles = await getUserTitles(userId);
 
-    if (!titles.includes('Council') && !titles.includes('Founder')) {
-        return res.status(403).json({ error: 'Only users with the title "Council" or "Founder" can add problems' });
-    }
+    // if (!titles.includes('Council') && !titles.includes('Founder')) {
+    //     return res.status(403).json({ error: 'Only users with the title "Council" or "Founder" can add problems' });
+    // }
 
     const { name, grade, location, lat, lng, image_urls } = req.body;
     try {

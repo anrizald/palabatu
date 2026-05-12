@@ -52,10 +52,11 @@ export default function Landing() {
             <div className="landing-wrap">
                 {/* Hero */}
                 <section style={{
-                    height: '100vh', width: '100%', scrollSnapAlign: 'start',
+                    minHeight: '100vh', width: '100%', scrollSnapAlign: 'start',
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    padding: '0 24px', textAlign: 'center'
+                    padding: '80px 24px 40px', textAlign: 'center',
+                    boxSizing: 'border-box'
                 }}>
                     <img
                         src="/favicon_transparent.png"
@@ -152,10 +153,11 @@ export default function Landing() {
 
                 {/* About */}
                 <section style={{
-                    height: '100vh', scrollSnapAlign: 'start',
+                    minHeight: '100vh', scrollSnapAlign: 'start',
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    padding: '0 24px', textAlign: 'center'
+                    padding: '80px 24px 40px', textAlign: 'center',
+                    boxSizing: 'border-box'
                 }}>
                     <h1 style={{
                         fontFamily: "'Playfair Display', serif",

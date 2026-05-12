@@ -10,6 +10,7 @@ import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 
+const MAX_ZOOM = 18
 function LocateMeButton() {
     const map = useMap();
     const [isLocating, setIsLocating] = useState(false);
@@ -19,11 +20,12 @@ function LocateMeButton() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
-                map.flyTo([latitude, longitude], 20, { duration: 1.5 });
+                map.flyTo([latitude, longitude], MAX_ZOOM, { duration: 1.5 });
                 setIsLocating(false);
             },
             (err) => {
                 console.error("GPS Error:", err);
+                // to do : change to Toast()
                 alert("Could not find your location. Please check your browser's location permissions.");
                 setIsLocating(false);
             },
@@ -92,7 +94,8 @@ export default function MapPage() {
         }
     }, [user])
 
-    const canAdd = userTitles.includes('Council') || userTitles.includes('Associate');
+    // const canAdd = userTitles.includes('Council') || userTitles.includes('Associate');
+    const canAdd = !!user;
 
     useEffect(() => {
         async function fetchProblems() {
@@ -136,6 +139,7 @@ export default function MapPage() {
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
                 />
                 <MapFlyTo />
+                <LocateMeButton />
                 <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
                 {showModal && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
@@ -147,7 +151,6 @@ export default function MapPage() {
 
             {canAdd && (
                 <img
-
                     src="/plus_button.png"
                     alt="Add Problem"
                     onClick={handleFAB}
@@ -308,7 +311,7 @@ function MapFlyTo() {
         const lng = searchParams.get('lng');
 
         if (lat && lng) {
-            map.flyTo([parseFloat(lat), parseFloat(lng)], 18, { duration: 1.5 });
+            map.flyTo([parseFloat(lat), parseFloat(lng)], MAX_ZOOM, { duration: 1.5 });
         }
     }, [map, searchParams]);
 
