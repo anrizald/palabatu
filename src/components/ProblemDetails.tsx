@@ -135,6 +135,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         try {
             const data = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
             if (data.error) {
+                // to do : change to Toast()
                 alert(data.error);
             } else {
                 // Instantly add the new comment to the list so it updates on screen!
@@ -143,6 +144,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             }
         } catch (e) {
             console.error(e);
+            // to do : change to Toast()
             alert('Failed to post comment. Are you logged in?');
         } finally {
             setIsPostingComment(false);

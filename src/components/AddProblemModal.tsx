@@ -19,7 +19,6 @@ type Props = {
 export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
     useMapEvents({
         click(e: LeafletMouseEvent) {
-            console.log('map clicked', e.latlng)
             onPick(e.latlng.lat, e.latlng.lng)
         }
     })
@@ -31,8 +30,8 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
 
     const handleSubmit = async () => {
         if (!newProblem.name || newProblem.lat === null || newProblem.lng === null) {
-            alert('Please fill in name and pick a location on the map');
             // show toast instead alert
+            alert('Please fill in name and pick a location on the map');
             return;
         }
         setIsSubmitting(true);

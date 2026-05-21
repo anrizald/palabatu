@@ -60,7 +60,6 @@ export default function Profile() {
 
         api.get(`/api/profiles/${id}`).then(data => {
             if (data && !data.error) {
-                console.log('title from DB:', data.title, typeof data.title);
                 setProfile({
                     username: data.username || '',
                     title: Array.isArray(data.title)
