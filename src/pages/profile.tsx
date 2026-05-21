@@ -45,15 +45,12 @@ export default function Profile() {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
-            // window.location.href = '/login';
             setUser(null);
             return;
         }
         api.get('/auth/session').then(data => {
             if (!data.error) {
                 setUser(data.user);
-                // window.location.href = '/login';
-                // return;
             }
         });
     }, []);
@@ -134,7 +131,7 @@ export default function Profile() {
 
     if (isLoading) return (
         <div style={{ minHeight: '100vh', background: '#0f0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ color: '#8a7060', fontFamily: 'Georgia, serif', letterSpacing: '0.1em' }}>Loading profile...</div>
+            <div style={{ color: '#8a7060', fontFamily: 'Playfair Display, serif', letterSpacing: '0.1em' }}>Loading profile...</div>
         </div>
     );
 
