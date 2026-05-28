@@ -1,11 +1,22 @@
-import { useState } from 'react'
 import { api } from '../lib/api.js'
+import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem } from '../types/problem.js'
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js'
 
-const GRADES = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10']
+const GRADE_SCALES = {
+    boulder: {
+        'V-Scale': ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13', 'V14', 'V15'],
+        'Font': ['4', '4+', '5', '5+', '6A', '6A+', '6B', '6B+', '6C', '6C+', '7A', '7A+', '7B', '7B+', '7C', '7C+', '8A', '8A+', '8B', '8B+', '8C'],
+    },
+    rope: {
+        'YDS': ['5.5', '5.6', '5.7', '5.8', '5.9', '5.10a', '5.10b', '5.10c', '5.10d', '5.11a', '5.11b', '5.11c', '5.11d', '5.12a', '5.12b', '5.12c', '5.12d', '5.13a', '5.13b', '5.13c', '5.13d'],
+        'French': ['5', '5+', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a', '8a+', '8b', '8b+', '8c', '8c+'],
+    }
+}
+
+type ProblemType = 'boulder' | 'rope'
 
 type Props = {
     onClose: () => void
@@ -27,6 +38,59 @@ export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) 
 
 export default function AddProblemModal({ onClose, onAdded, newProblem, setNewProblem, isPicking, setIsPicking }: Props) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // Grade state
+    const [problemType, setProblemType] = useState<ProblemType>('boulder')
+    const [gradeScale, setGradeScale] = useState<string>('V-Scale')
+    const [isRange, setIsRange] = useState(false)
+    const [gradeFrom, setGradeFrom] = useState('')
+    const [gradeTo, setGradeTo] = useState('')
+
+    // const grades = GRADE_SCALES[problemType][gradeScale as keyof typeof GRADE_SCALES[typeof problemType]]
+    const currentScales = GRADE_SCALES[problemType] as Record<string, string[]>;
+    const grades: string[] = currentScales[gradeScale] || [];
+
+    // Reset scale when type changes
+    useEffect(() => {
+        const defaultScale = problemType === 'boulder' ? 'V-Scale' : 'YDS'
+        setGradeScale(defaultScale)
+        setGradeFrom('')
+        setGradeTo('')
+        setNewProblem({ ...newProblem, grade: '' })
+    }, [problemType])
+
+    // Reset grades when scale changes
+    useEffect(() => {
+        setGradeFrom('')
+        setGradeTo('')
+        setNewProblem({ ...newProblem, grade: '' })
+    }, [gradeScale])
+
+    // Sync grade string to newProblem
+    useEffect(() => {
+        if (!gradeFrom) return
+        const gradeStr = isRange && gradeTo ? `${gradeFrom}-${gradeTo}` : gradeFrom
+        setNewProblem({ ...newProblem, grade: gradeStr })
+    }, [gradeFrom, gradeTo, isRange])
+
+    const handleGradePick = (g: string) => {
+        if (!isRange) {
+            setGradeFrom(g)
+            setGradeTo('')
+            return
+        }
+        // Range: pick from first, then to
+        if (!gradeFrom || (gradeFrom && gradeTo)) {
+            setGradeFrom(g)
+            setGradeTo('')
+        } else {
+            // Enforce order: from must be lower index than to
+            const fromIdx = grades.indexOf(gradeFrom)
+            const toIdx = grades.indexOf(g)
+            if (toIdx > fromIdx) setGradeTo(g)
+            else { setGradeFrom(g); setGradeTo('') } // restart if picked lower
+        }
+    }
 
     const handleSubmit = async () => {
         if (!newProblem.name || newProblem.lat === null || newProblem.lng === null) {
@@ -70,6 +134,17 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em',
         textTransform: 'uppercase' as const, marginBottom: '6px'
     }
+
+    const segmentBtn = (active: boolean) => ({
+        flex: 1, padding: '7px 0', fontSize: '12px', cursor: 'pointer',
+        fontFamily: "'DM Sans', sans-serif",
+        background: active ? 'rgba(200,122,48,0.15)' : 'transparent',
+        border: 'none',
+        color: active ? '#c87a30' : '#6a5848',
+        fontWeight: active ? 700 : 400,
+        transition: 'all 0.2s',
+        borderRadius: '8px'
+    })
 
     if (isPicking) {
         return (
@@ -182,19 +257,65 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                     {/* Grade */}
                     <div>
                         <div style={labelStyle}>Grade</div>
+
+                        {/* Problem Type toggle */}
+                        <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                            {(['boulder', 'rope'] as ProblemType[]).map(t => (
+                                <button key={t} onClick={() => setProblemType(t)} style={segmentBtn(problemType === t)}>
+                                    {t === 'boulder' ? '🪨 Boulder' : '🧗 Rope'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Scale toggle */}
+                        <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                            {Object.keys(GRADE_SCALES[problemType]).map(scale => (
+                                <button key={scale} onClick={() => setGradeScale(scale)} style={segmentBtn(gradeScale === scale)}>
+                                    {scale}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Range toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '12px', color: '#6a5848' }}>
+                                {isRange
+                                    ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
+                                    : newProblem.grade ? `Selected: ${newProblem.grade}` : 'Pick a grade'}
+                            </span>
+                            <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo('') }}
+                                style={{
+                                    fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
+                                    background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
+                                    border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
+                                    color: isRange ? '#c87a30' : '#6a5848',
+                                    fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s'
+                                }}>
+                                ⇔ Range
+                            </button>
+                        </div>
+
+                        {/* Grade pills */}
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {GRADES.map(g => (
-                                <button key={g} onClick={() => setNewProblem({ ...newProblem, grade: g })}
-                                    style={{
+                            {grades.map(g => {
+                                const isFrom = g === gradeFrom
+                                const isTo = g === gradeTo
+                                const inRange = isRange && gradeFrom && gradeTo
+                                    ? grades.indexOf(g) > grades.indexOf(gradeFrom) && grades.indexOf(g) < grades.indexOf(gradeTo)
+                                    : false
+                                const active = isFrom || isTo || inRange
+
+                                return (
+                                    <button key={g} onClick={() => handleGradePick(g)} style={{
                                         padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
                                         fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                                        background: newProblem.grade === g ? 'rgba(200,122,48,0.12)' : 'transparent',
-                                        border: newProblem.grade === g ? '1px solid #c87a30' : '1px solid #2a2420',
-                                        color: newProblem.grade === g ? '#c87a30' : '#6a5848',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >{g}</button>
-                            ))}
+                                        background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
+                                        border: active ? '1px solid #c87a30' : '1px solid #2a2420',
+                                        color: active ? '#c87a30' : '#6a5848',
+                                        transition: 'all 0.15s'
+                                    }}>{g}</button>
+                                )
+                            })}
                         </div>
                     </div>
 

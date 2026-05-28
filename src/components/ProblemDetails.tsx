@@ -23,7 +23,11 @@ type Comment = {
 export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate }: ProblemDetailsProps) {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState({ name: problem.name, grade: problem.grade });
+    const [editForm, setEditForm] = useState({
+        name: problem.name,
+        grade: problem.grade,
+        location_name: problem.location_name
+    });
     const [isProcessing, setIsProcessing] = useState(false);
 
     const isCreator = user && user.id === problem.created_by;
@@ -224,6 +228,64 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                             <button onClick={() => setIsEditing(true)} style={{ flex: 1, padding: '8px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Edit Details</button>
                             <button onClick={handleDelete} disabled={isProcessing} style={{ flex: 1, padding: '8px', background: 'rgba(220, 53, 69, 0.1)', border: '1px solid rgba(220, 53, 69, 0.4)', color: '#dc3545', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
+                        </div>
+                    )}
+
+                    {/* Edit Form */}
+                    {isEditing && (
+                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                            {/* Name */}
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Problem Name</div>
+                                <input
+                                    value={editForm.name}
+                                    onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                    placeholder="e.g. Slab Mantap"
+                                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            {/* Grade */}
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grade</div>
+                                <input
+                                    value={editForm.grade}
+                                    onChange={e => setEditForm(prev => ({ ...prev, grade: e.target.value }))}
+                                    placeholder="e.g. V4"
+                                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            {/* Location */}
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location Name</div>
+                                <input
+                                    value={editForm.location_name}
+                                    onChange={e => setEditForm(prev => ({ ...prev, location_name: e.target.value }))}
+                                    placeholder="e.g. Parang, Jawa Barat"
+                                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            {/* Pinpoint */}
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location on Map</div>
+                                <div style={{ padding: '10px 14px', background: 'rgba(93,187,106,0.1)', border: '1px solid #5dbb6a', borderRadius: '10px', color: '#5dbb6a', fontSize: '13px' }}>
+                                    📍 {problem.lat?.toFixed(4)}, {problem.lng?.toFixed(4)}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#6a5848', fontStyle: 'italic', marginTop: '4px' }}>Pinpoint editing coming soon</div>
+                            </div>
+
+                            {/* Actions */}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={handleSave} disabled={isProcessing} style={{ flex: 1, padding: '8px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+                                    {isProcessing ? 'Saving...' : 'Save'}
+                                </button>
+                                <button onClick={() => setIsEditing(false)} style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid #2a2420', color: '#8a7060', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     )}
 
