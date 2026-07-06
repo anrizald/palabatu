@@ -21,7 +21,7 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 - **Auth UI:** Supabase Auth UI (pre-built components)
 - **Animation Tool:** Rive.js for interactive animations
 
-### Backend
+### Backend (live, `palabatu-be/`)
 - **Runtime:** Node.js
 - **Server:** Express 5.2.1
 - **Language:** TypeScript
@@ -31,6 +31,15 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 - **Email:** Nodemailer 8.0.7
 - **CORS:** Enabled for client requests
 - **File Upload:** Multer 2.1.1, Cloudinary integration
+
+### Backend rewrite (WIP, `palabatu-be-go/`)
+- **Language:** Go
+- **Router:** chi (`go-chi/chi/v5`)
+- **Database:** PostgreSQL via `jackc/pgx/v5` (`pgxpool`), no ORM
+- **Auth:** JWT via `golang-jwt/jwt/v5`
+- **CORS:** `go-chi/cors`
+- **Env loading:** `joho/godotenv`
+- **Status:** routing/middleware skeleton only, no endpoints ported yet; not deployed. Being built incrementally alongside the live Node backend.
 
 ### DevTools
 - **Frontend Linting:** ESLint with React hooks/refresh plugins
@@ -84,7 +93,7 @@ kepalabatu/
 │   ├── eslint.config.ts
 │   └── package.json
 │
-├── palabatu-be/                # Express backend (independent npm project)
+├── palabatu-be/                # Express backend (independent npm project) — live, serves production
 │   ├── index.ts
 │   ├── db/
 │   │   └── client.ts           # PostgreSQL connection
@@ -97,6 +106,34 @@ kepalabatu/
 │   │   └── auth.ts             # Auth endpoints
 │   ├── tsconfig.json
 │   └── package.json
+│
+├── palabatu-be-go/              # Go backend rewrite (independent Go module) — WIP, not deployed
+│   ├── cmd/
+│   │   └── api/
+│   │       └── main.go         # entrypoint: env load, DB connect, router mount, listen
+│   ├── internal/
+│   │   ├── db/
+│   │   │   └── db.go           # pgxpool connection
+│   │   ├── httpx/
+│   │   │   └── json.go         # shared WriteJSON/DecodeJSON helpers
+│   │   ├── mailer/
+│   │   │   └── mailer.go       # Resend SMTP sender
+│   │   ├── middleware/
+│   │   │   └── auth.go         # JWT verification (RequireAuth)
+│   │   ├── handler/            # HTTP routers, mirrors palabatu-be/routes/*.ts
+│   │   │   ├── api.go          # /api — still an empty stub
+│   │   │   └── auth.go         # /auth — fully ported
+│   │   ├── service/
+│   │   │   └── auth.go         # auth business logic — ported
+│   │   └── repository/
+│   │       └── user.go         # `users` table queries — ported
+│   ├── environments/
+│   │   └── .env.example
+│   └── go.mod
+│
+├── migrations/                  # golang-migrate-style SQL, applied via the `migrate` CLI
+│   ├── 0001_init.up.sql         # schema captured from the live Neon DB (users/profiles/problems/sends/comments, all uuid PKs)
+│   └── 0001_init.down.sql       # drops all 5 tables, in FK-safe order
 │
 ├── README.md
 └── project-overview.md
@@ -164,6 +201,11 @@ type ProblemRow = {
 ### Backend
 - `npm run dev` - ts-node-dev with auto-restart (port 3001)
 
+### Backend rewrite (Go, WIP)
+- `go run ./cmd/api` - run the server (port 3001 by default)
+- `go build ./cmd/api` - compile a binary
+- `go vet ./...` - static checks
+
 ---
 
 ## Environment Variables
@@ -178,6 +220,9 @@ type ProblemRow = {
 - Cloudinary credentials
 - CORS allowed origins
 
+### Backend rewrite (.env), Go
+- Same variable names as the Node backend's `.env` (see `palabatu-be-go/environments/.env.example`)
+
 ---
 
 ## Current Status & Notes
@@ -186,6 +231,7 @@ type ProblemRow = {
 - **PWA Support:** Configured but may need manifest adjustments
 - **Image Hosting:** Cloudinary integrated for problem photos
 - **Email:** Nodemailer configured for verification & password reset
+- **Go backend rewrite:** in progress in `palabatu-be-go/`, built incrementally alongside the live Node backend, layered as handler → service → repository. Auth (`/auth/*`: signup, signin, session, verify-email, forgot-password, reset-password) is fully ported; `/api/*` (problems/sends/comments) is still an empty stub. Not deployed.
 
 ---
 

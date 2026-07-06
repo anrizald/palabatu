@@ -68,6 +68,7 @@ Palabatu is a web-first community platform for the Indonesian bouldering scene. 
 * [![Node.js][Node.js]][Node-url]
 * [![Express][Express]][Express-url]
 * [![PostgreSQL][PostgreSQL]][PostgreSQL-url]
+* [![Go][Go]][Go-url] — backend rewrite in progress, see `palabatu-be-go/`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -143,6 +144,7 @@ ROADMAP
 - [ ] Spot submission by community
 - [ ] Android PWA support
 - [ ] Social features (follows, comments)
+- [ ] Backend rewrite from Node/Express to Go (`palabatu-be-go/`, in progress)
 
 See the [open issues](https://github.com/github_username/palabatu/issues) for a full list of proposed features and known issues.
 
