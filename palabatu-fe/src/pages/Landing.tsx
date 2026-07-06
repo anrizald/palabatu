@@ -44,6 +44,28 @@ export default function Landing() {
         .problem-card:hover { transform: translateY(-4px); border-color: #c87a30; }
         .skeleton { background: #1a1612; border-radius: 6px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+        .about-features {
+            display: flex;
+            width: 100%;
+            max-width: 720px;
+            margin: 40px 0;
+        }
+        .about-feature {
+            flex: 1;
+            padding: 0 28px;
+            border-left: 1px solid #2a2420;
+        }
+        .about-feature:first-child { border-left: none; padding-left: 0; }
+        @media (max-width: 640px) {
+            .about-features { flex-direction: column; margin: 32px 0; }
+            .about-feature {
+                border-left: none;
+                border-top: 1px solid #2a2420;
+                padding: 20px 0 0;
+                margin-top: 20px;
+            }
+            .about-feature:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+        }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #2a2420; border-radius: 4px; }
@@ -164,8 +186,50 @@ export default function Landing() {
                         fontSize: 'clamp(36px, 7vw, 72px)',
                         fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
                     }}>about palabatu</h1>
-                    <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '480px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif" }}>
-                        Lorem Ipsum
+                    <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '520px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif" }}>
+                        Palabatu started as a shared pin-drop between friends chasing sandstone and volcanic
+                        boulders across Java. Now it's the map Indonesian climbers open first — find a spot,
+                        see what's been climbed, and log your own sends on the rock you're actually pulling on.
+                    </p>
+
+                    <div className="about-features">
+                        <div className="about-feature">
+                            <h3 style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+                                color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+                                marginBottom: '8px'
+                            }}>Spot Map</h3>
+                            <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                                Real boulders at real coordinates, added by the climbers who found them.
+                            </p>
+                        </div>
+                        <div className="about-feature">
+                            <h3 style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+                                color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+                                marginBottom: '8px'
+                            }}>Logbook</h3>
+                            <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                                Track every problem you've sent, from your first V0 to your current project.
+                            </p>
+                        </div>
+                        <div className="about-feature">
+                            <h3 style={{
+                                fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+                                color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+                                marginBottom: '8px'
+                            }}>Crew</h3>
+                            <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                                Follow climbers, see who's active at your local spot, build your name.
+                            </p>
+                        </div>
+                    </div>
+
+                    <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif" }}>
+                        No gym membership, no gatekeeping — just the rock and the people who show up for it.{' '}
+                        <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
+                            Create your profile
+                        </Link>
                     </p>
                 </section>
 
