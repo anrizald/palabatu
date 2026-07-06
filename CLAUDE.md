@@ -104,9 +104,22 @@ palabatu-be-go/
 │   ├── middleware/auth.go   # RequireAuth (JWT) + UserFromContext, mirrors middleware/auth.ts
 │   ├── handler/             # HTTP layer: parses requests, calls service — mirrors routes/*.ts
 │   │   ├── auth.go          # AuthRouter(), mounted at /auth — fully ported (signup/signin/session/verify-email/forgot-password/reset-password)
-│   │   └── api.go           # APIRouter(), mounted at /api — still an empty stub
-│   ├── service/auth.go      # auth business logic, called by handler/auth.go — ported
-│   └── repository/user.go   # `users` table queries, called by service/auth.go — ported
+│   │   ├── api.go           # APIRouter(), mounted at /api — router wiring only
+│   │   ├── problem.go       # /problems handlers (list/create/update/delete) — ported
+│   │   ├── profile.go       # /profiles handlers (get/upsert) — ported
+│   │   └── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers — ported
+│   ├── service/
+│   │   ├── auth.go          # auth business logic, called by handler/auth.go — ported
+│   │   ├── problem.go       # problem CRUD + isCreator||isCouncil authorization — ported
+│   │   ├── profile.go       # profile get/upsert — ported
+│   │   ├── send.go          # send toggle/status — ported
+│   │   └── comment.go       # comment list/create — ported
+│   └── repository/
+│       ├── user.go          # `users` table queries, called by service/auth.go — ported
+│       ├── problem.go       # `problems` table queries — ported
+│       ├── profile.go       # `profiles` table queries + GetUserTitles() — ported
+│       ├── send.go          # `sends` table queries — ported
+│       └── comment.go       # `comments` table queries — ported
 ```
 
 - Layering convention: `handler` → `service` → `repository` → `internal/db`. Handlers should stay thin (request parsing + response writing); business rules belong in `service`; raw SQL belongs in `repository`.
@@ -115,7 +128,9 @@ palabatu-be-go/
 - `repository.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing from `palabatu-be/routes/auth.ts`, since `palabatu-fe`'s `AuthContext.tsx` displays `data.error` directly in a toast — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
 - `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400), matching a quirk in the original Node code (its catch-all doesn't distinguish a unique-constraint violation from other DB errors) — preserved faithfully rather than fixed silently.
-- `internal/api` (problems/sends/comments) is not ported yet — `handler.APIRouter()` is still an empty stub.
+- `/api` is ported except image uploads: `POST /upload/topo` and `POST /upload/avatar` still need the Cloudinary Go SDK, and `service.DeleteProblem` deletes the DB row but doesn't yet destroy the problem's Cloudinary images (the Node route derives the `public_id` from the stored URL to do this) — both land together with the upload port.
+- `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`, and it mirrors the Node helper's try/catch — any non-array or missing profile yields `[]` rather than an error.
+- The commented-out Council/Founder title check on Node's `POST /problems` is preserved as a no-op (not enforced) in `service.CreateProblem`, for behavior parity — revisit if that gate should actually be turned on.
 
 ## Known WIP rough edges
 
