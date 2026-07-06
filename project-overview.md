@@ -43,59 +43,63 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 
 ```
 kepalabatu/
-├── src/                      # React frontend
-│   ├── components/           # React components
-│   │   ├── AddProblemModal.tsx
-│   │   ├── Auth.tsx
-│   │   ├── Header.tsx
-│   │   ├── Footer.tsx
-│   │   ├── ProblemDetails.tsx
-│   │   ├── ProblemList.tsx
-│   │   ├── HorizontalScrollCarousel.tsx
-│   │   ├── PinpointMarker.tsx
-│   │   └── Toast.tsx
-│   ├── pages/                # Page components
-│   │   ├── Landing.tsx
-│   │   ├── Map.tsx
-│   │   ├── Login.tsx
-│   │   ├── Signup.tsx
-│   │   ├── Auth.tsx
-│   │   ├── ForgotPassword.tsx
-│   │   ├── ResetPassword.tsx
-│   │   ├── VerifyEmail.tsx
-│   │   └── profile.tsx
-│   ├── lib/
-│   │   ├── api.ts            # API client with JWT auth
-│   │   ├── AuthContext.tsx    # Auth state management
-│   │   └── constants.ts
-│   ├── types/
-│   │   └── problem.ts
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── assets/
+├── palabatu-fe/               # React frontend (independent npm project)
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   │   ├── AddProblemModal.tsx
+│   │   │   ├── Auth.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── ProblemDetails.tsx
+│   │   │   ├── ProblemList.tsx
+│   │   │   ├── HorizontalScrollCarousel.tsx
+│   │   │   ├── PinpointMarker.tsx
+│   │   │   └── Toast.tsx
+│   │   ├── pages/              # Page components
+│   │   │   ├── Landing.tsx
+│   │   │   ├── Map.tsx
+│   │   │   ├── Login.tsx
+│   │   │   ├── Signup.tsx
+│   │   │   ├── Auth.tsx
+│   │   │   ├── ForgotPassword.tsx
+│   │   │   ├── ResetPassword.tsx
+│   │   │   ├── VerifyEmail.tsx
+│   │   │   └── profile.tsx
+│   │   ├── lib/
+│   │   │   ├── api.ts          # API client with JWT auth
+│   │   │   ├── AuthContext.tsx # Auth state management
+│   │   │   └── constants.ts
+│   │   ├── types/
+│   │   │   └── problem.ts
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── assets/
+│   ├── public/                 # Static assets & PWA manifest
+│   │   ├── index.html
+│   │   ├── manifest.json
+│   │   └── icons/
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   ├── eslint.config.ts
+│   └── package.json
 │
-├── server/                   # Express backend
+├── palabatu-be/                # Express backend (independent npm project)
 │   ├── index.ts
 │   ├── db/
-│   │   └── client.ts         # PostgreSQL connection
+│   │   └── client.ts           # PostgreSQL connection
 │   ├── lib/
-│   │   └── mailer.ts         # Email with Nodemailer
+│   │   └── mailer.ts           # Email with Nodemailer
 │   ├── middleware/
-│   │   └── auth.ts           # JWT verification
-│   └── routes/
-│       ├── api.ts            # Problem CRUD endpoints
-│       └── auth.ts           # Auth endpoints
+│   │   └── auth.ts             # JWT verification
+│   ├── routes/
+│   │   ├── api.ts              # Problem CRUD endpoints
+│   │   └── auth.ts             # Auth endpoints
+│   ├── tsconfig.json
+│   └── package.json
 │
-├── public/                   # Static assets & PWA manifest
-│   ├── index.html
-│   ├── manifest.json
-│   └── icons/
-│
-├── vite.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── eslint.config.ts
-└── package.json
+├── README.md
+└── project-overview.md
 ```
 
 ---

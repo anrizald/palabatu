@@ -2,7 +2,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/github_username/palabatu">
-    <img src="public/favicon_transparent.png" alt="Logo" width="80" height="80">
+    <img src="palabatu-fe/public/favicon_transparent.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Palabatu</h3>
   <p align="center">
@@ -94,19 +94,19 @@ GETTING STARTED
 ```
 2. Install frontend dependencies
 ```sh
-   cd client && npm install
+   cd palabatu-fe && npm install
 ```
 3. Install backend dependencies
 ```sh
-   cd ../server && npm install
+   cd ../palabatu-be && npm install
 ```
-4. Create `.env` in `/server`
+4. Create `.env` in `/palabatu-be`
 ```env
    PORT=5000
    DATABASE_URL=postgresql://user:password@localhost:5432/palabatu
    JWT_SECRET=your_jwt_secret
 ```
-5. Create `.env` in `/client`
+5. Create `.env` in `/palabatu-fe`
 ```env
    VITE_API_URL=http://localhost:5000
 ```
@@ -120,10 +120,10 @@ USAGE
 
 ```sh
 # Start backend
-cd server && npm run dev
+cd palabatu-be && npm run dev
 
 # Start frontend (new terminal)
-cd client && npm run dev
+cd palabatu-fe && npm run dev
 ```
 
 Visit `http://localhost:5173` to open the app locally.
