@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import Toast from '../components/Toast.js';
 import { useAuth } from '../lib/AuthContext.js';
 
@@ -6,6 +7,7 @@ export default function Login() {
     const { handleLogin, isLoading, toast, setToast } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <>
@@ -48,20 +50,35 @@ export default function Login() {
                             onFocus={e => e.target.style.borderColor = '#c87a30'}
                             onBlur={e => e.target.style.borderColor = '#2a2420'}
                         />
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            style={{
-                                background: '#1a1612', border: '1px solid #2a2420',
-                                borderRadius: '10px', padding: '11px 14px',
-                                color: '#d8c8b8', fontFamily: "'DM Sans', sans-serif",
-                                fontSize: '14px', outline: 'none', width: '100%'
-                            }}
-                            onFocus={e => e.target.style.borderColor = '#c87a30'}
-                            onBlur={e => e.target.style.borderColor = '#2a2420'}
-                        />
+                        <div style={{ position: 'relative', width: '100%' }}>
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                style={{
+                                    background: '#1a1612', border: '1px solid #2a2420',
+                                    borderRadius: '10px', padding: '11px 40px 11px 14px',
+                                    color: '#d8c8b8', fontFamily: "'DM Sans', sans-serif",
+                                    fontSize: '14px', outline: 'none', width: '100%'
+                                }}
+                                onFocus={e => e.target.style.borderColor = '#c87a30'}
+                                onBlur={e => e.target.style.borderColor = '#2a2420'}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(v => !v)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                style={{
+                                    position: 'absolute', right: '10px', top: '50%',
+                                    transform: 'translateY(-50%)', background: 'none',
+                                    border: 'none', padding: '4px', cursor: 'pointer',
+                                    color: '#6a5848', display: 'flex', alignItems: 'center'
+                                }}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
                         <a href="/forgot-password" style={{
                             textAlign: 'right', color: '#6a5848',
                             fontSize: '12px', textDecoration: 'none',

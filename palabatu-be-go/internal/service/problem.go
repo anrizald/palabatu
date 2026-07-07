@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 
+	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/repository"
 )
 
@@ -13,10 +15,10 @@ func ListProblems(ctx context.Context) ([]repository.ProblemListItem, error) {
 	return repository.ListProblems(ctx)
 }
 
-// CreateProblem mirrors POST /problems in palabatu-be/routes/api.ts. That
-// route's Council/Founder title check is commented out in the Node source
-// (left disabled, not removed) — preserved here as a no-op for behavior
-// parity; see CLAUDE.md's "Go backend rewrite" notes.
+// CreateProblem intentionally has no role gate: any logged-in user may add a
+// problem for now. (The Node route's commented-out Council/Founder check on
+// POST /problems predates the role model below and is superseded by it, not
+// just left disabled for parity.)
 func CreateProblem(ctx context.Context, createdBy, name, grade, location string, lat, lng float64, imageURLs []string) (*repository.ProblemSummary, error) {
 	return repository.CreateProblem(ctx, name, grade, location, lat, lng, createdBy, imageURLs)
 }
@@ -37,11 +39,11 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade string) (
 	return repository.UpdateProblem(ctx, problemID, name, grade)
 }
 
-// DeleteProblem authorizes and removes a problem row. It does not yet
-// destroy the associated Cloudinary images (unlike the Node route) — that
-// requires the Cloudinary Go SDK, which lands with the image-upload port.
+// DeleteProblem authorizes and removes a problem row, best-effort destroying
+// its Cloudinary images first. A destroy failure is logged but doesn't block
+// the deletion, matching the try/catch-per-image loop in the Node route.
 func DeleteProblem(ctx context.Context, userID, problemID string) error {
-	createdBy, _, err := repository.GetProblemOwnerAndImages(ctx, problemID)
+	createdBy, imageURLs, err := repository.GetProblemOwnerAndImages(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -53,28 +55,42 @@ func DeleteProblem(ctx context.Context, userID, problemID string) error {
 		return err
 	}
 
+	for _, url := range imageURLs {
+		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
+			log.Printf("failed to delete image from Cloudinary: %v", err)
+		}
+	}
+
 	return repository.DeleteProblem(ctx, problemID)
 }
 
-// authorizeProblemEdit implements the isCreator || isCouncil check shared by
-// PUT and DELETE /problems/:id in the Node route.
+// adminTitles are the profiles.title values that grant CRUD privileges on
+// any problem, not just ones the holder created themselves.
+var adminTitles = map[string]bool{"Council": true, "Associate": true}
+
+// authorizeProblemEdit grants CRUD on a problem to two groups: admins (title
+// includes "Council" or "Associate") and that problem's own creator — its
+// "Founder" — who may only edit/delete the problem(s) they added. This
+// supersedes the Node route's isCreator||isCouncil check, which only
+// recognized "Council" as an elevated role.
 func authorizeProblemEdit(ctx context.Context, userID string, createdBy *string) error {
 	titles, err := repository.GetUserTitles(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	isCreator := createdBy != nil && *createdBy == userID
-	isCouncil := false
+	isFounder := createdBy != nil && *createdBy == userID
+	if isFounder || hasAdminRole(titles) {
+		return nil
+	}
+	return ErrForbidden
+}
+
+func hasAdminRole(titles []string) bool {
 	for _, t := range titles {
-		if t == "Council" {
-			isCouncil = true
-			break
+		if adminTitles[t] {
+			return true
 		}
 	}
-
-	if !isCreator && !isCouncil {
-		return ErrForbidden
-	}
-	return nil
+	return false
 }

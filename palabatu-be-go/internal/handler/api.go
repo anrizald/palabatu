@@ -7,11 +7,8 @@ import (
 )
 
 // APIRouter mounts at /api, mirroring palabatu-be/routes/api.ts. Handlers
-// live in problem.go, profile.go, and interaction.go, delegating business
-// logic to internal/service and data access to internal/repository.
-//
-// Not yet ported: POST /upload/topo and POST /upload/avatar, which need the
-// Cloudinary Go SDK.
+// live in problem.go, profile.go, interaction.go, and upload.go, delegating
+// business logic to internal/service and data access to internal/repository.
 func APIRouter() chi.Router {
 	r := chi.NewRouter()
 
@@ -28,6 +25,9 @@ func APIRouter() chi.Router {
 
 	r.Get("/problems/{id}/comments", handleListComments)
 	r.With(middleware.RequireAuth).Post("/problems/{id}/comments", handleCreateComment)
+
+	r.With(middleware.RequireAuth).Post("/upload/topo", handleUploadTopo)
+	r.With(middleware.RequireAuth).Post("/upload/avatar", handleUploadAvatar)
 
 	return r
 }

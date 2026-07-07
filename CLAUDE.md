@@ -77,6 +77,8 @@ migrate -path migrations -database "$DATABASE_URL" version
 
 **Frontend**: React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Routing is a flat `<Routes>` tree in [palabatu-fe/src/App.tsx](palabatu-fe/src/App.tsx). Pages live in `src/pages/`, shared UI in `src/components/`. Map view (`src/pages/Map.tsx`) uses React Leaflet with marker clustering.
 
+When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component styles), always design for responsiveness — check behavior at mobile widths as well as desktop, not just the viewport you're eyeballing. This app is used as an installable PWA on phones, so mobile is a primary target, not an afterthought.
+
 **Auth**: JWT-based, not Supabase (Supabase Auth UI packages are installed but the actual flow is custom JWT). `src/lib/AuthContext.tsx` provides `user`, `handleLogin`, `handleSignup`, `handleLogout`, and a toast helper; on mount it validates any stored token via `GET /auth/session`. Token is stored in `localStorage` under the key `token`.
 
 **API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly (not a `{ data, error }` envelope — some dead code in `App.tsx`'s unused `Home()` still destructures that shape; don't copy that pattern).
@@ -86,19 +88,20 @@ migrate -path migrations -database "$DATABASE_URL" version
 - `requireAuth` middleware ([palabatu-be/middleware/auth.ts](palabatu-be/middleware/auth.ts)) verifies the JWT and attaches the decoded payload as `req.user` (untyped, cast with `as any` at call sites).
 - No ORM — all queries are hand-written SQL via a raw `pg.Pool` ([palabatu-be/db/client.ts](palabatu-be/db/client.ts)).
 - Core tables: `users`, `profiles`, `problems`, `sends`, `comments` — see [migrations/](migrations/), captured via `pg_dump --schema-only` from the live Neon DB. All primary keys and foreign keys are `uuid`, not integers.
-- Authorization beyond "owns the resource": `profiles.title` stores a JSON array of title strings; `getUserTitles()` in `routes/api.ts` checks for `'Council'` to grant elevated permissions (edit/delete other users' problems).
+- Authorization roles: `profiles.title` stores a JSON array of role strings. `'Council'` is an admin-like role with CRUD privileges on any problem (`getUserTitles()` in `routes/api.ts` checks for it on edit/delete). A problem's own creator also has CRUD on that problem. `'Associate'` as a second admin-like role, and treating creator-privileges as a "Founder of the problem" concept, are new decisions made during the Go rewrite (see below) — not yet reflected here, since this is live production code.
 - Image uploads: `multer` memory storage → streamed to Cloudinary (`kepalabatu_topos` / `kepalabatu_avatars` folders) → the returned `secure_url` is stored (as a JSON array, in `problems.image_urls`). Deleting a problem re-derives the Cloudinary `public_id` from the stored URL to destroy the asset.
 - Email (verification, password reset) goes through `palabatu-be/lib/mailer.ts` via Nodemailer; signup rolls back the created user row if the verification email fails to send.
 
 ## Go backend rewrite (`palabatu-be-go/`, WIP)
 
-A layered Go port of `palabatu-be/`, built incrementally route-by-route while `palabatu-be/` keeps serving production. Uses `chi` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `go-chi/cors` for CORS, `godotenv` for env loading.
+A layered Go port of `palabatu-be/`, built incrementally route-by-route while `palabatu-be/` keeps serving production. Uses `chi` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `go-chi/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads.
 
 ```
 palabatu-be-go/
-├── cmd/api/main.go          # entrypoint: env load, DB connect, router mount, listen
+├── cmd/api/main.go          # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
 ├── internal/
 │   ├── db/db.go             # pgxpool.Pool singleton, mirrors palabatu-be/db/client.ts
+│   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL, mirrors the cloudinary.v2 calls in routes/api.ts
 │   ├── httpx/json.go        # shared WriteJSON/DecodeJSON helpers
 │   ├── mailer/mailer.go     # Resend SMTP sender, mirrors palabatu-be/lib/mailer.ts (no emoji, see global style rule)
 │   ├── middleware/auth.go   # RequireAuth (JWT) + UserFromContext, mirrors middleware/auth.ts
@@ -107,10 +110,11 @@ palabatu-be-go/
 │   │   ├── api.go           # APIRouter(), mounted at /api — router wiring only
 │   │   ├── problem.go       # /problems handlers (list/create/update/delete) — ported
 │   │   ├── profile.go       # /profiles handlers (get/upsert) — ported
-│   │   └── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers — ported
+│   │   ├── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers — ported
+│   │   └── upload.go        # /upload/topo, /upload/avatar handlers — ported
 │   ├── service/
 │   │   ├── auth.go          # auth business logic, called by handler/auth.go — ported
-│   │   ├── problem.go       # problem CRUD + isCreator||isCouncil authorization — ported
+│   │   ├── problem.go       # problem CRUD + admin/Founder authorization, Cloudinary cleanup on delete — ported
 │   │   ├── profile.go       # profile get/upsert — ported
 │   │   ├── send.go          # send toggle/status — ported
 │   │   └── comment.go       # comment list/create — ported
@@ -122,15 +126,22 @@ palabatu-be-go/
 │       └── comment.go       # `comments` table queries — ported
 ```
 
+`/api` is now fully ported, including image uploads — nothing left in `routes/api.ts` that hasn't been carried over to Go.
+
 - Layering convention: `handler` → `service` → `repository` → `internal/db`. Handlers should stay thin (request parsing + response writing); business rules belong in `service`; raw SQL belongs in `repository`.
 - The CORS allowlist in `cmd/api/main.go` intentionally **omits** the literal `"*"` that appears in `palabatu-be/index.ts`'s origin list — in `go-chi/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy noted above (`"*"` is a no-op in the Node `cors` package, so this is a behavior-preserving omission, not a divergence).
 - `GET /session` is wrapped with `middleware.RequireAuth` (via chi's `.With(...)`) instead of duplicating JWT parsing inline like `palabatu-be/routes/auth.ts` does — same secret, same verification, one code path.
 - `repository.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing from `palabatu-be/routes/auth.ts`, since `palabatu-fe`'s `AuthContext.tsx` displays `data.error` directly in a toast — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
 - `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400), matching a quirk in the original Node code (its catch-all doesn't distinguish a unique-constraint violation from other DB errors) — preserved faithfully rather than fixed silently.
-- `/api` is ported except image uploads: `POST /upload/topo` and `POST /upload/avatar` still need the Cloudinary Go SDK, and `service.DeleteProblem` deletes the DB row but doesn't yet destroy the problem's Cloudinary images (the Node route derives the `public_id` from the stored URL to do this) — both land together with the upload port.
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL the same way the Node route does (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `service.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal — matches the Node route's per-image try/catch).
+- Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`, and it mirrors the Node helper's try/catch — any non-array or missing profile yields `[]` rather than an error.
-- The commented-out Council/Founder title check on Node's `POST /problems` is preserved as a no-op (not enforced) in `service.CreateProblem`, for behavior parity — revisit if that gate should actually be turned on.
+- `cmd/api/main.go` runs `chi/v5/middleware.StripSlashes` ahead of every route: Express's default (non-strict) routing treats `/foo` and `/foo/` as the same route, chi doesn't, and `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. Stripping slashes globally matches Node's behavior everywhere instead of special-casing that one route.
+- Problem authorization model (`service.authorizeProblemEdit` in `service/problem.go`), finalized during the Go rewrite and **not yet ported back to live `palabatu-be`**:
+  - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
+  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`service.adminTitles`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added.
+  - `'Associate'` as an admin role is new — live `palabatu-be` only recognizes `'Council'`. Porting this back to Node (a live-production authorization change) hasn't been done; ask before doing so.
 
 ## Known WIP rough edges
 
