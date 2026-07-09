@@ -1,24 +1,27 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext.js';
+import Sidebar from './Sidebar.js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
+    const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+    const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const closeSidebar = () => setIsSidebarOpen(false);
 
-    const onLogoutClick = () => {
-        closeSidebar();
-        handleLogout();
-    };
+    const isMapActive = location.pathname === '/map';
+    const isDirectoryActive = location.pathname === '/directory';
+    const isProfileActive = location.pathname.startsWith('/profile');
 
     return (
         <>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
-                
+
                 .nav-link {
                     font-family: 'DM Sans', sans-serif;
                     font-size: 13px;
@@ -26,9 +29,15 @@ export default function Header() {
                     text-decoration: none;
                     letter-spacing: 0.05em;
                     transition: color 0.2s;
+                    padding-bottom: 4px;
+                    box-shadow: inset 0 -2px 0 0 transparent;
                 }
                 .nav-link:hover { color: #d8c8b8; }
-                
+                .nav-link.active {
+                    color: #f0e0c8;
+                    box-shadow: inset 0 -2px 0 0 #c87a30;
+                }
+
                 .nav-logout {
                     font-family: 'DM Sans', sans-serif;
                     font-size: 13px;
@@ -41,7 +50,7 @@ export default function Header() {
                     padding: 0;
                 }
                 .nav-logout:hover { color: #e07060; }
-                
+
                 .nav-signup {
                     font-family: 'DM Sans', sans-serif;
                     font-size: 13px;
@@ -57,71 +66,31 @@ export default function Header() {
                 }
                 .nav-signup:hover { opacity: 0.85; }
 
-                /* --- NEW RESPONSIVE CLASSES --- */
+                /* --- RESPONSIVE MENU --- */
                 .desktop-menu {
                     display: flex;
                     align-items: center;
                     gap: 20px;
                 }
-                
+
                 .hamburger-btn {
                     display: none;
+                    align-items: center;
+                    justify-content: center;
                     background: none;
                     border: none;
                     color: #f0e0c8;
-                    font-size: 24px;
                     cursor: pointer;
-                    padding: 4px;
+                    padding: 6px;
+                    border-radius: 8px;
+                    transition: background 0.2s;
                 }
-
-                .sidebar-overlay {
-                    position: fixed;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0, 0, 0, 0.6);
-                    backdrop-filter: blur(4px);
-                    z-index: 99;
-                    opacity: 0;
-                    pointer-events: none;
-                    transition: opacity 0.3s ease;
-                }
-                .sidebar-overlay.open {
-                    opacity: 1;
-                    pointer-events: auto;
-                }
-
-                .mobile-sidebar {
-                    position: fixed;
-                    top: 0; right: -280px; /* Hidden off-screen to the right */
-                    bottom: 0;
-                    width: 250px;
-                    background: #141210;
-                    border-left: 1px solid #2a2420;
-                    z-index: 100;
-                    display: flex;
-                    flex-direction: column;
-                    padding: 24px;
-                    transition: right 0.3s ease;
-                    box-shadow: -4px 0 24px rgba(0,0,0,0.5);
-                }
-                .mobile-sidebar.open {
-                    right: 0; /* Slides in! */
-                }
-
-                .mobile-sidebar .nav-link, .mobile-sidebar .nav-logout {
-                    font-size: 16px;
-                    padding: 12px 0;
-                    border-bottom: 1px solid #1e1a16;
-                    text-align: left;
-                }
-                .mobile-sidebar .nav-signup {
-                    margin-top: 12px;
-                    text-align: center;
-                }
+                .hamburger-btn:hover { background: rgba(240,224,200,0.08); }
 
                 /* --- THE BREAKPOINT --- */
                 @media (max-width: 768px) {
                     .desktop-menu { display: none !important; }
-                    .hamburger-btn { display: block; }
+                    .hamburger-btn { display: flex; }
                 }
             `}</style>
 
@@ -153,8 +122,8 @@ export default function Header() {
                 {/* Middle/Right Side: DESKTOP MENU */}
                 <div className="desktop-menu" style={{ gap: '32px' }}>
                     <div style={{ display: 'flex', gap: '20px' }}>
-                        <Link to="/map" className="nav-link">Map</Link>
-                        <Link to="/directory" className="nav-link">Directory</Link>
+                        <Link to="/map" className={`nav-link ${isMapActive ? 'active' : ''}`}>Map</Link>
+                        <Link to="/directory" className={`nav-link ${isDirectoryActive ? 'active' : ''}`}>Directory</Link>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '1px solid #2a2420', paddingLeft: '16px' }}>
@@ -165,7 +134,7 @@ export default function Header() {
                             </>
                         ) : (
                             <>
-                                <Link to={`/profile/${user.id}`} className="nav-link">Profile</Link>
+                                <Link to={`/profile/${user.id}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <button onClick={handleLogout} className="nav-logout">Logout</button>
                             </>
                         )}
@@ -173,40 +142,36 @@ export default function Header() {
                 </div>
 
                 {/* Right Side: MOBILE HAMBURGER ICON */}
-                <button className="hamburger-btn" onClick={toggleSidebar}>
-                    ☰
+                <button className="hamburger-btn" onClick={toggleSidebar} aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}>
+                    <AnimatePresence mode="wait" initial={false}>
+                        {isSidebarOpen ? (
+                            <motion.span
+                                key="close"
+                                style={{ display: 'inline-flex' }}
+                                initial={{ rotate: -90, opacity: 0 }}
+                                animate={{ rotate: 0, opacity: 1 }}
+                                exit={{ rotate: 90, opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <X size={22} />
+                            </motion.span>
+                        ) : (
+                            <motion.span
+                                key="menu"
+                                style={{ display: 'inline-flex' }}
+                                initial={{ rotate: 90, opacity: 0 }}
+                                animate={{ rotate: 0, opacity: 1 }}
+                                exit={{ rotate: -90, opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <Menu size={22} />
+                            </motion.span>
+                        )}
+                    </AnimatePresence>
                 </button>
             </nav>
 
-            {/* --- MOBILE SIDEBAR DRAWER --- */}
-            <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={closeSidebar} />
-
-            <div className={`mobile-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
-                    <button onClick={closeSidebar} style={{ background: 'none', border: 'none', color: '#8a7060', fontSize: '28px', cursor: 'pointer' }}>
-                        &times;
-                    </button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <Link to="/map" className="nav-link" onClick={closeSidebar}>Map</Link>
-                    <Link to="/directory" className="nav-link" onClick={closeSidebar}>Directory</Link>
-
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #2a2420', display: 'flex', flexDirection: 'column' }}>
-                        {!user ? (
-                            <>
-                                <Link to="/login" className="nav-link" onClick={closeSidebar}>Login</Link>
-                                <Link to="/signup" className="nav-signup" onClick={closeSidebar}>Sign Up</Link>
-                            </>
-                        ) : (
-                            <>
-                                <Link to={`/profile/${user.id}`} className="nav-link" onClick={closeSidebar}>Profile</Link>
-                                <button onClick={onLogoutClick} className="nav-logout" style={{ marginTop: '12px' }}>Logout</button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
+            <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
         </>
     );
 }
