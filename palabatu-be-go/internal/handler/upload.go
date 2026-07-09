@@ -3,8 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"palabatu-be/internal/cloudinary"
-	"palabatu-be/internal/httpx"
 )
 
 // maxUploadMemory bounds how much of a multipart upload mime/multipart
@@ -12,32 +13,32 @@ import (
 // limit (multer's memoryStorage has none either, so neither does this).
 const maxUploadMemory = 10 << 20 // 10MB
 
-func handleUploadTopo(w http.ResponseWriter, r *http.Request) {
-	handleUpload(w, r, "image", "kepalabatu_topos", "url")
+func handleUploadTopo(c *gin.Context) {
+	handleUpload(c, "image", "kepalabatu_topos", "url")
 }
 
-func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
-	handleUpload(w, r, "avatar", "kepalabatu_avatars", "avatar_url")
+func handleUploadAvatar(c *gin.Context) {
+	handleUpload(c, "avatar", "kepalabatu_avatars", "avatar_url")
 }
 
-func handleUpload(w http.ResponseWriter, r *http.Request, field, folder, responseKey string) {
-	if err := r.ParseMultipartForm(maxUploadMemory); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid upload"})
+func handleUpload(c *gin.Context, field, folder, responseKey string) {
+	if err := c.Request.ParseMultipartForm(maxUploadMemory); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid upload"})
 		return
 	}
 
-	file, _, err := r.FormFile(field)
+	file, _, err := c.Request.FormFile(field)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
 		return
 	}
 	defer file.Close()
 
-	url, err := cloudinary.UploadStream(r.Context(), file, folder)
+	url, err := cloudinary.UploadStream(c.Request.Context(), file, folder)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Cloudinary upload failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cloudinary upload failed"})
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]string{responseKey: url})
+	c.JSON(http.StatusOK, gin.H{responseKey: url})
 }

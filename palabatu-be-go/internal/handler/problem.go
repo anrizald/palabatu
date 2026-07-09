@@ -4,24 +4,23 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 
-	"palabatu-be/internal/httpx"
 	"palabatu-be/internal/middleware"
 	"palabatu-be/internal/service"
 )
 
-func handleListProblems(w http.ResponseWriter, r *http.Request) {
-	problems, err := service.ListProblems(r.Context())
+func handleListProblems(c *gin.Context) {
+	problems, err := service.ListProblems(c.Request.Context())
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, problems)
+	c.JSON(http.StatusOK, problems)
 }
 
-func handleCreateProblem(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
+func handleCreateProblem(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
 
 	var body struct {
 		Name      string   `json:"name"`
@@ -31,58 +30,58 @@ func handleCreateProblem(w http.ResponseWriter, r *http.Request) {
 		Lng       float64  `json:"lng"`
 		ImageURLs []string `json:"image_urls"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	problem, err := service.CreateProblem(r.Context(), userID, body.Name, body.Grade, body.Location, body.Lat, body.Lng, body.ImageURLs)
+	problem, err := service.CreateProblem(c.Request.Context(), userID, body.Name, body.Grade, body.Location, body.Lat, body.Lng, body.ImageURLs)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, problem)
+	c.JSON(http.StatusOK, problem)
 }
 
-func handleUpdateProblem(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
-	id := chi.URLParam(r, "id")
+func handleUpdateProblem(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
 
 	var body struct {
 		Name  string `json:"name"`
 		Grade string `json:"grade"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	problem, err := service.UpdateProblem(r.Context(), userID, id, body.Name, body.Grade)
+	problem, err := service.UpdateProblem(c.Request.Context(), userID, id, body.Name, body.Grade)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, problem)
+		c.JSON(http.StatusOK, problem)
 	case errors.Is(err, service.ErrNotFound):
-		httpx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "Not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 	case errors.Is(err, service.ErrForbidden):
-		httpx.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "Not authorized to edit this problem."})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this problem."})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }
 
-func handleDeleteProblem(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
-	id := chi.URLParam(r, "id")
+func handleDeleteProblem(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
 
-	err := service.DeleteProblem(r.Context(), userID, id)
+	err := service.DeleteProblem(c.Request.Context(), userID, id)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"success": true})
+		c.JSON(http.StatusOK, gin.H{"success": true})
 	case errors.Is(err, service.ErrNotFound):
-		httpx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "Not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 	case errors.Is(err, service.ErrForbidden):
-		httpx.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "Not authorized to delete this problem."})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this problem."})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }

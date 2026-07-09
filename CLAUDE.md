@@ -94,7 +94,7 @@ When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component st
 
 ## Go backend rewrite (`palabatu-be-go/`, WIP)
 
-A layered Go port of `palabatu-be/`, built incrementally route-by-route while `palabatu-be/` keeps serving production. Uses `chi` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `go-chi/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads.
+A layered Go port of `palabatu-be/`, built incrementally route-by-route while `palabatu-be/` keeps serving production. Uses `gin` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `gin-contrib/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads, `prometheus/client_golang` for metrics.
 
 ```
 palabatu-be-go/
@@ -102,12 +102,13 @@ palabatu-be-go/
 ├── internal/
 │   ├── db/db.go             # pgxpool.Pool singleton, mirrors palabatu-be/db/client.ts
 │   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL, mirrors the cloudinary.v2 calls in routes/api.ts
-│   ├── httpx/json.go        # shared WriteJSON/DecodeJSON helpers
+│   ├── metrics/metrics.go   # Prometheus HTTP request-count/duration middleware, exposed at GET /metrics
 │   ├── mailer/mailer.go     # Resend SMTP sender, mirrors palabatu-be/lib/mailer.ts (no emoji, see global style rule)
-│   ├── middleware/auth.go   # RequireAuth (JWT) + UserFromContext, mirrors middleware/auth.ts
-│   ├── handler/             # HTTP layer: parses requests, calls service — mirrors routes/*.ts
-│   │   ├── auth.go          # AuthRouter(), mounted at /auth — fully ported (signup/signin/session/verify-email/forgot-password/reset-password)
-│   │   ├── api.go           # APIRouter(), mounted at /api — router wiring only
+│   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext, mirrors middleware/auth.ts
+│   ├── handler/             # HTTP layer: parses requests, calls service — mirrors routes/*.ts. Handlers take
+│   │   │                    # *gin.Context directly and use c.JSON/c.ShouldBindJSON (no shared JSON wrapper package).
+│   │   ├── auth.go          # AuthRoutes(rg), mounted at /auth — fully ported (signup/signin/session/verify-email/forgot-password/reset-password)
+│   │   ├── api.go           # APIRoutes(rg), mounted at /api — router wiring only
 │   │   ├── problem.go       # /problems handlers (list/create/update/delete) — ported
 │   │   ├── profile.go       # /profiles handlers (get/upsert) — ported
 │   │   ├── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers — ported
@@ -129,15 +130,18 @@ palabatu-be-go/
 `/api` is now fully ported, including image uploads — nothing left in `routes/api.ts` that hasn't been carried over to Go.
 
 - Layering convention: `handler` → `service` → `repository` → `internal/db`. Handlers should stay thin (request parsing + response writing); business rules belong in `service`; raw SQL belongs in `repository`.
-- The CORS allowlist in `cmd/api/main.go` intentionally **omits** the literal `"*"` that appears in `palabatu-be/index.ts`'s origin list — in `go-chi/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy noted above (`"*"` is a no-op in the Node `cors` package, so this is a behavior-preserving omission, not a divergence).
-- `GET /session` is wrapped with `middleware.RequireAuth` (via chi's `.With(...)`) instead of duplicating JWT parsing inline like `palabatu-be/routes/auth.ts` does — same secret, same verification, one code path.
+- The CORS allowlist in `cmd/api/main.go` intentionally **omits** the literal `"*"` that appears in `palabatu-be/index.ts`'s origin list — in `gin-contrib/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy noted above (`"*"` is a no-op in the Node `cors` package, so this is a behavior-preserving omission, not a divergence).
+- `GET /session` is wrapped with `middleware.RequireAuth` (passed as an extra handler in the `rg.GET("/session", middleware.RequireAuth, handleSession)` chain) instead of duplicating JWT parsing inline like `palabatu-be/routes/auth.ts` does — same secret, same verification, one code path.
+- Router: was originally `chi`, migrated to `gin` (both router and handler signatures — handlers take `*gin.Context`, not `http.ResponseWriter`/`*http.Request`). `internal/httpx`'s `WriteJSON`/`DecodeJSON` wrapper package was removed as part of that migration since it became a pure pass-through to `c.JSON`/`c.ShouldBindJSON`.
+- `AuthRoutes`/`APIRoutes` take a `*gin.RouterGroup` (from `r.Group("/auth")` / `r.Group("/api")` in `main.go`) and register routes on it directly, rather than returning a sub-router to `Mount`.
+- Prometheus: `internal/metrics.Middleware` (registered via `r.Use`) records `http_requests_total` and `http_request_duration_seconds`, labeled by method, matched route pattern (`c.FullPath()`, e.g. `/problems/:id` — not the raw path, to keep cardinality bounded), and status. `GET /metrics` serves `promhttp.Handler()` (wrapped via `gin.WrapH`) for a Prometheus server to scrape. No business/domain metrics yet, just HTTP-layer instrumentation.
 - `repository.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing from `palabatu-be/routes/auth.ts`, since `palabatu-fe`'s `AuthContext.tsx` displays `data.error` directly in a toast — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
 - `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400), matching a quirk in the original Node code (its catch-all doesn't distinguish a unique-constraint violation from other DB errors) — preserved faithfully rather than fixed silently.
 - `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL the same way the Node route does (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `service.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal — matches the Node route's per-image try/catch).
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`, and it mirrors the Node helper's try/catch — any non-array or missing profile yields `[]` rather than an error.
-- `cmd/api/main.go` runs `chi/v5/middleware.StripSlashes` ahead of every route: Express's default (non-strict) routing treats `/foo` and `/foo/` as the same route, chi doesn't, and `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. Stripping slashes globally matches Node's behavior everywhere instead of special-casing that one route.
+- `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): Express's default (non-strict) routing treats `/foo` and `/foo/` as the same route, and `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
 - Problem authorization model (`service.authorizeProblemEdit` in `service/problem.go`), finalized during the Go rewrite and **not yet ported back to live `palabatu-be`**:
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`service.adminTitles`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added.

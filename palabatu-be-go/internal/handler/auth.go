@@ -4,135 +4,130 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 
-	"palabatu-be/internal/httpx"
 	"palabatu-be/internal/middleware"
 	"palabatu-be/internal/service"
 )
 
-// AuthRouter mounts at /auth, mirroring palabatu-be/routes/auth.ts.
-func AuthRouter() chi.Router {
-	r := chi.NewRouter()
-
-	r.Post("/signup", handleSignup)
-	r.Post("/signin", handleSignin)
-	r.With(middleware.RequireAuth).Get("/session", handleSession)
-	r.Get("/verify-email", handleVerifyEmail)
-	r.Post("/forgot-password", handleForgotPassword)
-	r.Post("/reset-password", handleResetPassword)
-
-	return r
+// AuthRoutes registers routes under /auth, mirroring palabatu-be/routes/auth.ts.
+func AuthRoutes(rg *gin.RouterGroup) {
+	rg.POST("/signup", handleSignup)
+	rg.POST("/signin", handleSignin)
+	rg.GET("/session", middleware.RequireAuth, handleSession)
+	rg.GET("/verify-email", handleVerifyEmail)
+	rg.POST("/forgot-password", handleForgotPassword)
+	rg.POST("/reset-password", handleResetPassword)
 }
 
-func handleSignup(w http.ResponseWriter, r *http.Request) {
+func handleSignup(c *gin.Context) {
 	var body struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 		Username string `json:"username"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err := service.Signup(r.Context(), body.Email, body.Password, body.Username)
+	err := service.Signup(c.Request.Context(), body.Email, body.Password, body.Username)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, map[string]string{"message": "Signup successful, check your email for verification"})
+		c.JSON(http.StatusOK, gin.H{"message": "Signup successful, check your email for verification"})
 	case errors.Is(err, service.ErrEmailSendFailed):
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to send verification email"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
 	default:
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Email already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
 	}
 }
 
-func handleSignin(w http.ResponseWriter, r *http.Request) {
+func handleSignin(c *gin.Context) {
 	var body struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	token, user, err := service.Signin(r.Context(), body.Email, body.Password)
+	token, user, err := service.Signin(c.Request.Context(), body.Email, body.Password)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, map[string]interface{}{"user": user, "token": token})
+		c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
 	case errors.Is(err, service.ErrInvalidCredentials):
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid credentials"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
 	case errors.Is(err, service.ErrNotVerified):
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Email registered but not verified"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email registered but not verified"})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }
 
-func handleSession(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.UserFromContext(r)
+func handleSession(c *gin.Context) {
+	claims := middleware.UserFromContext(c)
 	id, _ := claims["id"].(string)
 
-	user, err := service.Session(r.Context(), id)
+	user, err := service.Session(c.Request.Context(), id)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]interface{}{"user": user})
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-func handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+func handleVerifyEmail(c *gin.Context) {
+	token := c.Query("token")
 
-	err := service.VerifyEmail(r.Context(), token)
+	err := service.VerifyEmail(c.Request.Context(), token)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, map[string]string{"message": "Email verified! You can now log in."})
+		c.JSON(http.StatusOK, gin.H{"message": "Email verified! You can now log in."})
 	case errors.Is(err, service.ErrInvalidToken):
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid or expired token"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired token"})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }
 
-func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
+func handleForgotPassword(c *gin.Context) {
 	var body struct {
 		Email string `json:"email"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
 	const genericMessage = "If that email exists, a reset link has been sent."
 
-	if err := service.ForgotPassword(r.Context(), body.Email); err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	if err := service.ForgotPassword(c.Request.Context(), body.Email); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]string{"message": genericMessage})
+	c.JSON(http.StatusOK, gin.H{"message": genericMessage})
 }
 
-func handleResetPassword(w http.ResponseWriter, r *http.Request) {
+func handleResetPassword(c *gin.Context) {
 	var body struct {
 		Token    string `json:"token"`
 		Password string `json:"password"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err := service.ResetPassword(r.Context(), body.Token, body.Password)
+	err := service.ResetPassword(c.Request.Context(), body.Token, body.Password)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
+		c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 	case errors.Is(err, service.ErrInvalidToken):
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid or expired reset link"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired reset link"})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }

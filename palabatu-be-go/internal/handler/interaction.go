@@ -4,67 +4,66 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 
-	"palabatu-be/internal/httpx"
 	"palabatu-be/internal/middleware"
 	"palabatu-be/internal/service"
 )
 
-func handleSendStatus(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
-	id := chi.URLParam(r, "id")
+func handleSendStatus(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
 
-	hasSent, err := service.HasSent(r.Context(), id, userID)
+	hasSent, err := service.HasSent(c.Request.Context(), id, userID)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"hasSent": hasSent})
+	c.JSON(http.StatusOK, gin.H{"hasSent": hasSent})
 }
 
-func handleToggleSend(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
-	id := chi.URLParam(r, "id")
+func handleToggleSend(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
 
-	action, err := service.ToggleSend(r.Context(), id, userID)
+	action, err := service.ToggleSend(c.Request.Context(), id, userID)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]string{"action": action})
+	c.JSON(http.StatusOK, gin.H{"action": action})
 }
 
-func handleListComments(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func handleListComments(c *gin.Context) {
+	id := c.Param("id")
 
-	comments, err := service.ListComments(r.Context(), id)
+	comments, err := service.ListComments(c.Request.Context(), id)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, comments)
+	c.JSON(http.StatusOK, comments)
 }
 
-func handleCreateComment(w http.ResponseWriter, r *http.Request) {
-	userID := currentUserID(middleware.UserFromContext(r))
-	id := chi.URLParam(r, "id")
+func handleCreateComment(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
 
 	var body struct {
 		Content string `json:"content"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	comment, err := service.CreateComment(r.Context(), id, userID, body.Content)
+	comment, err := service.CreateComment(c.Request.Context(), id, userID, body.Content)
 	switch {
 	case err == nil:
-		httpx.WriteJSON(w, http.StatusOK, comment)
+		c.JSON(http.StatusOK, comment)
 	case errors.Is(err, service.ErrEmptyComment):
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Comment cannot be empty"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment cannot be empty"})
 	default:
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }

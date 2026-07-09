@@ -4,25 +4,24 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 
-	"palabatu-be/internal/httpx"
 	"palabatu-be/internal/service"
 )
 
-func handleGetProfile(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func handleGetProfile(c *gin.Context) {
+	id := c.Param("id")
 
-	profile, err := service.GetProfile(r.Context(), id)
+	profile, err := service.GetProfile(c.Request.Context(), id)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, profile)
+	c.JSON(http.StatusOK, profile)
 }
 
-func handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func handleUpsertProfile(c *gin.Context) {
+	id := c.Param("id")
 
 	var body struct {
 		Username  string          `json:"username"`
@@ -30,15 +29,15 @@ func handleUpsertProfile(w http.ResponseWriter, r *http.Request) {
 		Tags      json.RawMessage `json:"tags"`
 		AvatarURL string          `json:"avatar_url"`
 	}
-	if err := httpx.DecodeJSON(r, &body); err != nil {
-		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	profile, err := service.UpsertProfile(r.Context(), id, body.Username, body.Title, body.Tags, body.AvatarURL)
+	profile, err := service.UpsertProfile(c.Request.Context(), id, body.Username, body.Title, body.Tags, body.AvatarURL)
 	if err != nil {
-		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, profile)
+	c.JSON(http.StatusOK, profile)
 }
