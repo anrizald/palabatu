@@ -1,5 +1,5 @@
 # Wrapper around the `migrate` CLI so you don't have to remember its flags
-# or re-type a password every time. Reads DATABASE_URL from palabatu-be-go/.env.
+# or re-type a password every time. Reads DATABASE_URL from palabatu-be/.env.
 #
 # Usage:
 #   .\scripts\db.ps1 up
@@ -20,13 +20,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$envFile = Join-Path $repoRoot "palabatu-be-go\.env"
+$envFile = Join-Path $repoRoot "palabatu-be\.env"
 # migrate builds a file:// URL from -path; backslashes plus a Windows drive
 # letter colon (C:\...) break URL parsing, so force forward slashes.
 $migrationsPath = (Join-Path $repoRoot "migrations") -replace '\\', '/'
 
 if (-not (Test-Path $envFile)) {
-    Write-Error "Missing $envFile. Create it with a line like: DATABASE_URL=postgresql://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/palabatu_test?sslmode=disable (use your LOCAL postgres password, not the Neon one from palabatu-be/.env)."
+    Write-Error "Missing $envFile. Create it with a line like: DATABASE_URL=postgresql://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/palabatu_test?sslmode=disable (use your LOCAL postgres password, not the Neon production one)."
     exit 1
 }
 

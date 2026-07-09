@@ -1,7 +1,7 @@
 # Domain restructure sketch
 
 Status: proposed, not started. Written 2026-07-07 during a discussion about whether
-`palabatu-be-go` should be organized by domain instead of by technical layer. Revisit
+`palabatu-be` should be organized by domain instead of by technical layer. Revisit
 this doc before starting the actual move.
 
 ## Problem

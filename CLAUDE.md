@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Palabatu — a community web app for Indonesian bouldering enthusiasts (interactive spot map, climber profiles, route/problem listings). Live at https://palabatu.id. Status: work in progress.
 
-## Repo layout: three independent projects
+## Repo layout: two independent projects
 
-The frontend (`palabatu-fe/`), the live backend (`palabatu-be/`), and an in-progress Go rewrite of the backend (`palabatu-be-go/`) are **separate projects** — separate dependency managers and no shared config. Install and run each independently. `palabatu-fe/` uses `"type": "module"` (ESM, `verbatimModuleSyntax`); `palabatu-be/` uses `"type": "commonjs"`. Don't assume settings from one apply to another.
+The frontend (`palabatu-fe/`) and the backend (`palabatu-be/`) are **separate projects** — separate dependency managers and no shared config. Install and run each independently.
 
-`palabatu-be-go/` is **not yet in production use** — it's being built incrementally alongside `palabatu-be/` (see "Go backend rewrite" below). `palabatu-be/` remains the backend that actually serves https://palabatu.id until the port is complete.
+`palabatu-be/` is a Go rewrite of what was originally a Node/Express backend. The Node backend has been fully retired and removed from this repo — `palabatu-be/` (Go) is now the only backend and the one that serves https://palabatu.id.
 
 ## Commands
 
@@ -26,27 +26,21 @@ npm run preview   # preview production build
 
 Backend (`palabatu-be/`):
 ```sh
-cd palabatu-be && npm install
-npm run dev       # ts-node-dev --respawn index.ts, http://localhost:3001
-```
-
-Go backend (`palabatu-be-go/`, WIP):
-```sh
-cd palabatu-be-go
+cd palabatu-be
 go run ./cmd/api   # http://localhost:3001 (default PORT)
 go build ./cmd/api # compiles a binary
 go vet ./...
 ```
 
-There is no test suite configured in any of the three projects (no test script/runner in the Node projects, no `_test.go` files yet in the Go one). Don't assume Jest/Vitest/`go test` coverage exists — check before referencing test commands.
+There is no test suite configured in either project (no test script/runner in the frontend, no `_test.go` files yet in the backend). Don't assume Vitest/`go test` coverage exists — check before referencing test commands.
 
-Both `palabatu-fe/` and `palabatu-be/` must run simultaneously for the live app to work end to end. Vite proxies `/api` and `/auth` to `http://localhost:3001` in dev ([palabatu-fe/vite.config.ts](palabatu-fe/vite.config.ts)), and `palabatu-fe/src/lib/api.ts` falls back to `VITE_API_URL` or `http://localhost:3001` otherwise. `palabatu-be-go/` binds to the same port/routes, so it's a drop-in target for the frontend once ported — don't run both backends on port 3001 at once.
+Both `palabatu-fe/` and `palabatu-be/` must run simultaneously for the app to work end to end. Vite proxies `/api` and `/auth` to `http://localhost:3001` in dev ([palabatu-fe/vite.config.ts](palabatu-fe/vite.config.ts)), and `palabatu-fe/src/lib/api.ts` falls back to `VITE_API_URL` or `http://localhost:3001` otherwise.
 
 ## Database migrations (`migrations/`)
 
 Schema lives in `migrations/` as numbered `golang-migrate`-style pairs (`000N_name.up.sql` / `000N_name.down.sql`), applied via the `migrate` CLI (`go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest`, installed to `%GOPATH%\bin`, e.g. `C:\Users\dede\go\bin`, which is on PATH).
 
-Day-to-day, use [scripts/db.ps1](scripts/db.ps1) instead of calling `migrate` directly — it reads `DATABASE_URL` from `palabatu-be-go/.env` (so no `PGPASSWORD`/URL-typing ceremony), converts the `migrations` path to forward slashes (raw Windows backslashes break `migrate`'s internal `file://` URL parsing — `C:\...` gets misread as a host:port), and refuses to run at all if that `.env` points at a `neon.tech` host:
+Day-to-day, use [scripts/db.ps1](scripts/db.ps1) instead of calling `migrate` directly — it reads `DATABASE_URL` from `palabatu-be/.env` (so no `PGPASSWORD`/URL-typing ceremony), converts the `migrations` path to forward slashes (raw Windows backslashes break `migrate`'s internal `file://` URL parsing — `C:\...` gets misread as a host:port), and refuses to run at all if that `.env` points at a `neon.tech` host:
 
 ```powershell
 .\scripts\db.ps1 up
@@ -64,14 +58,13 @@ migrate -path migrations -database "$DATABASE_URL" version
 ```
 
 - `0001_init` is the schema as it actually exists in the live Neon database (captured via `pg_dump --schema-only`), not a from-scratch design — this repo had no schema file before.
-- **Never run `migrate ... down` against the production `DATABASE_URL`** (the one in `palabatu-be/.env`) — it drops tables. Point at a local Postgres instance for testing the up/down cycle. `scripts/db.ps1` enforces this automatically.
+- **Never run `migrate ... down` against the production `DATABASE_URL`** — it drops tables. Point at a local Postgres instance for testing the up/down cycle. `scripts/db.ps1` enforces this automatically.
 - `golang-migrate`'s postgres driver (v4.19.1) registers itself for both the `postgres://` and `postgresql://` URI schemes, so Neon's connection strings work unmodified — no prefix-swapping needed.
 
 ## Environment variables
 
 - `palabatu-fe/.env`: `VITE_API_URL` (backend base URL).
-- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), Nodemailer/email credentials.
-- `palabatu-be-go/.env`: same variable names as `palabatu-be/.env` (see `palabatu-be-go/environments/.env.example`), loaded via `godotenv`.
+- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
 
 ## Architecture
 
@@ -83,71 +76,57 @@ When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component st
 
 **API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly (not a `{ data, error }` envelope — some dead code in `App.tsx`'s unused `Home()` still destructures that shape; don't copy that pattern).
 
-**Backend**: Express 5 app ([palabatu-be/index.ts](palabatu-be/index.ts)) mounting two routers: `routes/auth.ts` at `/auth` and `routes/api.ts` at `/api`. CORS origins are an explicit hardcoded list in `index.ts` (includes LAN IPs used for testing on a phone during dev — add new LAN IPs there if needed, don't switch to a wildcard-only policy).
-
-- `requireAuth` middleware ([palabatu-be/middleware/auth.ts](palabatu-be/middleware/auth.ts)) verifies the JWT and attaches the decoded payload as `req.user` (untyped, cast with `as any` at call sites).
-- No ORM — all queries are hand-written SQL via a raw `pg.Pool` ([palabatu-be/db/client.ts](palabatu-be/db/client.ts)).
-- Core tables: `users`, `profiles`, `problems`, `sends`, `comments` — see [migrations/](migrations/), captured via `pg_dump --schema-only` from the live Neon DB. All primary keys and foreign keys are `uuid`, not integers.
-- Authorization roles: `profiles.title` stores a JSON array of role strings. `'Council'` is an admin-like role with CRUD privileges on any problem (`getUserTitles()` in `routes/api.ts` checks for it on edit/delete). A problem's own creator also has CRUD on that problem. `'Associate'` as a second admin-like role, and treating creator-privileges as a "Founder of the problem" concept, are new decisions made during the Go rewrite (see below) — not yet reflected here, since this is live production code.
-- Image uploads: `multer` memory storage → streamed to Cloudinary (`kepalabatu_topos` / `kepalabatu_avatars` folders) → the returned `secure_url` is stored (as a JSON array, in `problems.image_urls`). Deleting a problem re-derives the Cloudinary `public_id` from the stored URL to destroy the asset.
-- Email (verification, password reset) goes through `palabatu-be/lib/mailer.ts` via Nodemailer; signup rolls back the created user row if the verification email fails to send.
-
-## Go backend rewrite (`palabatu-be-go/`, WIP)
-
-A layered Go port of `palabatu-be/`, built incrementally route-by-route while `palabatu-be/` keeps serving production. Uses `gin` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `gin-contrib/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads, `prometheus/client_golang` for metrics.
+**Backend** (`palabatu-be/`, Go): uses `gin` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `gin-contrib/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads, `prometheus/client_golang` for metrics.
 
 ```
-palabatu-be-go/
+palabatu-be/
 ├── cmd/api/main.go          # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
 ├── internal/
-│   ├── db/db.go             # pgxpool.Pool singleton, mirrors palabatu-be/db/client.ts
-│   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL, mirrors the cloudinary.v2 calls in routes/api.ts
+│   ├── db/db.go             # pgxpool.Pool singleton
+│   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL
 │   ├── metrics/metrics.go   # Prometheus HTTP request-count/duration middleware, exposed at GET /metrics
-│   ├── mailer/mailer.go     # Resend SMTP sender, mirrors palabatu-be/lib/mailer.ts (no emoji, see global style rule)
-│   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext, mirrors middleware/auth.ts
-│   ├── handler/             # HTTP layer: parses requests, calls service — mirrors routes/*.ts. Handlers take
-│   │   │                    # *gin.Context directly and use c.JSON/c.ShouldBindJSON (no shared JSON wrapper package).
-│   │   ├── auth.go          # AuthRoutes(rg), mounted at /auth — fully ported (signup/signin/session/verify-email/forgot-password/reset-password)
+│   ├── mailer/mailer.go     # SMTP sender (no emoji, see global style rule)
+│   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext
+│   ├── handler/             # HTTP layer: parses requests, calls service. Handlers take
+│   │   │                    # *gin.Context directly and use c.JSON/c.ShouldBindJSON.
+│   │   ├── auth.go          # AuthRoutes(rg), mounted at /auth — signup/signin/session/verify-email/forgot-password/reset-password
 │   │   ├── api.go           # APIRoutes(rg), mounted at /api — router wiring only
-│   │   ├── problem.go       # /problems handlers (list/create/update/delete) — ported
-│   │   ├── profile.go       # /profiles handlers (get/upsert) — ported
-│   │   ├── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers — ported
-│   │   └── upload.go        # /upload/topo, /upload/avatar handlers — ported
+│   │   ├── problem.go       # /problems handlers (list/create/update/delete)
+│   │   ├── profile.go       # /profiles handlers (get/upsert)
+│   │   ├── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers
+│   │   └── upload.go        # /upload/topo, /upload/avatar handlers
 │   ├── service/
-│   │   ├── auth.go          # auth business logic, called by handler/auth.go — ported
-│   │   ├── problem.go       # problem CRUD + admin/Founder authorization, Cloudinary cleanup on delete — ported
-│   │   ├── profile.go       # profile get/upsert — ported
-│   │   ├── send.go          # send toggle/status — ported
-│   │   └── comment.go       # comment list/create — ported
+│   │   ├── auth.go          # auth business logic, called by handler/auth.go
+│   │   ├── problem.go       # problem CRUD + admin/Founder authorization, Cloudinary cleanup on delete
+│   │   ├── profile.go       # profile get/upsert
+│   │   ├── send.go          # send toggle/status
+│   │   └── comment.go       # comment list/create
 │   └── repository/
-│       ├── user.go          # `users` table queries, called by service/auth.go — ported
-│       ├── problem.go       # `problems` table queries — ported
-│       ├── profile.go       # `profiles` table queries + GetUserTitles() — ported
-│       ├── send.go          # `sends` table queries — ported
-│       └── comment.go       # `comments` table queries — ported
+│       ├── user.go          # `users` table queries, called by service/auth.go
+│       ├── problem.go       # `problems` table queries
+│       ├── profile.go       # `profiles` table queries + GetUserTitles()
+│       ├── send.go          # `sends` table queries
+│       └── comment.go       # `comments` table queries
 ```
 
-`/api` is now fully ported, including image uploads — nothing left in `routes/api.ts` that hasn't been carried over to Go.
-
 - Layering convention: `handler` → `service` → `repository` → `internal/db`. Handlers should stay thin (request parsing + response writing); business rules belong in `service`; raw SQL belongs in `repository`.
-- The CORS allowlist in `cmd/api/main.go` intentionally **omits** the literal `"*"` that appears in `palabatu-be/index.ts`'s origin list — in `gin-contrib/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy noted above (`"*"` is a no-op in the Node `cors` package, so this is a behavior-preserving omission, not a divergence).
-- `GET /session` is wrapped with `middleware.RequireAuth` (passed as an extra handler in the `rg.GET("/session", middleware.RequireAuth, handleSession)` chain) instead of duplicating JWT parsing inline like `palabatu-be/routes/auth.ts` does — same secret, same verification, one code path.
-- Router: was originally `chi`, migrated to `gin` (both router and handler signatures — handlers take `*gin.Context`, not `http.ResponseWriter`/`*http.Request`). `internal/httpx`'s `WriteJSON`/`DecodeJSON` wrapper package was removed as part of that migration since it became a pure pass-through to `c.JSON`/`c.ShouldBindJSON`.
+- The CORS allowlist in `cmd/api/main.go` intentionally omits a literal `"*"` origin entry — in `gin-contrib/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy. Add new LAN IPs (used for testing on a phone during dev) directly to that list — don't switch to a wildcard-only policy.
+- `GET /session` is wrapped with `middleware.RequireAuth` (passed as an extra handler in the `rg.GET("/session", middleware.RequireAuth, handleSession)` chain) rather than duplicating JWT parsing inline — same secret, same verification, one code path.
 - `AuthRoutes`/`APIRoutes` take a `*gin.RouterGroup` (from `r.Group("/auth")` / `r.Group("/api")` in `main.go`) and register routes on it directly, rather than returning a sub-router to `Mount`.
 - Prometheus: `internal/metrics.Middleware` (registered via `r.Use`) records `http_requests_total` and `http_request_duration_seconds`, labeled by method, matched route pattern (`c.FullPath()`, e.g. `/problems/:id` — not the raw path, to keep cardinality bounded), and status. `GET /metrics` serves `promhttp.Handler()` (wrapped via `gin.WrapH`) for a Prometheus server to scrape. No business/domain metrics yet, just HTTP-layer instrumentation.
 - `repository.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
-- User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing from `palabatu-be/routes/auth.ts`, since `palabatu-fe`'s `AuthContext.tsx` displays `data.error` directly in a toast — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
-- `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400), matching a quirk in the original Node code (its catch-all doesn't distinguish a unique-constraint violation from other DB errors) — preserved faithfully rather than fixed silently.
-- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL the same way the Node route does (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `service.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal — matches the Node route's per-image try/catch).
+- User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing `palabatu-fe`'s `AuthContext.tsx` expects (it displays `data.error` directly in a toast) — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
+- `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400) — a deliberately preserved quirk (its catch-all doesn't distinguish a unique-constraint violation from other DB errors), not a bug.
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `service.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
-- `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`, and it mirrors the Node helper's try/catch — any non-array or missing profile yields `[]` rather than an error.
-- `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): Express's default (non-strict) routing treats `/foo` and `/foo/` as the same route, and `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
-- Problem authorization model (`service.authorizeProblemEdit` in `service/problem.go`), finalized during the Go rewrite and **not yet ported back to live `palabatu-be`**:
+- `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
+- `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
+- Problem authorization model (`service.authorizeProblemEdit` in `service/problem.go`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`service.adminTitles`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added.
-  - `'Associate'` as an admin role is new — live `palabatu-be` only recognizes `'Council'`. Porting this back to Node (a live-production authorization change) hasn't been done; ask before doing so.
 
 ## Known WIP rough edges
 
 - `App.tsx` has an unused `Home()`/`About()` component pair left over from an earlier Supabase-based setup — not wired into any route.
-- `req.user` on the backend is typed as `any`; if you touch auth-adjacent routes, keep in mind there's no shared `Request` type augmentation yet.
+- `req.user`-equivalent context on the backend has no shared typed augmentation yet beyond `middleware.UserFromContext`.
+- A domain-oriented restructure of `internal/` (slicing by feature instead of by technical layer) is sketched in [palabatu-be/docs/domain-restructure.md](palabatu-be/docs/domain-restructure.md) — proposed, not started.

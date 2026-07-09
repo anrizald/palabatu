@@ -65,10 +65,8 @@ Palabatu is a web-first community platform for the Indonesian bouldering scene. 
 * [![React][React.js]][React-url]
 * [![Vite][Vite]][Vite-url]
 * [![TypeScript][TypeScript]][TypeScript-url]
-* [![Node.js][Node.js]][Node-url]
-* [![Express][Express]][Express-url]
 * [![PostgreSQL][PostgreSQL]][PostgreSQL-url]
-* [![Go][Go]][Go-url] — backend rewrite in progress, see `palabatu-be-go/`
+* [![Go][Go]][Go-url] — backend, see `palabatu-be/`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -99,7 +97,7 @@ GETTING STARTED
 ```
 3. Install backend dependencies
 ```sh
-   cd ../palabatu-be && npm install
+   cd ../palabatu-be && go mod download
 ```
 4. Create `.env` in `/palabatu-be`
 ```env
@@ -121,7 +119,7 @@ USAGE
 
 ```sh
 # Start backend
-cd palabatu-be && npm run dev
+cd palabatu-be && go run ./cmd/api
 
 # Start frontend (new terminal)
 cd palabatu-fe && npm run dev
@@ -144,7 +142,6 @@ ROADMAP
 - [ ] Spot submission by community
 - [ ] Android PWA support
 - [ ] Social features (follows, comments)
-- [ ] Backend rewrite from Node/Express to Go (`palabatu-be-go/`, in progress)
 
 See the [open issues](https://github.com/github_username/palabatu/issues) for a full list of proposed features and known issues.
 

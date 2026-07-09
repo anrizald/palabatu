@@ -21,29 +21,18 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 - **Auth UI:** Supabase Auth UI (pre-built components)
 - **Animation Tool:** Rive.js for interactive animations
 
-### Backend (live, `palabatu-be/`)
-- **Runtime:** Node.js
-- **Server:** Express 5.2.1
-- **Language:** TypeScript
-- **Database:** PostgreSQL
-- **Auth:** JWT (jsonwebtoken 9.0.3)
-- **Password Hashing:** Bcrypt 6.0.0
-- **Email:** Nodemailer 8.0.7
-- **CORS:** Enabled for client requests
-- **File Upload:** Multer 2.1.1, Cloudinary integration
-
-### Backend rewrite (WIP, `palabatu-be-go/`)
+### Backend (`palabatu-be/`)
 - **Language:** Go
-- **Router:** chi (`go-chi/chi/v5`)
+- **Router:** gin (`gin-gonic/gin`)
 - **Database:** PostgreSQL via `jackc/pgx/v5` (`pgxpool`), no ORM
 - **Auth:** JWT via `golang-jwt/jwt/v5`
-- **CORS:** `go-chi/cors`
+- **CORS:** `gin-contrib/cors`
 - **Env loading:** `joho/godotenv`
-- **Status:** routing/middleware skeleton only, no endpoints ported yet; not deployed. Being built incrementally alongside the live Node backend.
+- **File Upload:** `cloudinary-go/v2` integration
+- **Metrics:** `prometheus/client_golang`, exposed at `GET /metrics`
 
 ### DevTools
 - **Frontend Linting:** ESLint with React hooks/refresh plugins
-- **Backend Dev:** ts-node-dev with auto-respawn
 - **PWA Support:** vite-plugin-pwa (installable web app)
 
 ---
@@ -93,42 +82,28 @@ kepalabatu/
 │   ├── eslint.config.ts
 │   └── package.json
 │
-├── palabatu-be/                # Express backend (independent npm project) — live, serves production
-│   ├── index.ts
-│   ├── db/
-│   │   └── client.ts           # PostgreSQL connection
-│   ├── lib/
-│   │   └── mailer.ts           # Email with Nodemailer
-│   ├── middleware/
-│   │   └── auth.ts             # JWT verification
-│   ├── routes/
-│   │   ├── api.ts              # Problem CRUD endpoints
-│   │   └── auth.ts             # Auth endpoints
-│   ├── tsconfig.json
-│   └── package.json
-│
-├── palabatu-be-go/              # Go backend rewrite (independent Go module) — WIP, not deployed
+├── palabatu-be/                 # Go backend (independent Go module)
 │   ├── cmd/
 │   │   └── api/
-│   │       └── main.go         # entrypoint: env load, DB connect, router mount, listen
+│   │       └── main.go         # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
 │   ├── internal/
 │   │   ├── db/
 │   │   │   └── db.go           # pgxpool connection
-│   │   ├── httpx/
-│   │   │   └── json.go         # shared WriteJSON/DecodeJSON helpers
+│   │   ├── cloudinary/
+│   │   │   └── cloudinary.go   # upload-to-folder + destroy-by-URL
+│   │   ├── metrics/
+│   │   │   └── metrics.go      # Prometheus HTTP middleware, GET /metrics
 │   │   ├── mailer/
-│   │   │   └── mailer.go       # Resend SMTP sender
+│   │   │   └── mailer.go       # SMTP sender
 │   │   ├── middleware/
 │   │   │   └── auth.go         # JWT verification (RequireAuth)
-│   │   ├── handler/            # HTTP routers, mirrors palabatu-be/routes/*.ts
-│   │   │   ├── api.go          # /api — still an empty stub
-│   │   │   └── auth.go         # /auth — fully ported
-│   │   ├── service/
-│   │   │   └── auth.go         # auth business logic — ported
-│   │   └── repository/
-│   │       └── user.go         # `users` table queries — ported
+│   │   ├── handler/             # HTTP routers: auth, api, problem, profile, interaction, upload
+│   │   ├── service/              # business logic: auth, problem, profile, send, comment
+│   │   └── repository/           # SQL queries: user, problem, profile, send, comment
 │   ├── environments/
 │   │   └── .env.example
+│   ├── docs/
+│   │   └── domain-restructure.md
 │   └── go.mod
 │
 ├── migrations/                  # golang-migrate-style SQL, applied via the `migrate` CLI
@@ -198,10 +173,7 @@ type ProblemRow = {
 - `npm run lint` - ESLint check
 - `npm run preview` - Preview production build
 
-### Backend
-- `npm run dev` - ts-node-dev with auto-restart (port 3001)
-
-### Backend rewrite (Go, WIP)
+### Backend (Go)
 - `go run ./cmd/api` - run the server (port 3001 by default)
 - `go build ./cmd/api` - compile a binary
 - `go vet ./...` - static checks
@@ -216,12 +188,9 @@ type ProblemRow = {
 ### Backend (.env)
 - Database credentials (PostgreSQL)
 - JWT secret
-- Email provider credentials (Nodemailer)
+- Email provider credentials
 - Cloudinary credentials
-- CORS allowed origins
-
-### Backend rewrite (.env), Go
-- Same variable names as the Node backend's `.env` (see `palabatu-be-go/environments/.env.example`)
+- CORS allowed origins (see `palabatu-be/environments/.env.example`)
 
 ---
 
@@ -230,18 +199,18 @@ type ProblemRow = {
 - **Status:** WIP - actively in development
 - **PWA Support:** Configured but may need manifest adjustments
 - **Image Hosting:** Cloudinary integrated for problem photos
-- **Email:** Nodemailer configured for verification & password reset
-- **Go backend rewrite:** in progress in `palabatu-be-go/`, built incrementally alongside the live Node backend, layered as handler → service → repository. Auth (`/auth/*`: signup, signin, session, verify-email, forgot-password, reset-password) is fully ported; `/api/*` (problems/sends/comments) is still an empty stub. Not deployed.
+- **Email:** configured for verification & password reset
+- **Backend:** Go, layered as handler → service → repository. Both `/auth/*` and `/api/*` (problems/profiles/sends/comments/uploads) are fully implemented.
 
 ---
 
 ## Development Workflow
 
 1. Frontend runs on Vite dev server → uses proxy/env to reach backend
-2. Backend Express server handles API routes & serves public/
+2. Backend Go server (gin) handles API routes
 3. PostgreSQL stores problems, users, auth data
 4. Cloudinary stores climbing route photos
-5. Nodemailer sends verification & password reset emails
+5. Backend sends verification & password reset emails via SMTP
 
 ---
 
