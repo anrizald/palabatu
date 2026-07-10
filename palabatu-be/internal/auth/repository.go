@@ -127,6 +127,27 @@ func getProfileByID(ctx context.Context, id string) (*Profile, error) {
 	return &p, nil
 }
 
+// ProfileStats are read-only counts displayed on a profile page: how many
+// problems a climber has sent and how many they've added to the map.
+type ProfileStats struct {
+	SendsCount    int `json:"sends_count"`
+	ProblemsCount int `json:"problems_count"`
+}
+
+// getProfileStats reads directly from the sends and problems tables rather
+// than importing internal/social or internal/problems for it, mirroring how
+// listComments already JOINs into profiles directly rather than importing
+// internal/auth for a single read.
+func getProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
+	var s ProfileStats
+	err := db.Pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM sends WHERE user_id = $1),
+			(SELECT COUNT(*) FROM problems WHERE created_by = $1)
+	`, userID).Scan(&s.SendsCount, &s.ProblemsCount)
+	return s, err
+}
+
 func upsertProfileRow(ctx context.Context, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
 	var p Profile
 	err := db.Pool.QueryRow(ctx,

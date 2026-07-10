@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -76,6 +81,30 @@ func main() {
 		port = "3001"
 	}
 
-	log.Printf("Server running on port %s", port)
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+port, stripTrailingSlash(r)))
+	srv := &http.Server{
+		Addr:    "0.0.0.0:" + port,
+		Handler: stripTrailingSlash(r),
+	}
+
+	go func() {
+		log.Printf("Server running on port %s", port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("forced shutdown: %v", err)
+	}
+
+	db.Pool.Close()
+	log.Println("server exited")
 }

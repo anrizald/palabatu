@@ -26,6 +26,7 @@ func AuthRoutes(rg *gin.RouterGroup) {
 func ProfileRoutes(rg *gin.RouterGroup) {
 	rg.GET("/profiles/:id", handleGetProfile)
 	rg.PUT("/profiles/:id", middleware.RequireAuth, handleUpsertProfile)
+	rg.GET("/profiles/:id/stats", handleGetProfileStats)
 }
 
 func handleSignup(c *gin.Context) {
@@ -149,6 +150,17 @@ func handleGetProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, profile)
+}
+
+func handleGetProfileStats(c *gin.Context) {
+	id := c.Param("id")
+
+	stats, err := GetProfileStats(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }
 
 func handleUpsertProfile(c *gin.Context) {

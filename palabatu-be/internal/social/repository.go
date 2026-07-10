@@ -67,6 +67,77 @@ func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	return comments, rows.Err()
 }
 
+// ReactionCounts is the total number of each reaction type a profile has
+// received, from anyone.
+type ReactionCounts struct {
+	Like  int `json:"like"`
+	Fire  int `json:"fire"`
+	Heart int `json:"heart"`
+}
+
+// ReactionStatus is which reaction types a specific user has already given
+// a profile, so the frontend can render toggle buttons as active/inactive.
+type ReactionStatus struct {
+	Like  bool `json:"like"`
+	Fire  bool `json:"fire"`
+	Heart bool `json:"heart"`
+}
+
+func reactionExists(ctx context.Context, profileID, userID, reactionType string) (bool, error) {
+	var exists int
+	err := db.Pool.QueryRow(ctx,
+		`SELECT 1 FROM profile_reactions WHERE profile_id = $1 AND user_id = $2 AND reaction_type = $3`,
+		profileID, userID, reactionType,
+	).Scan(&exists)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func createReaction(ctx context.Context, profileID, userID, reactionType string) error {
+	_, err := db.Pool.Exec(ctx,
+		`INSERT INTO profile_reactions (profile_id, user_id, reaction_type) VALUES ($1, $2, $3)`,
+		profileID, userID, reactionType,
+	)
+	return err
+}
+
+func deleteReaction(ctx context.Context, profileID, userID, reactionType string) error {
+	_, err := db.Pool.Exec(ctx,
+		`DELETE FROM profile_reactions WHERE profile_id = $1 AND user_id = $2 AND reaction_type = $3`,
+		profileID, userID, reactionType,
+	)
+	return err
+}
+
+func countReactions(ctx context.Context, profileID string) (ReactionCounts, error) {
+	var c ReactionCounts
+	err := db.Pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE reaction_type = 'like'),
+			COUNT(*) FILTER (WHERE reaction_type = 'fire'),
+			COUNT(*) FILTER (WHERE reaction_type = 'heart')
+		FROM profile_reactions WHERE profile_id = $1
+	`, profileID).Scan(&c.Like, &c.Fire, &c.Heart)
+	return c, err
+}
+
+func userReactionStatus(ctx context.Context, profileID, userID string) (ReactionStatus, error) {
+	var s ReactionStatus
+	err := db.Pool.QueryRow(ctx, `
+		SELECT
+			COALESCE(bool_or(reaction_type = 'like'), false),
+			COALESCE(bool_or(reaction_type = 'fire'), false),
+			COALESCE(bool_or(reaction_type = 'heart'), false)
+		FROM profile_reactions WHERE profile_id = $1 AND user_id = $2
+	`, profileID, userID).Scan(&s.Like, &s.Fire, &s.Heart)
+	return s, err
+}
+
 func getCommentOwner(ctx context.Context, commentID string) (*string, error) {
 	var userID *string
 	err := db.Pool.QueryRow(ctx, `SELECT user_id FROM comments WHERE id = $1`, commentID).Scan(&userID)

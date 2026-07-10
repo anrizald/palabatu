@@ -159,6 +159,11 @@ func GetProfile(ctx context.Context, id string) (*Profile, error) {
 	return profile, err
 }
 
+// GetProfileStats returns a user's sends count and problems-added count.
+func GetProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
+	return getProfileStats(ctx, userID)
+}
+
 func UpsertProfile(ctx context.Context, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
 	if title == nil {
 		title = json.RawMessage("null")

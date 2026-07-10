@@ -17,6 +17,10 @@ func Routes(rg *gin.RouterGroup) {
 	rg.GET("/problems/:id/comments", handleListComments)
 	rg.POST("/problems/:id/comments", middleware.RequireAuth, handleCreateComment)
 	rg.DELETE("/comments/:id", middleware.RequireAuth, handleDeleteComment)
+
+	rg.GET("/profiles/:id/reactions", handleReactionCounts)
+	rg.GET("/profiles/:id/reactions/status", middleware.RequireAuth, handleReactionStatus)
+	rg.POST("/profiles/:id/reactions/:type", middleware.RequireAuth, handleToggleReaction)
 }
 
 // currentUserID reads the "id" claim attached by middleware.RequireAuth,
@@ -81,6 +85,45 @@ func handleCreateComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment cannot be empty"})
 	case errors.Is(err, ErrCommentTooLong):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment is too long"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
+}
+
+func handleReactionCounts(c *gin.Context) {
+	id := c.Param("id")
+
+	counts, err := GetReactionCounts(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, counts)
+}
+
+func handleReactionStatus(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
+
+	status, err := GetReactionStatus(c.Request.Context(), id, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
+func handleToggleReaction(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
+	reactionType := c.Param("type")
+
+	action, err := ToggleReaction(c.Request.Context(), id, userID, reactionType)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, gin.H{"action": action})
+	case errors.Is(err, ErrInvalidReactionType):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid reaction type"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}

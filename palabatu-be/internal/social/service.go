@@ -56,6 +56,42 @@ func CreateComment(ctx context.Context, problemID, userID, content string) (*Com
 	return createComment(ctx, problemID, userID, content)
 }
 
+var validReactionTypes = map[string]bool{"like": true, "fire": true, "heart": true}
+
+// ToggleReaction adds a reaction if the user hasn't given a profile this
+// reaction type yet, or removes it if they have, mirroring ToggleSend's
+// toggle behavior.
+func ToggleReaction(ctx context.Context, profileID, userID, reactionType string) (action string, err error) {
+	if !validReactionTypes[reactionType] {
+		return "", ErrInvalidReactionType
+	}
+
+	exists, err := reactionExists(ctx, profileID, userID, reactionType)
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		if err := deleteReaction(ctx, profileID, userID, reactionType); err != nil {
+			return "", err
+		}
+		return "removed", nil
+	}
+
+	if err := createReaction(ctx, profileID, userID, reactionType); err != nil {
+		return "", err
+	}
+	return "added", nil
+}
+
+func GetReactionCounts(ctx context.Context, profileID string) (ReactionCounts, error) {
+	return countReactions(ctx, profileID)
+}
+
+func GetReactionStatus(ctx context.Context, profileID, userID string) (ReactionStatus, error) {
+	return userReactionStatus(ctx, profileID, userID)
+}
+
 // DeleteComment authorizes and removes a comment, allowed for the comment's
 // own author or an admin (Council/Associate), mirroring the Founder/admin
 // check problems.DeleteProblem applies via the same authz.CanEditOwned.

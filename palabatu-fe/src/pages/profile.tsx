@@ -17,8 +17,22 @@ type Profile = {
     avatar_url: string;
 };
 
+type ProfileStats = {
+    sends_count: number;
+    problems_count: number;
+};
+
+type ReactionType = 'like' | 'fire' | 'heart';
+type ReactionCounts = Record<ReactionType, number>;
+type ReactionStatus = Record<ReactionType, boolean>;
+
 const LEVELS = ['Novice', 'Intermediate', 'Open', 'Andi/Anto'];
 const ALL_STYLES: climbingStyle[] = ['Boulder', 'Lead', 'Toprope'];
+const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
+    { type: 'like', emoji: '👍', label: 'Like' },
+    { type: 'fire', emoji: '🔥', label: 'Fire' },
+    { type: 'heart', emoji: '❤️', label: 'Heart' },
+];
 
 export default function Profile() {
     const { id } = useParams<{ id: string }>();
@@ -31,6 +45,10 @@ export default function Profile() {
         },
         avatar_url: '',
     })
+    const [stats, setStats] = useState<ProfileStats | null>(null)
+    const [reactionCounts, setReactionCounts] = useState<ReactionCounts>({ like: 0, fire: 0, heart: 0 })
+    const [reactionStatus, setReactionStatus] = useState<ReactionStatus>({ like: false, fire: false, heart: false })
+    const [reactingType, setReactingType] = useState<ReactionType | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -74,7 +92,47 @@ export default function Profile() {
             }
             setIsLoading(false);
         });
+
+        api.get(`/api/profiles/${id}/stats`).then(data => {
+            if (data && !data.error) setStats(data);
+        });
+
+        api.get(`/api/profiles/${id}/reactions`).then(data => {
+            if (data && !data.error) setReactionCounts(data);
+        });
     }, [id]);
+
+    useEffect(() => {
+        if (!id || !user) return;
+
+        api.get(`/api/profiles/${id}/reactions/status`).then(data => {
+            if (data && !data.error) setReactionStatus(data);
+        });
+    }, [id, user]);
+
+    const handleToggleReaction = async (type: ReactionType) => {
+        if (!user) {
+            setToast({ message: 'Log in to react to this profile.', type: 'error', onClose: () => setToast(null) });
+            return;
+        }
+        setReactingType(type);
+
+        try {
+            const res = await api.post(`/api/profiles/${id}/reactions/${type}`, {});
+            if (res.error) {
+                setToast({ message: res.error, type: 'error', onClose: () => setToast(null) });
+            } else {
+                const added = res.action === 'added';
+                setReactionStatus(prev => ({ ...prev, [type]: added }));
+                setReactionCounts(prev => ({ ...prev, [type]: prev[type] + (added ? 1 : -1) }));
+            }
+        } catch (e) {
+            console.error('Reaction toggle failed', e);
+            setToast({ message: 'Failed to react. Check your connection.', type: 'error', onClose: () => setToast(null) });
+        } finally {
+            setReactingType(null);
+        }
+    };
 
     const saveProfile = async () => {
         if (!isOwner) return;
@@ -398,6 +456,43 @@ export default function Profile() {
                                 <span key={s} style={{ fontSize: '11px', color: '#8a7060', background: '#1a1612', padding: '3px 8px', borderRadius: '6px', border: '1px solid #2a2420' }}>{s}</span>
                             ))}
                         </div>
+
+                        {stats && (
+                            <div style={{ display: 'flex', gap: '20px', paddingTop: '4px' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 700, color: '#f0e0c8' }}>{stats.sends_count}</div>
+                                    <div style={{ fontSize: '10px', color: '#6a5848', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sends</div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 700, color: '#f0e0c8' }}>{stats.problems_count}</div>
+                                    <div style={{ fontSize: '10px', color: '#6a5848', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Added</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isOwner && (
+                            <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
+                                {REACTIONS.map(({ type, emoji, label }) => (
+                                    <button
+                                        key={type}
+                                        onClick={() => handleToggleReaction(type)}
+                                        disabled={reactingType === type}
+                                        title={`${label} this profile`}
+                                        style={{
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                                            padding: '8px 10px', borderRadius: '12px',
+                                            background: reactionStatus[type] ? 'rgba(200,122,48,0.15)' : 'transparent',
+                                            border: `1px solid ${reactionStatus[type] ? '#c87a30' : '#2a2420'}`,
+                                            cursor: 'pointer', transition: 'all 0.2s',
+                                            opacity: reactingType === type ? 0.6 : 1
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '18px' }}>{emoji}</span>
+                                        <span style={{ fontSize: '11px', color: reactionStatus[type] ? '#c87a30' : '#6a5848', fontWeight: 700 }}>{reactionCounts[type]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Main */}
