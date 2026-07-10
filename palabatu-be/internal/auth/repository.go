@@ -143,12 +143,13 @@ func upsertProfileRow(ctx context.Context, id, username string, title, tags json
 }
 
 // GetUserTitles reads profiles.title for authorization checks (the
-// Council/Associate role gate on problem edit/delete, applied via
-// internal/authz), mirroring palabatu-be/routes/api.ts's getUserTitles().
-// A missing profile, null title, or legacy non-array value all yield an
-// empty slice rather than an error, matching that helper's try/catch
-// fallback. Exported because internal/problems calls it to build the
-// already-fetched titles that authz.CanEditProblem takes as an argument.
+// Council/Associate role gate on problem and comment edit/delete, applied
+// via internal/authz), mirroring palabatu-be/routes/api.ts's
+// getUserTitles(). A missing profile, null title, or legacy non-array value
+// all yield an empty slice rather than an error, matching that helper's
+// try/catch fallback. Exported because internal/problems and internal/social
+// call it to build the already-fetched titles that authz.CanEditOwned takes
+// as an argument.
 func GetUserTitles(ctx context.Context, userID string) ([]string, error) {
 	var raw json.RawMessage
 	err := db.Pool.QueryRow(ctx, `SELECT title FROM profiles WHERE id = $1`, userID).Scan(&raw)

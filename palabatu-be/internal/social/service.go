@@ -4,7 +4,13 @@ package social
 
 import (
 	"context"
+	"errors"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
+
+	"palabatu-be/internal/auth"
+	"palabatu-be/internal/authz"
 )
 
 func HasSent(ctx context.Context, problemID, userID string) (bool, error) {
@@ -48,4 +54,27 @@ func CreateComment(ctx context.Context, problemID, userID, content string) (*Com
 		return nil, ErrCommentTooLong
 	}
 	return createComment(ctx, problemID, userID, content)
+}
+
+// DeleteComment authorizes and removes a comment, allowed for the comment's
+// own author or an admin (Council/Associate), mirroring the Founder/admin
+// check problems.DeleteProblem applies via the same authz.CanEditOwned.
+func DeleteComment(ctx context.Context, userID, commentID string) error {
+	ownerID, err := getCommentOwner(ctx, commentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	titles, err := auth.GetUserTitles(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !authz.CanEditOwned(userID, ownerID, titles) {
+		return ErrForbidden
+	}
+
+	return deleteCommentRow(ctx, commentID)
 }

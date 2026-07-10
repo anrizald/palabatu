@@ -46,6 +46,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
+    const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
     const [toast, setToast] = useState<ToastProps | null>(null);
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) });
 
@@ -224,6 +225,25 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             showError('Failed to post comment. Are you logged in?');
         } finally {
             setIsPostingComment(false);
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!window.confirm('Delete this comment?')) return;
+        setDeletingCommentId(commentId);
+
+        try {
+            const res = await api.delete(`/api/comments/${commentId}`);
+            if (res.error) {
+                showError(`Error deleting: ${res.error}`);
+            } else {
+                setComments(prev => prev.filter(c => c.id !== commentId));
+            }
+        } catch (e) {
+            console.error('Comment delete failed', e);
+            showError('Failed to delete comment. Check your connection.');
+        } finally {
+            setDeletingCommentId(null);
         }
     };
 
@@ -450,19 +470,36 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                             {comments.length === 0 ? (
                                 <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
                             ) : (
-                                comments.map(comment => (
-                                    <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                            <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
-                                                @{comment.username}
-                                            </Link>
-                                            <span style={{ color: '#6a5848', fontSize: '11px' }}>
-                                                {new Date(comment.created_at).toLocaleDateString()}
-                                            </span>
+                                comments.map(comment => {
+                                    const canDeleteComment = user && (user.id === comment.user_id || isCouncil);
+                                    return (
+                                        <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
+                                                    @{comment.username}
+                                                </Link>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ color: '#6a5848', fontSize: '11px' }}>
+                                                        {new Date(comment.created_at).toLocaleDateString()}
+                                                    </span>
+                                                    {canDeleteComment && (
+                                                        <button
+                                                            onClick={() => handleDeleteComment(comment.id)}
+                                                            disabled={deletingCommentId === comment.id}
+                                                            style={{
+                                                                background: 'none', border: 'none', color: '#dc3545',
+                                                                fontSize: '11px', cursor: 'pointer', padding: 0,
+                                                                opacity: deletingCommentId === comment.id ? 0.5 : 1
+                                                            }}>
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
                                         </div>
-                                        <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem } from '../types/problem.js'
+import Toast, { type ToastProps } from './Toast.js'
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
 
@@ -26,6 +27,8 @@ export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) 
 
 export default function AddProblemModal({ onClose, onAdded, newProblem, setNewProblem, isPicking, setIsPicking }: Props) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [toast, setToast] = useState<ToastProps | null>(null)
+    const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
 
     // Grade state
     const [problemType, setProblemType] = useState<ProblemType>('boulder')
@@ -81,8 +84,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
 
     const handleSubmit = async () => {
         if (!newProblem.name || newProblem.lat === null || newProblem.lng === null) {
-            // show toast instead alert
-            alert('Please fill in name and pick a location on the map');
+            showError('Please fill in name and pick a location on the map');
             return;
         }
         setIsSubmitting(true);
@@ -102,8 +104,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         const data = await api.post('/api/problems', { ...newProblem, image_urls: uploadedUrls });
         setIsSubmitting(false);
 
-        // to do : change to Toast()
-        if (data.error) { alert(data.error); return; }
+        if (data.error) { showError(data.error); return; }
         onAdded(data)
         onClose();
     }
@@ -169,6 +170,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '24px'
         }}>
+            {toast && <Toast {...toast} />}
             <div style={{
                 background: '#141210', border: '1px solid #2a2420',
                 borderRadius: '20px', padding: '32px',

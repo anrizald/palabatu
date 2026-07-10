@@ -67,6 +67,20 @@ func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	return comments, rows.Err()
 }
 
+func getCommentOwner(ctx context.Context, commentID string) (*string, error) {
+	var userID *string
+	err := db.Pool.QueryRow(ctx, `SELECT user_id FROM comments WHERE id = $1`, commentID).Scan(&userID)
+	if err != nil {
+		return nil, err
+	}
+	return userID, nil
+}
+
+func deleteCommentRow(ctx context.Context, commentID string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM comments WHERE id = $1`, commentID)
+	return err
+}
+
 func createComment(ctx context.Context, problemID, userID, content string) (*Comment, error) {
 	var c Comment
 	err := db.Pool.QueryRow(ctx, `

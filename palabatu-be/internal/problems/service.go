@@ -69,7 +69,7 @@ func DeleteProblem(ctx context.Context, userID, problemID string) error {
 }
 
 // authorizeProblemEdit fetches the acting user's profile titles and defers
-// the actual admin/Founder policy decision to authz.CanEditProblem, which
+// the actual admin/Founder policy decision to authz.CanEditOwned, which
 // takes that already-fetched data as an argument rather than reaching into
 // auth's repository itself.
 func authorizeProblemEdit(ctx context.Context, userID string, createdBy *string) error {
@@ -78,7 +78,7 @@ func authorizeProblemEdit(ctx context.Context, userID string, createdBy *string)
 		return err
 	}
 
-	if authz.CanEditProblem(userID, createdBy, titles) {
+	if authz.CanEditOwned(userID, createdBy, titles) {
 		return nil
 	}
 	return ErrForbidden

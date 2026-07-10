@@ -16,6 +16,7 @@ func Routes(rg *gin.RouterGroup) {
 
 	rg.GET("/problems/:id/comments", handleListComments)
 	rg.POST("/problems/:id/comments", middleware.RequireAuth, handleCreateComment)
+	rg.DELETE("/comments/:id", middleware.RequireAuth, handleDeleteComment)
 }
 
 // currentUserID reads the "id" claim attached by middleware.RequireAuth,
@@ -80,6 +81,23 @@ func handleCreateComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment cannot be empty"})
 	case errors.Is(err, ErrCommentTooLong):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment is too long"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
+}
+
+func handleDeleteComment(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
+
+	err := DeleteComment(c.Request.Context(), userID, id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this comment."})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}

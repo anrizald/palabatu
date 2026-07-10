@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
+import Toast, { type ToastProps } from '../components/Toast.js'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
@@ -14,6 +15,7 @@ const MAX_ZOOM = 18
 function LocateMeButton() {
     const map = useMap();
     const [isLocating, setIsLocating] = useState(false);
+    const [toast, setToast] = useState<ToastProps | null>(null);
 
     const handleLocate = () => {
         setIsLocating(true);
@@ -25,8 +27,11 @@ function LocateMeButton() {
             },
             (err) => {
                 console.error("GPS Error:", err);
-                // to do : change to Toast()
-                alert("Could not find your location. Please check your browser's location permissions.");
+                setToast({
+                    message: "Could not find your location. Please check your browser's location permissions.",
+                    type: 'error',
+                    onClose: () => setToast(null)
+                });
                 setIsLocating(false);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -34,6 +39,8 @@ function LocateMeButton() {
     };
 
     return (
+        <>
+        {toast && <Toast {...toast} />}
         <button
             onClick={handleLocate}
             disabled={isLocating}
@@ -60,6 +67,7 @@ function LocateMeButton() {
         >
             {isLocating ? '⏳' : '🎯'}
         </button>
+        </>
     );
 }
 
@@ -81,6 +89,7 @@ export default function MapPage() {
     // const center: [number, number] = [-7.797068, 110.370529]
     const center: [number, number] = [-2.5, 118.0]
     const [userTitles, setUserTitles] = useState<string[]>([]);
+    const [toast, setToast] = useState<ToastProps | null>(null);
 
     useEffect(() => {
         if (user?.id) {
@@ -111,8 +120,7 @@ export default function MapPage() {
 
     const handleFAB = () => {
         if (!user) {
-            // to do : change to Toast()
-            alert('Please log in to add a problem');
+            setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
             return;
         }
 
@@ -131,6 +139,7 @@ export default function MapPage() {
 
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
+            {toast && <Toast {...toast} />}
             <Header />
             <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} style={{ height: '100%', width: '100%' }}>
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}

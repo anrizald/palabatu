@@ -20,10 +20,10 @@ func IsAdmin(titles []string) bool {
 	return false
 }
 
-// CanEditProblem grants CRUD on a problem to two groups: admins (title
-// includes "Council" or "Associate") and that problem's own creator — its
-// "Founder" — who may only edit/delete the problem(s) they added.
-func CanEditProblem(userID string, createdBy *string, titles []string) bool {
-	isFounder := createdBy != nil && *createdBy == userID
-	return isFounder || IsAdmin(titles)
+// CanEditOwned grants CRUD on a resource (a problem, a comment, ...) to two
+// groups: admins (title includes "Council" or "Associate") and the
+// resource's own owner, identified by ownerID.
+func CanEditOwned(userID string, ownerID *string, titles []string) bool {
+	isOwner := ownerID != nil && *ownerID == userID
+	return isOwner || IsAdmin(titles)
 }
