@@ -1,8 +1,11 @@
-package repository
+package social
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"palabatu-be/internal/db"
 )
@@ -15,7 +18,32 @@ type Comment struct {
 	UserID    string    `json:"user_id"`
 }
 
-func ListComments(ctx context.Context, problemID string) ([]Comment, error) {
+func sendExists(ctx context.Context, problemID, userID string) (bool, error) {
+	var exists int
+	err := db.Pool.QueryRow(ctx,
+		`SELECT 1 FROM sends WHERE problem_id = $1 AND user_id = $2`,
+		problemID, userID,
+	).Scan(&exists)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func createSend(ctx context.Context, problemID, userID string) error {
+	_, err := db.Pool.Exec(ctx, `INSERT INTO sends (problem_id, user_id) VALUES ($1, $2)`, problemID, userID)
+	return err
+}
+
+func deleteSend(ctx context.Context, problemID, userID string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM sends WHERE problem_id = $1 AND user_id = $2`, problemID, userID)
+	return err
+}
+
+func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	rows, err := db.Pool.Query(ctx, `
 		SELECT c.id, c.content, c.created_at, p.username, c.user_id
 		FROM comments c
@@ -39,7 +67,7 @@ func ListComments(ctx context.Context, problemID string) ([]Comment, error) {
 	return comments, rows.Err()
 }
 
-func CreateComment(ctx context.Context, problemID, userID, content string) (*Comment, error) {
+func createComment(ctx context.Context, problemID, userID, content string) (*Comment, error) {
 	var c Comment
 	err := db.Pool.QueryRow(ctx, `
 		WITH new_comment AS (

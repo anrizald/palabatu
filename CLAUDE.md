@@ -87,46 +87,46 @@ palabatu-be/
 │   ├── metrics/metrics.go   # Prometheus HTTP request-count/duration middleware, exposed at GET /metrics
 │   ├── mailer/mailer.go     # SMTP sender (no emoji, see global style rule)
 │   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext
-│   ├── handler/             # HTTP layer: parses requests, calls service. Handlers take
-│   │   │                    # *gin.Context directly and use c.JSON/c.ShouldBindJSON.
-│   │   ├── auth.go          # AuthRoutes(rg), mounted at /auth — signup/signin/session/verify-email/forgot-password/reset-password
-│   │   ├── api.go           # APIRoutes(rg), mounted at /api — router wiring only
-│   │   ├── problem.go       # /problems handlers (list/create/update/delete)
-│   │   ├── profile.go       # /profiles handlers (get/upsert)
-│   │   ├── interaction.go   # /problems/:id/send*, /problems/:id/comments handlers
-│   │   └── upload.go        # /upload/topo, /upload/avatar handlers
-│   ├── service/
-│   │   ├── auth.go          # auth business logic, called by handler/auth.go
-│   │   ├── problem.go       # problem CRUD + admin/Founder authorization, Cloudinary cleanup on delete
-│   │   ├── profile.go       # profile get/upsert
-│   │   ├── send.go          # send toggle/status
-│   │   └── comment.go       # comment list/create
-│   └── repository/
-│       ├── user.go          # `users` table queries, called by service/auth.go
-│       ├── problem.go       # `problems` table queries
-│       ├── profile.go       # `profiles` table queries + GetUserTitles()
-│       ├── send.go          # `sends` table queries
-│       └── comment.go       # `comments` table queries
+│   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditProblem(userID, createdBy, titles).
+│   │                        # Takes already-fetched data as args — never reaches into another domain's repository,
+│   │                        # so problems/social/auth -> authz stays one-way with no import cycle possible.
+│   ├── auth/                # users, sessions, JWT issuance/verification, signup/signin, email verification,
+│   │   │                    # password reset, and profiles (profiles.title is an authz concern, so Profile lives here).
+│   │   ├── handler.go       # AuthRoutes(rg) mounted at /auth; ProfileRoutes(rg) mounted at /api (GET/PUT /profiles/:id)
+│   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
+│   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
+│   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
+│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization
+│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar
+│   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
+│   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
+│   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditProblem
+│   │   ├── repository.go    # `problems` table queries
+│   │   └── errors.go        # ErrNotFound, ErrForbidden
+│   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
+│       ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
+│       ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
+│       ├── repository.go     # `sends` + `comments` table queries
+│       └── errors.go         # ErrEmptyComment
 ```
 
-- Layering convention: `handler` → `service` → `repository` → `internal/db`. Handlers should stay thin (request parsing + response writing); business rules belong in `service`; raw SQL belongs in `repository`.
+- Domain package convention (this replaced a `handler`/`service`/`repository`-by-technical-layer split — see git history before commit that executed [palabatu-be/docs/domain-restructure.md](palabatu-be/docs/domain-restructure.md) if you need the old shape): each domain (`auth`, `problems`, `social`) is one package holding its own `handler.go`/`service.go`/`repository.go`. Within a domain, repository-tier functions are unexported (lowercase) since they're now pure implementation detail of that package; service-tier functions stay exported only where the handler in the same file needs them or another domain calls in (e.g. `auth.GetUserTitles`). Handlers should stay thin (request parsing + response writing); business rules belong in the service-tier functions; raw SQL belongs in the repository-tier functions. This is a modular monolith (one binary, one `pgxpool`, one deploy) — not separate services; see the restructure doc for why splitting into actual network-separated services isn't warranted at current scale.
 - The CORS allowlist in `cmd/api/main.go` intentionally omits a literal `"*"` origin entry — in `gin-contrib/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy. Add new LAN IPs (used for testing on a phone during dev) directly to that list — don't switch to a wildcard-only policy.
 - `GET /session` is wrapped with `middleware.RequireAuth` (passed as an extra handler in the `rg.GET("/session", middleware.RequireAuth, handleSession)` chain) rather than duplicating JWT parsing inline — same secret, same verification, one code path.
-- `AuthRoutes`/`APIRoutes` take a `*gin.RouterGroup` (from `r.Group("/auth")` / `r.Group("/api")` in `main.go`) and register routes on it directly, rather than returning a sub-router to `Mount`.
+- `main.go` builds one `*gin.RouterGroup` per mount point (`r.Group("/auth")`, `r.Group("/api")`) and passes each to every domain's route-registration function that needs it — e.g. both `auth.ProfileRoutes` and `problems.Routes` and `social.Routes` all register onto the same `/api` group.
 - Prometheus: `internal/metrics.Middleware` (registered via `r.Use`) records `http_requests_total` and `http_request_duration_seconds`, labeled by method, matched route pattern (`c.FullPath()`, e.g. `/problems/:id` — not the raw path, to keep cardinality bounded), and status. `GET /metrics` serves `promhttp.Handler()` (wrapped via `gin.WrapH`) for a Prometheus server to scrape. No business/domain metrics yet, just HTTP-layer instrumentation.
-- `repository.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
+- `auth.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing `palabatu-fe`'s `AuthContext.tsx` expects (it displays `data.error` directly in a toast) — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
-- `service.Signup` treats *any* `CreateUser` failure as "email already exists" (400) — a deliberately preserved quirk (its catch-all doesn't distinguish a unique-constraint violation from other DB errors), not a bug.
-- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `service.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
+- `auth.Signup` treats *any* `createUser` failure as "email already exists" (400) — a deliberately preserved quirk (its catch-all doesn't distinguish a unique-constraint violation from other DB errors), not a bug.
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `problems.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
-- `repository.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `repository.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
+- `auth.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `auth.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
 - `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
-- Problem authorization model (`service.authorizeProblemEdit` in `service/problem.go`):
+- Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
-  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`service.adminTitles`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added.
+  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
 
 ## Known WIP rough edges
 
 - `App.tsx` has an unused `Home()`/`About()` component pair left over from an earlier Supabase-based setup — not wired into any route.
 - `req.user`-equivalent context on the backend has no shared typed augmentation yet beyond `middleware.UserFromContext`.
-- A domain-oriented restructure of `internal/` (slicing by feature instead of by technical layer) is sketched in [palabatu-be/docs/domain-restructure.md](palabatu-be/docs/domain-restructure.md) — proposed, not started.

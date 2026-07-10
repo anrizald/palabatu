@@ -1,4 +1,4 @@
-package repository
+package problems
 
 import (
 	"context"
@@ -47,7 +47,7 @@ type ProblemRow struct {
 	ImageURLs []string  `json:"image_urls"`
 }
 
-func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
+func listProblems(ctx context.Context) ([]ProblemListItem, error) {
 	rows, err := db.Pool.Query(ctx, `
 		SELECT
 			p.id,
@@ -82,7 +82,7 @@ func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
 	return problems, rows.Err()
 }
 
-func CreateProblem(ctx context.Context, name, grade, location string, lat, lng float64, createdBy string, imageURLs []string) (*ProblemSummary, error) {
+func createProblem(ctx context.Context, name, grade, location string, lat, lng float64, createdBy string, imageURLs []string) (*ProblemSummary, error) {
 	imageURLsJSON, err := json.Marshal(imageURLs)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func CreateProblem(ctx context.Context, name, grade, location string, lat, lng f
 	return &p, nil
 }
 
-func GetProblemCreator(ctx context.Context, id string) (*string, error) {
+func getProblemCreator(ctx context.Context, id string) (*string, error) {
 	var createdBy *string
 	err := db.Pool.QueryRow(ctx, `SELECT created_by FROM problems WHERE id = $1`, id).Scan(&createdBy)
 	if err != nil {
@@ -110,10 +110,9 @@ func GetProblemCreator(ctx context.Context, id string) (*string, error) {
 	return createdBy, nil
 }
 
-// GetProblemOwnerAndImages backs DELETE /problems/:id's authorization check
-// and Cloudinary cleanup. The Cloudinary destroy step isn't ported yet (see
-// service.DeleteProblem), so imageURLs is currently unused by callers.
-func GetProblemOwnerAndImages(ctx context.Context, id string) (createdBy *string, imageURLs []string, err error) {
+// getProblemOwnerAndImages backs DELETE /problems/:id's authorization check
+// and Cloudinary cleanup.
+func getProblemOwnerAndImages(ctx context.Context, id string) (createdBy *string, imageURLs []string, err error) {
 	err = db.Pool.QueryRow(ctx, `SELECT created_by, image_urls FROM problems WHERE id = $1`, id).Scan(&createdBy, &imageURLs)
 	if err != nil {
 		return nil, nil, err
@@ -121,14 +120,14 @@ func GetProblemOwnerAndImages(ctx context.Context, id string) (createdBy *string
 	return createdBy, imageURLs, nil
 }
 
-func DeleteProblem(ctx context.Context, id string) error {
+func deleteProblemRow(ctx context.Context, id string) error {
 	_, err := db.Pool.Exec(ctx, `DELETE FROM problems WHERE id = $1`, id)
 	return err
 }
 
-// UpdateProblem only touches name/grade, matching the Node route's comment
-// that location/lat/lng aren't editable (yet).
-func UpdateProblem(ctx context.Context, id, name, grade string) (*ProblemRow, error) {
+// updateProblemRow only touches name/grade, matching the Node route's
+// comment that location/lat/lng aren't editable (yet).
+func updateProblemRow(ctx context.Context, id, name, grade string) (*ProblemRow, error) {
 	var p ProblemRow
 	err := db.Pool.QueryRow(ctx,
 		`UPDATE problems SET name = $1, grade = $2 WHERE id = $3

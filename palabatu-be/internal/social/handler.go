@@ -1,4 +1,4 @@
-package handler
+package social
 
 import (
 	"errors"
@@ -7,14 +7,29 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"palabatu-be/internal/middleware"
-	"palabatu-be/internal/service"
 )
+
+// Routes registers the social domain's routes on the /api group.
+func Routes(rg *gin.RouterGroup) {
+	rg.GET("/problems/:id/send-status", middleware.RequireAuth, handleSendStatus)
+	rg.POST("/problems/:id/send", middleware.RequireAuth, handleToggleSend)
+
+	rg.GET("/problems/:id/comments", handleListComments)
+	rg.POST("/problems/:id/comments", middleware.RequireAuth, handleCreateComment)
+}
+
+// currentUserID reads the "id" claim attached by middleware.RequireAuth,
+// mirroring (req as any).user.id in the Node routes.
+func currentUserID(claims map[string]interface{}) string {
+	id, _ := claims["id"].(string)
+	return id
+}
 
 func handleSendStatus(c *gin.Context) {
 	userID := currentUserID(middleware.UserFromContext(c))
 	id := c.Param("id")
 
-	hasSent, err := service.HasSent(c.Request.Context(), id, userID)
+	hasSent, err := HasSent(c.Request.Context(), id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
@@ -26,7 +41,7 @@ func handleToggleSend(c *gin.Context) {
 	userID := currentUserID(middleware.UserFromContext(c))
 	id := c.Param("id")
 
-	action, err := service.ToggleSend(c.Request.Context(), id, userID)
+	action, err := ToggleSend(c.Request.Context(), id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
@@ -37,7 +52,7 @@ func handleToggleSend(c *gin.Context) {
 func handleListComments(c *gin.Context) {
 	id := c.Param("id")
 
-	comments, err := service.ListComments(c.Request.Context(), id)
+	comments, err := ListComments(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
@@ -57,12 +72,14 @@ func handleCreateComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := service.CreateComment(c.Request.Context(), id, userID, body.Content)
+	comment, err := CreateComment(c.Request.Context(), id, userID, body.Content)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, comment)
-	case errors.Is(err, service.ErrEmptyComment):
+	case errors.Is(err, ErrEmptyComment):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment cannot be empty"})
+	case errors.Is(err, ErrCommentTooLong):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment is too long"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}

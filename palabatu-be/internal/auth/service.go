@@ -1,9 +1,15 @@
-package service
+// Package auth owns users, sessions, JWT issuance/verification,
+// signup/signin, email verification, password reset, and profiles.
+// Profiles live here rather than as their own domain because
+// profiles.title is an authz concern (see internal/authz), even though
+// tags/avatar/level is public-facing display data other domains read.
+package auth
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"os"
 	"time"
@@ -13,7 +19,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"palabatu-be/internal/mailer"
-	"palabatu-be/internal/repository"
 )
 
 const resetTokenTTL = time.Hour
@@ -40,13 +45,13 @@ func Signup(ctx context.Context, email, password, username string) error {
 		return err
 	}
 
-	id, err := repository.CreateUser(ctx, email, string(hashed), username, verificationToken)
+	id, err := createUser(ctx, email, string(hashed), username, verificationToken)
 	if err != nil {
 		return ErrEmailExists
 	}
 
 	if err := mailer.SendVerificationEmail(email, verificationToken); err != nil {
-		_ = repository.DeleteUser(ctx, id)
+		_ = deleteUser(ctx, id)
 		return ErrEmailSendFailed
 	}
 
@@ -54,8 +59,8 @@ func Signup(ctx context.Context, email, password, username string) error {
 }
 
 // Signin verifies credentials and returns a signed 7-day JWT plus the user.
-func Signin(ctx context.Context, email, password string) (string, *repository.User, error) {
-	user, err := repository.GetUserByEmail(ctx, email)
+func Signin(ctx context.Context, email, password string) (string, *User, error) {
+	user, err := getUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil, ErrInvalidCredentials
 	}
@@ -83,11 +88,11 @@ func Signin(ctx context.Context, email, password string) (string, *repository.Us
 	return token, user, nil
 }
 
-// Session looks up the user for an already-verified JWT (see
-// middleware.RequireAuth, which handler/auth.go wraps the /session route
-// with). Returns (nil, nil) if the token was valid but the user is gone.
-func Session(ctx context.Context, userID string) (*repository.User, error) {
-	user, err := repository.GetUserByID(ctx, userID)
+// Session looks up the user for an already-verified JWT (see handler.go,
+// which wraps the /session route with middleware.RequireAuth). Returns
+// (nil, nil) if the token was valid but the user is gone.
+func Session(ctx context.Context, userID string) (*User, error) {
+	user, err := getUserByID(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -96,7 +101,7 @@ func Session(ctx context.Context, userID string) (*repository.User, error) {
 
 // VerifyEmail marks a user verified by their emailed token.
 func VerifyEmail(ctx context.Context, token string) error {
-	_, _, err := repository.VerifyEmailByToken(ctx, token)
+	_, _, err := verifyEmailByToken(ctx, token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrInvalidToken
 	}
@@ -106,7 +111,7 @@ func VerifyEmail(ctx context.Context, token string) error {
 // ForgotPassword emails a reset link if the address exists. It deliberately
 // does not report whether the address was found, to avoid leaking that.
 func ForgotPassword(ctx context.Context, email string) error {
-	_, err := repository.GetUserByEmail(ctx, email)
+	_, err := getUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -119,7 +124,7 @@ func ForgotPassword(ctx context.Context, email string) error {
 		return err
 	}
 
-	if err := repository.SetResetToken(ctx, email, token, time.Now().Add(resetTokenTTL)); err != nil {
+	if err := setResetToken(ctx, email, token, time.Now().Add(resetTokenTTL)); err != nil {
 		return err
 	}
 
@@ -128,7 +133,7 @@ func ForgotPassword(ctx context.Context, email string) error {
 
 // ResetPassword sets a new password for the user matching an unexpired reset token.
 func ResetPassword(ctx context.Context, token, password string) error {
-	user, err := repository.GetUserByResetToken(ctx, token)
+	user, err := getUserByResetToken(ctx, token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrInvalidToken
 	}
@@ -141,5 +146,25 @@ func ResetPassword(ctx context.Context, token, password string) error {
 		return err
 	}
 
-	return repository.UpdatePassword(ctx, user.ID, string(hashed))
+	return updatePassword(ctx, user.ID, string(hashed))
+}
+
+// GetProfile returns (nil, nil) when no profile row exists, matching
+// palabatu-be/routes/api.ts's `res.json(null)` for a missing profile.
+func GetProfile(ctx context.Context, id string) (*Profile, error) {
+	profile, err := getProfileByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return profile, err
+}
+
+func UpsertProfile(ctx context.Context, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
+	if title == nil {
+		title = json.RawMessage("null")
+	}
+	if tags == nil {
+		tags = json.RawMessage("null")
+	}
+	return upsertProfileRow(ctx, id, username, title, tags, avatarURL)
 }

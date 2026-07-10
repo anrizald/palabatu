@@ -1,8 +1,10 @@
 # Domain restructure sketch
 
-Status: proposed, not started. Written 2026-07-07 during a discussion about whether
-`palabatu-be` should be organized by domain instead of by technical layer. Revisit
-this doc before starting the actual move.
+Status: executed 2026-07-09. Written 2026-07-07 during a discussion about whether
+`palabatu-be` should be organized by domain instead of by technical layer, resolved
+the same day, and carried out as a pure file/package move on 2026-07-09 — no
+behavior change, route surface (paths, methods, middleware) verified identical
+before/after. See `CLAUDE.md`'s Architecture section for the shape as it exists now.
 
 ## Problem
 

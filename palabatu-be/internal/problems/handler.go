@@ -1,4 +1,4 @@
-package handler
+package problems
 
 import (
 	"errors"
@@ -7,11 +7,28 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"palabatu-be/internal/middleware"
-	"palabatu-be/internal/service"
 )
 
+// Routes registers the problems domain's routes on the /api group.
+func Routes(rg *gin.RouterGroup) {
+	rg.GET("/problems", handleListProblems)
+	rg.POST("/problems", middleware.RequireAuth, handleCreateProblem)
+	rg.PUT("/problems/:id", middleware.RequireAuth, handleUpdateProblem)
+	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
+
+	rg.POST("/upload/topo", middleware.RequireAuth, handleUploadTopo)
+	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
+}
+
+// currentUserID reads the "id" claim attached by middleware.RequireAuth,
+// mirroring (req as any).user.id in the Node routes.
+func currentUserID(claims map[string]interface{}) string {
+	id, _ := claims["id"].(string)
+	return id
+}
+
 func handleListProblems(c *gin.Context) {
-	problems, err := service.ListProblems(c.Request.Context())
+	problems, err := ListProblems(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
@@ -35,7 +52,7 @@ func handleCreateProblem(c *gin.Context) {
 		return
 	}
 
-	problem, err := service.CreateProblem(c.Request.Context(), userID, body.Name, body.Grade, body.Location, body.Lat, body.Lng, body.ImageURLs)
+	problem, err := CreateProblem(c.Request.Context(), userID, body.Name, body.Grade, body.Location, body.Lat, body.Lng, body.ImageURLs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 		return
@@ -56,13 +73,13 @@ func handleUpdateProblem(c *gin.Context) {
 		return
 	}
 
-	problem, err := service.UpdateProblem(c.Request.Context(), userID, id, body.Name, body.Grade)
+	problem, err := UpdateProblem(c.Request.Context(), userID, id, body.Name, body.Grade)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
-	case errors.Is(err, service.ErrNotFound):
+	case errors.Is(err, ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
-	case errors.Is(err, service.ErrForbidden):
+	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this problem."})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
@@ -73,13 +90,13 @@ func handleDeleteProblem(c *gin.Context) {
 	userID := currentUserID(middleware.UserFromContext(c))
 	id := c.Param("id")
 
-	err := service.DeleteProblem(c.Request.Context(), userID, id)
+	err := DeleteProblem(c.Request.Context(), userID, id)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, gin.H{"success": true})
-	case errors.Is(err, service.ErrNotFound):
+	case errors.Is(err, ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
-	case errors.Is(err, service.ErrForbidden):
+	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this problem."})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})

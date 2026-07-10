@@ -2,6 +2,7 @@ import { api } from '../lib/api.js';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext.js';
+import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js';
 
@@ -45,6 +46,8 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
+    const [toast, setToast] = useState<ToastProps | null>(null);
+    const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) });
 
     // --- GRADE PICKER STATE ---
     const [problemType, setProblemType] = useState<ProblemType>('boulder');
@@ -156,8 +159,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             }
         } catch (e) {
             console.error('Failed to toggle send', e);
-            // to do : change to Toast()
-            alert('Failed to log send. Check your connection.');
+            showError('Failed to log send. Check your connection.');
         } finally {
             setIsTogglingSend(false);
         }
@@ -171,16 +173,14 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             const res = await api.delete(`/api/problems/${problem.id}`);
 
             if (res.error) {
-                // to do : change to Toast()
-                alert(`Error deleting: ${res.error}`);
+                showError(`Error deleting: ${res.error}`);
             } else {
                 onDelete(problem.id);
                 onClose();
             }
         } catch (e) {
             console.error('Delete failed', e);
-            // to do : change to Toast()
-            alert('Failed to delete problem. Check your connection.');
+            showError('Failed to delete problem. Check your connection.');
         } finally {
             setIsProcessing(false);
         }
@@ -192,8 +192,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             const data = await api.put(`/api/problems/${problem.id}`, editForm);
 
             if (data.error) {
-                // to do : change to Toast()
-                alert(`Error updating: ${data.error}`);
+                showError(`Error updating: ${data.error}`);
             } else {
                 onUpdate({ ...problem, ...editForm });
                 setIsEditing(false);
@@ -201,8 +200,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         }
         catch (e) {
             console.error('Update failed', e);
-            // to do : change to Toast()
-            alert('Failed to update problem. Check your connection.');
+            showError('Failed to update problem. Check your connection.');
         } finally {
             setIsProcessing(false);
         }
@@ -215,8 +213,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         try {
             const data = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
             if (data.error) {
-                // to do : change to Toast()
-                alert(data.error);
+                showError(data.error);
             } else {
                 // Instantly add the new comment to the list so it updates on screen!
                 setComments(prev => [...prev, data]);
@@ -224,8 +221,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             }
         } catch (e) {
             console.error(e);
-            // to do : change to Toast()
-            alert('Failed to post comment. Are you logged in?');
+            showError('Failed to post comment. Are you logged in?');
         } finally {
             setIsPostingComment(false);
         }
@@ -238,6 +234,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
             padding: '20px 0 0 0'
         }}>
+            {toast && <Toast {...toast} />}
             <div style={{
                 background: '#141210', borderTop: '1px solid #2a2420',
                 borderRadius: '24px',

@@ -6,3 +6,4 @@ export { default as Signup } from './Signup.js';
 export { default as VerifyEmail } from './VerifyEmail.js';
 export { default as ForgotPassword } from './ForgotPassword.js';
 export { default as ResetPassword } from './ResetPassword.js';
+export { default as NotFound } from './NotFound.js';

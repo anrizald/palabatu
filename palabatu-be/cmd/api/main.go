@@ -11,10 +11,12 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"palabatu-be/internal/auth"
 	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/db"
-	"palabatu-be/internal/handler"
 	"palabatu-be/internal/metrics"
+	"palabatu-be/internal/problems"
+	"palabatu-be/internal/social"
 )
 
 // stripTrailingSlash makes "/foo" and "/foo/" match the same route, mirroring
@@ -47,19 +49,27 @@ func main() {
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
+			"https://palabatu.id",
+			"https://www.palabatu.id",
 			"http://localhost:5173",
 			"http://localhost:4173",
 			"http://192.168.0.100:5173",
 			"http://192.168.0.101:5173",
+			"http://192.168.0.102:5173",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-	handler.AuthRoutes(r.Group("/auth"))
-	handler.APIRoutes(r.Group("/api"))
+	apiGroup := r.Group("/api")
+
+	auth.AuthRoutes(r.Group("/auth"))
+	auth.ProfileRoutes(apiGroup)
+	problems.Routes(apiGroup)
+	social.Routes(apiGroup)
 
 	port := os.Getenv("PORT")
 	if port == "" {

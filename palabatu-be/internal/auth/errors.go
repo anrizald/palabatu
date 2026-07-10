@@ -1,4 +1,4 @@
-package service
+package auth
 
 import "errors"
 
@@ -8,7 +8,4 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrNotVerified        = errors.New("email registered but not verified")
 	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrNotFound           = errors.New("not found")
-	ErrForbidden          = errors.New("forbidden")
-	ErrEmptyComment       = errors.New("comment cannot be empty")
 )
