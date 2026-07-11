@@ -25,13 +25,15 @@ type Comment = {
     user_id: string;
 };
 
-export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate }: ProblemDetailsProps) {
+export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate, isPicking = false, setIsPicking, pickedCoords }: ProblemDetailsProps) {
     const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({
         name: problem.name,
         grade: problem.grade,
-        location_name: problem.location_name
+        location_name: problem.location_name,
+        lat: problem.latitude,
+        lng: problem.longitude
     });
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -122,6 +124,12 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         setEditForm(prev => ({ ...prev, grade: gradeStr }));
     }, [gradeFrom, gradeTo, isRange]);
 
+    // Sync a freshly-picked map location into the edit form
+    useEffect(() => {
+        if (!pickedCoords) return;
+        setEditForm(prev => ({ ...prev, lat: pickedCoords.lat, lng: pickedCoords.lng }));
+    }, [pickedCoords]);
+
     const handleGradePick = (g: string) => {
         if (!isRange) {
             setGradeFrom(g);
@@ -195,7 +203,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             if (data.error) {
                 showError(`Error updating: ${data.error}`);
             } else {
-                onUpdate({ ...problem, ...editForm });
+                onUpdate({ ...problem, ...editForm, latitude: editForm.lat, longitude: editForm.lng });
                 setIsEditing(false);
             }
         }
@@ -246,6 +254,30 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             setDeletingCommentId(null);
         }
     };
+
+    if (isPicking) {
+        return (
+            <div style={{
+                position: 'fixed', bottom: '32px', left: '32px',
+                background: 'rgba(20,18,16,0.97)', border: '1px solid #c87a30',
+                borderRadius: '16px', padding: '16px 20px',
+                zIndex: 10000, fontFamily: "'DM Sans', sans-serif",
+                boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                display: 'flex', flexDirection: 'column', gap: '10px',
+                minWidth: '220px'
+            }}>
+                <p style={{ fontSize: '13px', color: '#f0e0c8', fontWeight: 500 }}>
+                    📍 Click on the map to set the new location
+                </p>
+                <button onClick={() => setIsPicking?.(false)} style={{
+                    padding: '7px 14px', background: 'transparent',
+                    border: '1px solid #2a2420', borderRadius: '8px',
+                    color: '#6a5848', fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '12px', cursor: 'pointer'
+                }}>Cancel</button>
+            </div>
+        );
+    }
 
     return (
         <div style={{
@@ -417,10 +449,18 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                             {/* Pinpoint */}
                             <div>
                                 <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location on Map</div>
-                                <div style={{ padding: '10px 14px', background: 'rgba(93,187,106,0.1)', border: '1px solid #5dbb6a', borderRadius: '10px', color: '#5dbb6a', fontSize: '13px' }}>
-                                    📍 {problem.lat?.toFixed(4)}, {problem.lng?.toFixed(4)}
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1, padding: '10px 14px', background: 'rgba(93,187,106,0.1)', border: '1px solid #5dbb6a', borderRadius: '10px', color: '#5dbb6a', fontSize: '13px' }}>
+                                        📍 {editForm.lat?.toFixed(4)}, {editForm.lng?.toFixed(4)}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPicking?.(true)}
+                                        style={{ padding: '10px 14px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+                                    >
+                                        Change
+                                    </button>
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#6a5848', fontStyle: 'italic', marginTop: '4px' }}>Pinpoint editing coming soon</div>
                             </div>
 
                             {/* Actions */}

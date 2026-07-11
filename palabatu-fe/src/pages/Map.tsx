@@ -76,6 +76,7 @@ export default function MapPage() {
     const [isPicking, setIsPicking] = useState(false)
     const [showModal, setShowModal] = useState(false)
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
+    const [editPickedCoords, setEditPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [newProblem, setNewProblem] = useState<NewProblem>({
         name: '',
         grade: 'V0',
@@ -150,9 +151,13 @@ export default function MapPage() {
                 <MapFlyTo />
                 <LocateMeButton />
                 <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
-                {showModal && isPicking && (
+                {(showModal || selectedProblem) && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
-                        setNewProblem(prev => ({ ...prev, lat, lng }));
+                        if (showModal) {
+                            setNewProblem(prev => ({ ...prev, lat, lng }));
+                        } else {
+                            setEditPickedCoords({ lat, lng });
+                        }
                         setIsPicking(false);
                     }} />
                 )}
@@ -196,7 +201,11 @@ export default function MapPage() {
                 <ProblemDetails
                     problem={selectedProblem}
                     userTitles={userTitles}
-                    onClose={() => setSelectedProblem(null)}
+                    onClose={() => {
+                        setSelectedProblem(null);
+                        setEditPickedCoords(null);
+                        setIsPicking(false);
+                    }}
                     onDelete={(id) => {
                         setProblems(prev => prev.filter(p => p.id !== id));
                         setSelectedProblem(null);
@@ -204,6 +213,9 @@ export default function MapPage() {
                     onUpdate={(updatedItem) => {
                         setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
                     }}
+                    isPicking={isPicking}
+                    setIsPicking={setIsPicking}
+                    pickedCoords={editPickedCoords}
                 />
             )}
         </div>

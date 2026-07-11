@@ -24,10 +24,24 @@ func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
 // POST /problems predates the role model below and is superseded by it, not
 // just left disabled for parity.)
 func CreateProblem(ctx context.Context, createdBy, name, grade, location string, lat, lng float64, imageURLs []string) (*ProblemSummary, error) {
+	if err := validateGrade(grade); err != nil {
+		return nil, err
+	}
+	if err := validateLatLng(lat, lng); err != nil {
+		return nil, err
+	}
+
 	return createProblem(ctx, name, grade, location, lat, lng, createdBy, imageURLs)
 }
 
-func UpdateProblem(ctx context.Context, userID, problemID, name, grade string) (*ProblemRow, error) {
+func UpdateProblem(ctx context.Context, userID, problemID, name, grade string, lat, lng float64) (*ProblemRow, error) {
+	if err := validateGrade(grade); err != nil {
+		return nil, err
+	}
+	if err := validateLatLng(lat, lng); err != nil {
+		return nil, err
+	}
+
 	createdBy, err := getProblemCreator(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -40,7 +54,7 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade string) (
 		return nil, err
 	}
 
-	return updateProblemRow(ctx, problemID, name, grade)
+	return updateProblemRow(ctx, problemID, name, grade, lat, lng)
 }
 
 // DeleteProblem authorizes and removes a problem row, best-effort destroying

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,12 +13,20 @@ import (
 
 // AuthRoutes registers routes under /auth, mirroring palabatu-be/routes/auth.ts.
 func AuthRoutes(rg *gin.RouterGroup) {
-	rg.POST("/signup", handleSignup)
-	rg.POST("/signin", handleSignin)
+	// One shared per-IP bucket across the credential-facing endpoints
+	// (account creation, sign-in, password reset) to blunt brute-force and
+	// spam attempts: 5 requests per minute per IP total across all four,
+	// with a burst of 5 so a legitimate user isn't punished for a couple
+	// of quick retries. Built once so all four routes share one limiter
+	// map/cleanup goroutine instead of each spinning up its own.
+	limitCredentialEndpoints := middleware.RateLimit(12*time.Second, 5)
+
+	rg.POST("/signup", limitCredentialEndpoints, handleSignup)
+	rg.POST("/signin", limitCredentialEndpoints, handleSignin)
 	rg.GET("/session", middleware.RequireAuth, handleSession)
 	rg.GET("/verify-email", handleVerifyEmail)
-	rg.POST("/forgot-password", handleForgotPassword)
-	rg.POST("/reset-password", handleResetPassword)
+	rg.POST("/forgot-password", limitCredentialEndpoints, handleForgotPassword)
+	rg.POST("/reset-password", limitCredentialEndpoints, handleResetPassword)
 }
 
 // ProfileRoutes registers /api/profiles/:id, mirroring
