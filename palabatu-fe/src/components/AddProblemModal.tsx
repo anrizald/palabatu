@@ -4,8 +4,8 @@ import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem } from '../types/problem.js'
 import Toast, { type ToastProps } from './Toast.js'
-import HorizontalScrollCarousel from './HorizontalScrollCarousel.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
+import { X, Pencil } from 'lucide-react'
 
 type Props = {
     onClose: () => void
@@ -200,8 +200,9 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                             newPreviews.splice(idx, 1);
                                             setNewProblem({ ...newProblem, imageFiles: newFiles, imagePreviews: newPreviews });
                                         }}
-                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '10px' }}
-                                    >✕</button>
+                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        aria-label="Remove photo"
+                                    ><X size={14} /></button>
                                 </div>
                             ))}
 
@@ -340,8 +341,9 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                     borderRadius: '10px', cursor: 'pointer',
                                     color: '#8a7060', fontFamily: "'DM Sans', sans-serif",
                                     fontSize: '12px', whiteSpace: 'nowrap',
-                                    transition: 'all 0.2s'
-                                }}>✏️ Edit</button>
+                                    transition: 'all 0.2s',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}><Pencil size={14} /> Edit</button>
                             </div>
                         ) : (
                             <button onClick={() => setIsPicking(true)} style={{

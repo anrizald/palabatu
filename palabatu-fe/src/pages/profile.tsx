@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import Header from '../components/Header.js'
 import { useState, useEffect, useRef } from 'react'
 import Toast, { type ToastProps } from '../components/Toast.js';
+import { Check } from 'lucide-react';
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"
@@ -400,6 +401,10 @@ export default function Profile() {
                     transition: all 0.2s;
                     box-shadow: 0 2px 12px rgba(200,122,48,0.3);
                     align-self: flex-end;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
                 }
 
                 .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(200,122,48,0.4); }
@@ -592,7 +597,7 @@ export default function Profile() {
                                 onClick={saveProfile}
                                 disabled={isSaving}
                             >
-                                {isSaving ? 'Saving...' : saved ? '✓ Saved' : 'Save Changes'}
+                                {isSaving ? 'Saving...' : saved ? <><Check size={16} /> Saved</> : 'Save Changes'}
                             </button>
                         )}
                     </div>

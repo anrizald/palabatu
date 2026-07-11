@@ -1,6 +1,7 @@
 import { api } from '../lib/api.js';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { CircleX } from 'lucide-react';
 
 export default function VerifyEmail() {
     const [searchParams] = useSearchParams();
@@ -58,7 +59,7 @@ export default function VerifyEmail() {
                     )}
                     {status === 'error' && (
                         <>
-                            <div style={{ fontSize: '36px', marginBottom: '16px' }}>❌</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><CircleX size={36} color="#e07060" /></div>
                             <h2 style={{
                                 fontFamily: "'Playfair Display', serif",
                                 fontSize: '24px', fontWeight: 900,
