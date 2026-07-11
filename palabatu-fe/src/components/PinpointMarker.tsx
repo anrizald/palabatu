@@ -11,20 +11,37 @@ type Props = {
     grade?: string
     creatorName?: string
     creatorId?: string
+    zoom?: number
     onClickDetails?: () => void;
 }
 
-export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorId, onClickDetails }: Props) {
+const MIN_ZOOM = 3
+const MAX_ZOOM = 18
+const MIN_ICON_SIZE = 16
+const MAX_ICON_SIZE = 32
+
+function iconSizeForZoom(zoom: number) {
+    const t = Math.min(1, Math.max(0, (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)))
+    return Math.round(MIN_ICON_SIZE + t * (MAX_ICON_SIZE - MIN_ICON_SIZE))
+}
+
+export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorId, zoom = MAX_ZOOM, onClickDetails }: Props) {
     const markerRef = useRef<any>(null)
 
-    const markerIcon = useMemo(() => (L as any).icon({
-        iconUrl: type === 'cluster'
-            ? '/assets/pointers/pinpoint-cluster.gif'
-            : '/assets/pointers/pinpoint.gif',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
-    }) as any, [type])
+    const markerIcon = useMemo(() => {
+        const dpr = window.devicePixelRatio || 1
+        const assetSize = dpr >= 3 ? 96 : dpr >= 2 ? 64 : 32
+        const baseName = type === 'cluster' ? 'pinpoint-cluster' : 'pinpoint'
+        const size = iconSizeForZoom(zoom)
+
+        return (L as any).divIcon({
+            html: `<img src="/assets/pointers/${baseName}-${assetSize}.png" style="width:${size}px;height:${size}px" class="pinpoint-marker-bounce" />`,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size],
+            popupAnchor: [0, -size],
+            className: 'pinpoint-marker-icon',
+        }) as any
+    }, [type, zoom])
 
     useEffect(() => {
         markerRef.current?.setIcon(markerIcon)

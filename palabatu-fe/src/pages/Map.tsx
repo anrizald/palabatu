@@ -282,6 +282,8 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
         return result
     }, [map, problems, tick])
 
+    const currentZoom = map?.getZoom?.() ?? 13
+
     return (
         <>
             {clusters.map((c, idx) => {
@@ -297,6 +299,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                             grade={item.grade}
                             creatorName={item.creator_name}
                             creatorId={item.created_by}
+                            zoom={currentZoom}
                             onClickDetails={() => setSelectedProblem(item)}
                         />
                     )
@@ -308,6 +311,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                         name={`${c.items.length} locations`}
                         location={c.items.slice(0, 3).map(i => i.name).join(', ')}
                         type="cluster"
+                        zoom={currentZoom}
                     />
                 )
             })}

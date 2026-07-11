@@ -71,6 +71,32 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+.pinpoint-marker-icon {
+  background: transparent;
+  border: none;
+}
+
+.pinpoint-marker-bounce {
+  display: block;
+  transform-origin: bottom center;
+  animation: pinpoint-bounce 0.8s ease-in-out infinite;
+}
+
+@keyframes pinpoint-bounce {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1);
+  }
+  50% {
+    transform: scaleY(0.85) scaleX(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pinpoint-marker-bounce {
+    animation: none;
+  }
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
