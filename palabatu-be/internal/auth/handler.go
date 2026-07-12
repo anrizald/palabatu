@@ -173,6 +173,8 @@ func handleGetProfileStats(c *gin.Context) {
 }
 
 func handleUpsertProfile(c *gin.Context) {
+	claims := middleware.UserFromContext(c)
+	callerID, _ := claims["id"].(string)
 	id := c.Param("id")
 
 	var body struct {
@@ -186,10 +188,13 @@ func handleUpsertProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := UpsertProfile(c.Request.Context(), id, body.Username, body.Title, body.Tags, body.AvatarURL)
-	if err != nil {
+	profile, err := UpsertProfile(c.Request.Context(), callerID, id, body.Username, body.Title, body.Tags, body.AvatarURL)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, profile)
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this profile."})
+	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
-		return
 	}
-	c.JSON(http.StatusOK, profile)
 }

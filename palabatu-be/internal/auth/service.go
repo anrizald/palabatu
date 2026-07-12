@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
+	"palabatu-be/internal/authz"
 	"palabatu-be/internal/mailer"
 )
 
@@ -164,7 +165,32 @@ func GetProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
 	return getProfileStats(ctx, userID)
 }
 
-func UpsertProfile(ctx context.Context, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
+// UpsertProfile writes the caller's own profile. callerID must match id — a
+// user may only edit their own profile, never someone else's. Additionally,
+// changing title (the Council/Associate admin flag authz.IsAdmin checks) is
+// only permitted if the caller already holds an admin title; otherwise a
+// non-admin could grant themselves admin by just PUTing their own profile.
+func UpsertProfile(ctx context.Context, callerID, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
+	if callerID != id {
+		return nil, ErrForbidden
+	}
+
+	currentTitles, err := GetUserTitles(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if !authz.IsAdmin(currentTitles) {
+		var requested []string
+		if len(title) > 0 && string(title) != "null" {
+			if err := json.Unmarshal(title, &requested); err != nil {
+				return nil, ErrForbidden
+			}
+		}
+		if !sameTitles(requested, currentTitles) {
+			return nil, ErrForbidden
+		}
+	}
+
 	if title == nil {
 		title = json.RawMessage("null")
 	}
@@ -172,4 +198,24 @@ func UpsertProfile(ctx context.Context, id, username string, title, tags json.Ra
 		tags = json.RawMessage("null")
 	}
 	return upsertProfileRow(ctx, id, username, title, tags, avatarURL)
+}
+
+// sameTitles compares two title sets order- and duplicate-insensitively.
+func sameTitles(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	counts := make(map[string]int, len(a))
+	for _, t := range a {
+		counts[t]++
+	}
+	for _, t := range b {
+		counts[t]--
+	}
+	for _, c := range counts {
+		if c != 0 {
+			return false
+		}
+	}
+	return true
 }
