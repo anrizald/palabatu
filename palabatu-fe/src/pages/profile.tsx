@@ -1,9 +1,10 @@
-import { api } from '../lib/api.js'
-import { useParams } from 'react-router-dom'
-import Header from '../components/Header.js'
 import { useState, useEffect, useRef } from 'react'
-import Toast, { type ToastProps } from '../components/Toast.js';
-import { Check } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom'
+import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucide-react'
+import { api } from '../lib/api.js'
+import { useAuth } from '../lib/AuthContext.js'
+import Header from '../components/Header.js'
+import Toast from '../components/Toast.js'
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"
@@ -16,6 +17,9 @@ type Profile = {
         styles: climbingStyle[];
     };
     avatar_url: string;
+    bio: string;
+    location: string;
+    created_at: string;
 };
 
 type ProfileStats = {
@@ -27,6 +31,25 @@ type ReactionType = 'like' | 'fire' | 'heart';
 type ReactionCounts = Record<ReactionType, number>;
 type ReactionStatus = Record<ReactionType, boolean>;
 
+type RecentSend = {
+    problem_id: string;
+    problem_name: string;
+    grade: string | null;
+    created_at: string;
+};
+
+type RecentProblem = {
+    id: string;
+    name: string;
+    grade: string | null;
+    created_at: string;
+};
+
+type RecentActivity = {
+    sends: RecentSend[];
+    problems: RecentProblem[];
+};
+
 const LEVELS = ['Novice', 'Intermediate', 'Open', 'Andi/Anto'];
 const ALL_STYLES: climbingStyle[] = ['Boulder', 'Lead', 'Toprope'];
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
@@ -35,8 +58,28 @@ const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
     { type: 'heart', emoji: '❤️', label: 'Heart' },
 ];
 
+const formatJoinDate = (iso: string) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime()) || d.getFullYear() < 1971) return null;
+    return `Joined ${d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+};
+
+const formatRelativeDate = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days <= 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 30) return `${days}d ago`;
+    if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+    return `${Math.floor(days / 365)}y ago`;
+};
+
 export default function Profile() {
     const { id } = useParams<{ id: string }>();
+    const { user, handleLogout, toast, showToast } = useAuth();
+
     const [profile, setProfile] = useState<Profile>({
         username: "",
         title: [],
@@ -45,37 +88,41 @@ export default function Profile() {
             styles: [],
         },
         avatar_url: '',
+        bio: '',
+        location: '',
+        created_at: '',
     })
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [stats, setStats] = useState<ProfileStats | null>(null)
+    const [activity, setActivity] = useState<RecentActivity>({ sends: [], problems: [] })
     const [reactionCounts, setReactionCounts] = useState<ReactionCounts>({ like: 0, fire: 0, heart: 0 })
     const [reactionStatus, setReactionStatus] = useState<ReactionStatus>({ like: false, fire: false, heart: false })
     const [reactingType, setReactingType] = useState<ReactionType | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [saved, setSaved] = useState(false)
-    const [user, setUser] = useState<any>(null)
-    const [toast, setToast] = useState<ToastProps | null>(null);
 
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const isOwner = user && user.id === id;
+    const [showPassword, setShowPassword] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            setUser(null);
-            return;
-        }
-        api.get('/auth/session').then(data => {
-            if (!data.error) {
-                setUser(data.user);
-            }
-        });
-    }, []);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const [showAdvanced, setShowAdvanced] = useState(false);
+
+    const isOwner = !!(user && user.id === id);
+    const isSelfAdmin = isOwner && (profile.title.includes('Council') || profile.title.includes('Associate'));
 
     useEffect(() => {
         if (!id) return;
+        setIsLoading(true);
+        setLoadError(null);
 
         api.get(`/api/profiles/${id}`).then(data => {
             if (data && !data.error) {
@@ -89,13 +136,22 @@ export default function Profile() {
                         styles: data.tags?.styles || [],
                     },
                     avatar_url: data.avatar_url || '',
+                    bio: data.bio || '',
+                    location: data.location || '',
+                    created_at: data.created_at || '',
                 })
+            } else {
+                setLoadError(data?.error || 'Failed to load this profile.');
             }
             setIsLoading(false);
         });
 
         api.get(`/api/profiles/${id}/stats`).then(data => {
             if (data && !data.error) setStats(data);
+        });
+
+        api.get(`/api/profiles/${id}/activity`).then(data => {
+            if (data && !data.error) setActivity(data);
         });
 
         api.get(`/api/profiles/${id}/reactions`).then(data => {
@@ -113,7 +169,7 @@ export default function Profile() {
 
     const handleToggleReaction = async (type: ReactionType) => {
         if (!user) {
-            setToast({ message: 'Log in to react to this profile.', type: 'error', onClose: () => setToast(null) });
+            showToast('Log in to react to this profile.', 'error');
             return;
         }
         setReactingType(type);
@@ -121,7 +177,7 @@ export default function Profile() {
         try {
             const res = await api.post(`/api/profiles/${id}/reactions/${type}`, {});
             if (res.error) {
-                setToast({ message: res.error, type: 'error', onClose: () => setToast(null) });
+                showToast(res.error, 'error');
             } else {
                 const added = res.action === 'added';
                 setReactionStatus(prev => ({ ...prev, [type]: added }));
@@ -129,38 +185,40 @@ export default function Profile() {
             }
         } catch (e) {
             console.error('Reaction toggle failed', e);
-            setToast({ message: 'Failed to react. Check your connection.', type: 'error', onClose: () => setToast(null) });
+            showToast('Failed to react. Check your connection.', 'error');
         } finally {
             setReactingType(null);
         }
     };
 
     const saveProfile = async () => {
-        if (!isOwner) return;
+        if (!isOwner || !user) return;
         setIsSaving(true);
         const data = await api.put(`/api/profiles/${user.id}`, {
             username: profile.username,
             title: profile.title,
             tags: profile.tags,
             avatar_url: profile.avatar_url,
+            bio: profile.bio,
+            location: profile.location,
         });
         setIsSaving(false);
         if (data.error) {
-            setToast({ message: `Error updating profile: ${data.error}`, type: 'error', onClose: () => setToast(null) });
+            showToast(`Error updating profile: ${data.error}`, 'error');
         } else {
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
-            setToast({ message: 'Profile updated!', type: 'success', onClose: () => setToast(null) });
+            showToast('Profile updated!');
         }
     };
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!isOwner) return;
+        if (!isOwner || !user) return;
         const file = e.target.files?.[0];
-        if (!file || !user) return;
+        if (!file) return;
 
         setIsUploading(true);
-        setToast({ message: 'Uploading avatar...', type: 'info', onClose: () => setToast(null) });
+        showToast('Uploading avatar...');
 
         try {
             const formData = new FormData();
@@ -175,431 +233,448 @@ export default function Profile() {
                     avatar_url: uploadRes.avatar_url
                 });
 
-                setToast({ message: 'Avatar updated successfully!', type: 'success', onClose: () => setToast(null) });
+                showToast('Avatar updated successfully!');
             } else if (uploadRes.error) {
-                setToast({ message: `Upload failed: ${uploadRes.error}`, type: 'error', onClose: () => setToast(null) });
+                showToast(`Upload failed: ${uploadRes.error}`, 'error');
             }
         } catch (error) {
-            setToast({ message: 'Upload failed due to network error.', type: 'error', onClose: () => setToast(null) });
+            showToast('Upload failed due to network error.', 'error');
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
+    const handleChangePassword = async () => {
+        if (!isOwner) return;
+        setIsChangingPassword(true);
+        const data = await api.put('/auth/password', {
+            current_password: currentPassword,
+            new_password: newPassword,
+        });
+        setIsChangingPassword(false);
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            showToast('Password changed successfully');
+            setCurrentPassword('');
+            setNewPassword('');
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!isOwner) return;
+        setIsDeleting(true);
+        const data = await api.delete('/auth/account', { password: deletePassword });
+        setIsDeleting(false);
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            handleLogout();
+        }
+    };
+
     if (isLoading) return (
-        <div style={{ minHeight: '100vh', background: '#0f0d0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ color: '#8a7060', fontFamily: 'Playfair Display, serif', letterSpacing: '0.1em' }}>Loading profile...</div>
-        </div>
+        <>
+            <Header />
+            <div className="min-h-screen bg-ink flex items-center justify-center">
+                <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
+            </div>
+        </>
+    );
+
+    if (loadError) return (
+        <>
+            <Header />
+            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="font-serif text-2xl font-black text-text">Profile not found</div>
+                <div className="text-sm text-text-dim">{loadError}</div>
+                <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
+            </div>
+        </>
     );
 
     const initials = profile.username ? profile.username.slice(0, 2).toUpperCase() : '??';
+    const joinDate = formatJoinDate(profile.created_at);
 
     return (
         <>
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
-                * { box-sizing: border-box; margin: 0; padding: 0; }
-
-                .profile-page {
-                    min-height: 100vh;
-                    background: #0f0d0b;
-                    font-family: 'DM Sans', sans-serif;
-                    padding: 80px 24px 40px;
-                }
-
-                .profile-wrap {
-                    max-width: 760px;
-                    margin: 0 auto;
-                    display: grid;
-                    grid-template-columns: 220px 1fr;
-                    gap: 32px;
-                    align-items: start;
-                }
-
-                @media (max-width: 640px) {
-                    .profile-wrap { grid-template-columns: 1fr; }
-                }
-
-                .profile-sidebar {
-                    background: #141210;
-                    border: 1px solid #2a2420;
-                    border-radius: 20px;
-                    padding: 28px 20px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 16px;
-                    position: sticky;
-                    top: 80px;
-                }
-
-                .avatar-ring {
-                    width: 100px; height: 100px;
-                    border-radius: 50%;
-                    background: linear-gradient(145deg, #c87a30, #7a3d10);
-                    display: flex; align-items: center; justify-content: center;
-                    font-family: 'Playfair Display', serif;
-                    font-size: 32px;
-                    font-weight: 900;
-                    color: #f5e8d5;
-                    box-shadow: 0 0 0 4px #1a1612, 0 0 0 6px #c87a3040;
-                    cursor: pointer;
-                    transition: box-shadow 0.2s;
-                    overflow: hidden;
-                }
-
-                .avatar-ring:hover { box-shadow: 0 0 0 4px #1a1612, 0 0 0 6px #c87a3080; }
-                .avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
-
-                .avatar-hint {
-                    font-size: 11px;
-                    color: #4a3c30;
-                    text-align: center;
-                    letter-spacing: 0.05em;
-                }
-
-                .sidebar-username {
-                    font-family: 'Playfair Display', serif;
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: #f0e0c8;
-                    text-align: center;
-                }
-
-                .sidebar-email {
-                    font-size: 12px;
-                    color: #6a5848;
-                    text-align: center;
-                    word-break: break-all;
-                }
-
-                .title-badge {
-                    padding: 4px 12px;
-                    border-radius: 20px;
-                    font-size: 11px;
-                    font-weight: 500;
-                    letter-spacing: 0.08em;
-                    text-transform: uppercase;
-                }
-
-                .badge-council { background: rgba(200,122,48,0.15); color: #c87a30; border: 1px solid #c87a3040; }
-                .badge-associate { background: rgba(93,187,106,0.1); color: #5dbb6a; border: 1px solid #5dbb6a40; }
-
-                .profile-main {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                }
-
-                .section-title {
-                    font-family: 'Playfair Display', serif;
-                    font-size: 22px;
-                    font-weight: 900;
-                    color: #f0e0c8;
-                    margin-bottom: 4px;
-                }
-
-                .field-group {
-                    background: #141210;
-                    border: 1px solid #2a2420;
-                    border-radius: 16px;
-                    padding: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                }
-
-                .field-label {
-                    font-size: 11px;
-                    color: #6a5848;
-                    letter-spacing: 0.1em;
-                    text-transform: uppercase;
-                    margin-bottom: 6px;
-                }
-
-                .field-input {
-                    width: 100%;
-                    background: #1a1612;
-                    border: 1px solid #2a2420;
-                    border-radius: 10px;
-                    padding: 10px 14px;
-                    color: #d8c8b8;
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 14px;
-                    outline: none;
-                    transition: border-color 0.2s;
-                }
-
-                .field-input:focus { border-color: #c87a30; }
-                .field-input:read-only { color: #4a3c30; cursor: not-allowed; }
-
-                .style-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-
-                .style-chip {
-                    padding: 8px 16px;
-                    border-radius: 20px;
-                    border: 1px solid #2a2420;
-                    background: transparent;
-                    color: #6a5848;
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 13px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .style-chip:hover { border-color: #c87a30; color: #c87a30; }
-                .style-chip.active { background: rgba(200,122,48,0.12); border-color: #c87a30; color: #c87a30; }
-
-                .level-options { display: flex; gap: 8px; flex-wrap: wrap; }
-
-                .level-opt {
-                    padding: 7px 14px;
-                    border-radius: 10px;
-                    border: 1px solid #2a2420;
-                    background: transparent;
-                    color: #6a5848;
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 13px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .level-opt:hover { border-color: #c87a30; color: #c87a30; }
-                .level-opt.active { background: rgba(200,122,48,0.12); border-color: #c87a30; color: #c87a30; }
-
-                .title-options { display: flex; gap: 8px; }
-
-                .title-opt {
-                    flex: 1;
-                    padding: 10px;
-                    border-radius: 10px;
-                    border: 1px solid #2a2420;
-                    background: transparent;
-                    color: #6a5848;
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 13px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    text-align: center;
-                }
-
-                .title-opt:hover { border-color: #c87a30; }
-                .title-opt.active-council { background: rgba(200,122,48,0.12); border-color: #c87a30; color: #c87a30; }
-                .title-opt.active-associate { background: rgba(93,187,106,0.1); border-color: #5dbb6a; color: #5dbb6a; }
-
-                .save-btn {
-                    padding: 12px 28px;
-                    background: linear-gradient(145deg, #c87a30, #8b4a18);
-                    border: none;
-                    border-radius: 12px;
-                    color: #fef3e6;
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 14px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    box-shadow: 0 2px 12px rgba(200,122,48,0.3);
-                    align-self: flex-end;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 6px;
-                }
-
-                .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(200,122,48,0.4); }
-                .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-                .save-btn.saved { background: linear-gradient(145deg, #5dbb6a, #3a8a45); box-shadow: 0 2px 12px rgba(93,187,106,0.3); }
-            `}</style>
-
             <Header />
+            {toast && <Toast {...toast} />}
 
-            <div className="profile-page">
-                {toast && <Toast {...toast} />}
-                <div className="profile-wrap">
+            <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-10">
+                <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-8 items-start">
                     {/* Sidebar */}
-                    <div className="profile-sidebar">
+                    <div className="bg-panel border border-border rounded-[20px] px-5 py-7 flex flex-col items-center gap-4 sm:sticky sm:top-20">
                         <input
                             type="file"
                             accept="image/*"
                             ref={fileInputRef}
                             onChange={handleAvatarChange}
-                            style={{ display: 'none' }}
+                            className="hidden"
                         />
                         <div
-                            className="avatar-ring"
                             onClick={() => isOwner && !isUploading && fileInputRef.current?.click()}
-                            style={{
-                                opacity: isUploading ? 0.5 : 1,
-                                cursor: isOwner ? (isUploading ? 'wait' : 'pointer') : 'default',
-                                boxShadow: isOwner ? '' : '0 0 0 4px #1a1612, 0 0 0 6px #2a2420'
-                            }}
+                            className={`w-[100px] h-[100px] rounded-full bg-gradient-to-br from-accent to-[#7a3d10] flex items-center justify-center font-serif text-[32px] font-black text-[#f5e8d5] overflow-hidden transition-shadow
+                                ${isOwner ? 'shadow-[0_0_0_4px_#1a1612,0_0_0_6px_rgba(200,122,48,0.25)] hover:shadow-[0_0_0_4px_#1a1612,0_0_0_6px_rgba(200,122,48,0.5)] cursor-pointer' : 'shadow-[0_0_0_4px_#1a1612,0_0_0_6px_#2a2420]'}
+                                ${isUploading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             {profile.avatar_url
-                                ? <img src={profile.avatar_url} alt="avatar" />
+                                ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                                 : initials
                             }
                         </div>
 
                         {isOwner && (
-                            <div className="avatar-hint" style={{ color: isUploading ? '#c87a30' : '#4a3c30' }}>
+                            <div className={`text-[11px] text-center tracking-wide ${isUploading ? 'text-accent' : 'text-text-faint'}`}>
                                 {isUploading ? 'Uploading...' : 'click to change photo'}
                             </div>
                         )}
 
-                        <div className="sidebar-username">@{profile.username || 'climber'}</div>
+                        <div className="font-serif text-lg font-bold text-text text-center">{profile.username || 'climber'}</div>
 
-                        {isOwner && <div className="sidebar-email">{user?.email}</div>}
+                        {isOwner && <div className="text-xs text-text-dim text-center break-all">{user?.email}</div>}
 
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {(joinDate || profile.location) && (
+                            <div className="flex flex-col items-center gap-1">
+                                {joinDate && (
+                                    <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                                        <Calendar size={12} /> {joinDate}
+                                    </div>
+                                )}
+                                {profile.location && (
+                                    <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                                        <MapPin size={12} /> {profile.location}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex gap-1.5 flex-wrap justify-center">
                             {profile.title.map(t => (
-                                <span key={t} className={`title-badge ${t === 'Council' ? 'badge-council' : 'badge-associate'}`}>{t}</span>
+                                <span
+                                    key={t}
+                                    className={`px-3 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase border ${t === 'Council' ? 'bg-accent/15 text-accent border-accent/25' : 'bg-associate/10 text-associate border-associate/25'}`}
+                                >{t}</span>
                             ))}
                         </div>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <div className="flex gap-1.5 flex-wrap justify-center">
                             {profile.tags.styles.map(s => (
-                                <span key={s} style={{ fontSize: '11px', color: '#8a7060', background: '#1a1612', padding: '3px 8px', borderRadius: '6px', border: '1px solid #2a2420' }}>{s}</span>
+                                <span key={s} className="text-[11px] text-text-muted bg-surface px-2 py-1 rounded-md border border-border">{s}</span>
                             ))}
                         </div>
+
+                        {profile.bio && (
+                            <p className="text-xs text-text-secondary text-center leading-relaxed">{profile.bio}</p>
+                        )}
 
                         {stats && (
-                            <div style={{ display: 'flex', gap: '20px', paddingTop: '4px' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 700, color: '#f0e0c8' }}>{stats.sends_count}</div>
-                                    <div style={{ fontSize: '10px', color: '#6a5848', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Sends</div>
+                            <div className="flex gap-5 pt-1">
+                                <div className="text-center">
+                                    <div className="font-serif text-xl font-bold text-text">{stats.sends_count}</div>
+                                    <div className="text-[10px] text-text-dim tracking-wide uppercase">Sends</div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 700, color: '#f0e0c8' }}>{stats.problems_count}</div>
-                                    <div style={{ fontSize: '10px', color: '#6a5848', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Added</div>
+                                <div className="text-center">
+                                    <div className="font-serif text-xl font-bold text-text">{stats.problems_count}</div>
+                                    <div className="text-[10px] text-text-dim tracking-wide uppercase">Added</div>
                                 </div>
                             </div>
                         )}
 
-                        {!isOwner && (
-                            <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
-                                {REACTIONS.map(({ type, emoji, label }) => (
-                                    <button
-                                        key={type}
-                                        onClick={() => handleToggleReaction(type)}
-                                        disabled={reactingType === type}
-                                        title={`${label} this profile`}
-                                        style={{
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-                                            padding: '8px 10px', borderRadius: '12px',
-                                            background: reactionStatus[type] ? 'rgba(200,122,48,0.15)' : 'transparent',
-                                            border: `1px solid ${reactionStatus[type] ? '#c87a30' : '#2a2420'}`,
-                                            cursor: 'pointer', transition: 'all 0.2s',
-                                            opacity: reactingType === type ? 0.6 : 1
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '18px' }}>{emoji}</span>
-                                        <span style={{ fontSize: '11px', color: reactionStatus[type] ? '#c87a30' : '#6a5848', fontWeight: 700 }}>{reactionCounts[type]}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div className="flex gap-2 pt-1">
+                            {REACTIONS.map(({ type, emoji, label }) => (
+                                <button
+                                    key={type}
+                                    onClick={() => !isOwner && handleToggleReaction(type)}
+                                    disabled={isOwner || reactingType === type}
+                                    title={isOwner ? `${label} reactions from other climbers` : `${label} this profile`}
+                                    className={`flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border transition-colors
+                                        ${reactionStatus[type] ? 'bg-accent/15 border-accent' : 'bg-transparent border-border'}
+                                        ${isOwner ? 'cursor-default' : 'cursor-pointer'}
+                                        ${reactingType === type ? 'opacity-60' : ''}`}
+                                >
+                                    <span className="text-lg">{emoji}</span>
+                                    <span className={`text-[11px] font-bold ${reactionStatus[type] ? 'text-accent' : 'text-text-dim'}`}>{reactionCounts[type]}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Main */}
-                    <div className="profile-main">
+                    <div className="flex flex-col gap-4">
                         <div>
-                            <div className="section-title">Your Profile</div>
-                            <div style={{ fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
-                                {isOwner ? 'How the community sees you' : 'Palabatu Community Member'}
+                            <div className="font-serif text-[22px] font-black text-text">
+                                {isOwner ? 'Your Profile' : `${profile.username || 'Climber'}'s Activity`}
+                            </div>
+                            <div className="text-[13px] text-text-faint mt-1">
+                                {isOwner ? 'How the community sees you' : 'Recent sends and additions'}
                             </div>
                         </div>
 
+                        {/* Recent Activity */}
+                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-5">
+                            <div>
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-2">Recent Sends</div>
+                                {activity.sends.length === 0 ? (
+                                    <p className="text-sm text-text-faint">No sends yet.</p>
+                                ) : (
+                                    <ul className="flex flex-col gap-2">
+                                        {activity.sends.map(s => (
+                                            <li key={s.problem_id} className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="text-text-secondary truncate">{s.problem_name}</span>
+                                                <span className="flex items-center gap-2 shrink-0 text-text-dim">
+                                                    {s.grade && <span className="text-xs text-accent">{s.grade}</span>}
+                                                    <span className="text-xs">{formatRelativeDate(s.created_at)}</span>
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                            <div>
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-2">Recently Added</div>
+                                {activity.problems.length === 0 ? (
+                                    <p className="text-sm text-text-faint">No problems added yet.</p>
+                                ) : (
+                                    <ul className="flex flex-col gap-2">
+                                        {activity.problems.map(p => (
+                                            <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="text-text-secondary truncate">{p.name}</span>
+                                                <span className="flex items-center gap-2 shrink-0 text-text-dim">
+                                                    {p.grade && <span className="text-xs text-accent">{p.grade}</span>}
+                                                    <span className="text-xs">{formatRelativeDate(p.created_at)}</span>
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        {isOwner && (<>
+
                         {/* Basic Info */}
-                        <div className="field-group">
+                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                             {isOwner && (
                                 <div>
-                                    <div className="field-label">Email</div>
-                                    <input className="field-input" value={user?.email || ''} readOnly />
+                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Email</div>
+                                    <input className="w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-faint text-sm cursor-not-allowed outline-none" value={user?.email || ''} readOnly />
                                 </div>
                             )}
                             <div>
-                                <div className="field-label">Username</div>
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Username</div>
                                 <input
-                                    className="field-input"
+                                    className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-faint'}`}
                                     value={profile.username}
                                     onChange={e => isOwner && setProfile({ ...profile, username: e.target.value })}
                                     placeholder="your username"
                                     readOnly={!isOwner}
-                                    style={{ cursor: isOwner ? 'text' : 'default' }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* About */}
+                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
+                            <div>
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Bio</div>
+                                {isOwner ? (
+                                    <textarea
+                                        className="w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors resize-none"
+                                        rows={3}
+                                        maxLength={300}
+                                        value={profile.bio}
+                                        onChange={e => setProfile({ ...profile, bio: e.target.value })}
+                                        placeholder="A short line about you and your climbing"
+                                    />
+                                ) : (
+                                    <p className="text-sm text-text-secondary">{profile.bio || 'No bio yet.'}</p>
+                                )}
+                            </div>
+                            <div>
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Location</div>
+                                <input
+                                    className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-faint'}`}
+                                    value={profile.location}
+                                    onChange={e => isOwner && setProfile({ ...profile, location: e.target.value })}
+                                    placeholder="City, region"
+                                    maxLength={100}
+                                    readOnly={!isOwner}
                                 />
                             </div>
                         </div>
 
                         {/* Title */}
-                        <div className="field-group">
+                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                             <div>
-                                <div className="field-label">Title</div>
-                                <div className="title-options">
-                                    {(['Council', 'Associate'] as Title[]).map(t => (
-                                        <button
-                                            key={t}
-                                            className={`title-opt ${profile.title.includes(t) ? (t === 'Council' ? 'active-council' : 'active-associate') : ''}`}
-                                            onClick={() => {
-                                                if (!isOwner) return;
-                                                const titles = profile.title.includes(t)
-                                                    ? profile.title.filter(x => x !== t)
-                                                    : [...profile.title, t];
-                                                setProfile({ ...profile, title: titles });
-                                            }}
-                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && !profile.title.includes(t)) ? 0.3 : 1 }}
-                                        >{t}</button>
-                                    ))}
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Title</div>
+                                <div className="flex gap-2">
+                                    {(['Council', 'Associate'] as Title[]).map(t => {
+                                        const active = profile.title.includes(t);
+                                        return (
+                                            <button
+                                                key={t}
+                                                onClick={() => {
+                                                    if (!isSelfAdmin) return;
+                                                    const titles = active
+                                                        ? profile.title.filter(x => x !== t)
+                                                        : [...profile.title, t];
+                                                    setProfile({ ...profile, title: titles });
+                                                }}
+                                                className={`flex-1 py-2.5 rounded-[10px] border text-sm text-center transition-colors
+                                                    ${active && t === 'Council' ? 'bg-accent/15 border-accent text-accent' : ''}
+                                                    ${active && t === 'Associate' ? 'bg-associate/10 border-associate text-associate' : ''}
+                                                    ${!active ? 'bg-transparent border-border text-text-dim' : ''}
+                                                    ${isSelfAdmin ? 'cursor-pointer hover:border-accent' : 'cursor-default'}
+                                                    ${!isSelfAdmin && !active ? 'opacity-30' : ''}`}
+                                            >{t}</button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
 
                         {/* Climbing Tags */}
-                        <div className="field-group">
+                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                             <div>
-                                <div className="field-label">Level</div>
-                                <div className="level-options">
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Level</div>
+                                <div className="flex gap-2 flex-wrap">
                                     {LEVELS.map(l => (
                                         <button
                                             key={l}
-                                            className={`level-opt ${profile.tags.level === l ? 'active' : ''}`}
-                                            onClick={() =>
-                                                isOwner &&
-                                                setProfile({ ...profile, tags: { ...profile.tags, level: l } })}
-                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && profile.tags.level !== l) ? 0.3 : 1 }}
+                                            onClick={() => isOwner && setProfile({ ...profile, tags: { ...profile.tags, level: l } })}
+                                            className={`px-3.5 py-1.5 rounded-[10px] border text-sm transition-colors
+                                                ${profile.tags.level === l ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}
+                                                ${isOwner ? 'cursor-pointer hover:border-accent hover:text-accent' : 'cursor-default'}
+                                                ${!isOwner && profile.tags.level !== l ? 'opacity-30' : ''}`}
                                         >{l}</button>
                                     ))}
                                 </div>
                             </div>
                             <div>
-                                <div className="field-label">Climbing Style</div>
-                                <div className="style-chips">
-                                    {ALL_STYLES.map(s => (
-                                        <button
-                                            key={s}
-                                            className={`style-chip ${profile.tags.styles.includes(s) ? 'active' : ''}`}
-                                            onClick={() => {
-                                                if (!isOwner) return;
-                                                const styles = profile.tags.styles.includes(s)
-                                                    ? profile.tags.styles.filter(x => x !== s)
-                                                    : [...profile.tags.styles, s];
-                                                setProfile({ ...profile, tags: { ...profile.tags, styles } });
-                                            }}
-                                            style={{ cursor: isOwner ? 'pointer' : 'default', opacity: (!isOwner && !profile.tags.styles.includes(s)) ? 0.3 : 1 }}
-                                        >{s}</button>
-                                    ))}
+                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Climbing Style</div>
+                                <div className="flex gap-2 flex-wrap">
+                                    {ALL_STYLES.map(s => {
+                                        const active = profile.tags.styles.includes(s);
+                                        return (
+                                            <button
+                                                key={s}
+                                                onClick={() => {
+                                                    if (!isOwner) return;
+                                                    const styles = active
+                                                        ? profile.tags.styles.filter(x => x !== s)
+                                                        : [...profile.tags.styles, s];
+                                                    setProfile({ ...profile, tags: { ...profile.tags, styles } });
+                                                }}
+                                                className={`px-4 py-2 rounded-full border text-sm transition-colors
+                                                    ${active ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}
+                                                    ${isOwner ? 'cursor-pointer hover:border-accent hover:text-accent' : 'cursor-default'}
+                                                    ${!isOwner && !active ? 'opacity-30' : ''}`}
+                                            >{s}</button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
 
-                        {isOwner && (
-                            <button
-                                className={`save-btn ${saved ? 'saved' : ''}`}
-                                onClick={saveProfile}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? 'Saving...' : saved ? <><Check size={16} /> Saved</> : 'Save Changes'}
-                            </button>
-                        )}
+                        <button
+                            onClick={saveProfile}
+                            disabled={isSaving}
+                            className={`self-end inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] transition-all
+                                ${saved ? 'bg-gradient-to-br from-associate to-associate-dark shadow-[0_2px_12px_rgba(93,187,106,0.3)]' : 'bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)]'}
+                                ${isSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                            {isSaving ? 'Saving...' : saved ? <><Check size={16} /> Saved</> : 'Save Changes'}
+                        </button>
+
+                        {/* Account Security */}
+                        <div className="bg-panel border border-border rounded-2xl mt-2 overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(v => !v)}
+                                    className="w-full bg-transparent flex items-center justify-between px-5 py-4 text-left cursor-pointer"
+                                >
+                                    <span className="font-serif text-base font-bold text-text">Advanced Settings</span>
+                                    <ChevronDown size={18} className={`text-text-dim transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showAdvanced && (
+                                <div className="flex flex-col gap-5 px-5 pb-5 pt-1">
+                                <div className="flex flex-col gap-3">
+                                    <div className="text-[11px] text-text-dim tracking-wide uppercase">Change Password</div>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        className="w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors"
+                                        placeholder="Current password"
+                                        value={currentPassword}
+                                        onChange={e => setCurrentPassword(e.target.value)}
+                                    />
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            className="w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 pr-10 text-text-secondary text-sm outline-none transition-colors"
+                                            placeholder="New password (min. 6 characters)"
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(v => !v)}
+                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent text-text-dim"
+                                        >
+                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={handleChangePassword}
+                                        disabled={isChangingPassword || !currentPassword || !newPassword}
+                                        className="self-start bg-transparent px-5 py-2 rounded-[10px] border border-border text-sm text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isChangingPassword ? 'Changing...' : 'Change Password'}
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-col gap-3 pt-4 border-t border-border">
+                                    <div className="text-[11px] text-danger tracking-wide uppercase">Danger Zone</div>
+                                    {!showDeleteConfirm ? (
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                            className="self-start bg-transparent inline-flex items-center gap-1.5 px-5 py-2 rounded-[10px] border border-danger/40 text-sm text-danger hover:bg-danger/10 transition-colors"
+                                        >
+                                            <Trash2 size={14} /> Delete Account
+                                        </button>
+                                    ) : (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="text-xs text-text-dim">This permanently deletes your account. Enter your password to confirm.</div>
+                                            <input
+                                                type="password"
+                                                className="w-full bg-surface border border-danger/40 focus:border-danger rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors"
+                                                placeholder="Password"
+                                                value={deletePassword}
+                                                onChange={e => setDeletePassword(e.target.value)}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={handleDeleteAccount}
+                                                    disabled={isDeleting || !deletePassword}
+                                                    className="px-5 py-2 rounded-[10px] bg-danger text-on-accent text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); }}
+                                                    className="bg-transparent px-5 py-2 rounded-[10px] border border-border text-sm text-text-dim hover:border-text-dim transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                </div>
+                                )}
+                            </div>
+                        </>)}
                     </div>
                 </div>
             </div>

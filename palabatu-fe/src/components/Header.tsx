@@ -47,7 +47,7 @@ export default function Header() {
                     cursor: pointer;
                     letter-spacing: 0.05em;
                     transition: color 0.2s;
-                    padding: 0;
+                    padding: 0 0 4px;
                 }
                 .nav-logout:hover { color: #e07060; }
 

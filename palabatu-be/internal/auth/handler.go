@@ -27,7 +27,14 @@ func AuthRoutes(rg *gin.RouterGroup) {
 	rg.GET("/verify-email", handleVerifyEmail)
 	rg.POST("/forgot-password", limitCredentialEndpoints, handleForgotPassword)
 	rg.POST("/reset-password", limitCredentialEndpoints, handleResetPassword)
+	rg.PUT("/password", middleware.RequireAuth, limitCredentialEndpoints, handleChangePassword)
+	rg.DELETE("/account", middleware.RequireAuth, limitCredentialEndpoints, handleDeleteAccount)
 }
+
+// minPasswordLength applies to change-password (and, going forward, any
+// other place a plaintext password is accepted); signup/reset-password
+// predate this and are left as they are rather than retrofitted here.
+const minPasswordLength = 6
 
 // ProfileRoutes registers /api/profiles/:id, mirroring
 // palabatu-be/routes/api.ts. Profiles live under the auth domain (see
@@ -36,6 +43,7 @@ func ProfileRoutes(rg *gin.RouterGroup) {
 	rg.GET("/profiles/:id", handleGetProfile)
 	rg.PUT("/profiles/:id", middleware.RequireAuth, handleUpsertProfile)
 	rg.GET("/profiles/:id/stats", handleGetProfileStats)
+	rg.GET("/profiles/:id/activity", handleGetRecentActivity)
 }
 
 func handleSignup(c *gin.Context) {
@@ -154,11 +162,14 @@ func handleGetProfile(c *gin.Context) {
 	id := c.Param("id")
 
 	profile, err := GetProfile(c.Request.Context(), id)
-	if err != nil {
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, profile)
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
-		return
 	}
-	c.JSON(http.StatusOK, profile)
 }
 
 func handleGetProfileStats(c *gin.Context) {
@@ -172,6 +183,17 @@ func handleGetProfileStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
+func handleGetRecentActivity(c *gin.Context) {
+	id := c.Param("id")
+
+	activity, err := GetRecentActivity(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, activity)
+}
+
 func handleUpsertProfile(c *gin.Context) {
 	claims := middleware.UserFromContext(c)
 	callerID, _ := claims["id"].(string)
@@ -182,18 +204,75 @@ func handleUpsertProfile(c *gin.Context) {
 		Title     json.RawMessage `json:"title"`
 		Tags      json.RawMessage `json:"tags"`
 		AvatarURL string          `json:"avatar_url"`
+		Bio       string          `json:"bio"`
+		Location  string          `json:"location"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	profile, err := UpsertProfile(c.Request.Context(), callerID, id, body.Username, body.Title, body.Tags, body.AvatarURL)
+	profile, err := UpsertProfile(c.Request.Context(), callerID, id, body.Username, body.Title, body.Tags, body.AvatarURL, body.Bio, body.Location)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, profile)
 	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this profile."})
+	case errors.Is(err, ErrBioTooLong):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bio is too long"})
+	case errors.Is(err, ErrLocationTooLong):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Location is too long"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
+}
+
+func handleChangePassword(c *gin.Context) {
+	claims := middleware.UserFromContext(c)
+	userID, _ := claims["id"].(string)
+
+	var body struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	if len(body.NewPassword) < minPasswordLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "New password must be at least 6 characters"})
+		return
+	}
+
+	err := ChangePassword(c.Request.Context(), userID, body.CurrentPassword, body.NewPassword)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+	case errors.Is(err, ErrInvalidCredentials):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
+}
+
+func handleDeleteAccount(c *gin.Context) {
+	claims := middleware.UserFromContext(c)
+	userID, _ := claims["id"].(string)
+
+	var body struct {
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	err := DeleteAccount(c.Request.Context(), userID, body.Password)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	case errors.Is(err, ErrInvalidCredentials):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}

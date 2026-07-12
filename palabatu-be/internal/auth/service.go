@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"time"
 
@@ -19,7 +20,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/mailer"
+)
+
+// maxBioLength and maxLocationLength bound the two new free-text profile
+// fields, mirroring internal/social's maxCommentLength precedent.
+const (
+	maxBioLength      = 300
+	maxLocationLength = 100
 )
 
 const resetTokenTTL = time.Hour
@@ -150,14 +159,28 @@ func ResetPassword(ctx context.Context, token, password string) error {
 	return updatePassword(ctx, user.ID, string(hashed))
 }
 
-// GetProfile returns (nil, nil) when no profile row exists, matching
-// palabatu-be/routes/api.ts's `res.json(null)` for a missing profile.
+// GetProfile returns a blank Profile (id set, everything else zero) when the
+// user exists but hasn't saved a profile row yet — that's a normal state,
+// not an error. ErrNotFound is only returned when id doesn't match any user
+// at all, so the frontend can tell "new user, empty profile" apart from
+// "no such user" and render a proper not-found page for the latter.
 func GetProfile(ctx context.Context, id string) (*Profile, error) {
+	createdAt, err := getUserCreatedAt(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	profile, err := getProfileByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		profile = &Profile{ID: id}
+	} else if err != nil {
+		return nil, err
 	}
-	return profile, err
+	profile.CreatedAt = createdAt
+	return profile, nil
 }
 
 // GetProfileStats returns a user's sends count and problems-added count.
@@ -165,14 +188,43 @@ func GetProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
 	return getProfileStats(ctx, userID)
 }
 
+// RecentActivity is the profile page's activity feed: a user's most recent
+// sends and most recently added problems, each capped at
+// recentActivityLimit.
+type RecentActivity struct {
+	Sends    []RecentSend    `json:"sends"`
+	Problems []RecentProblem `json:"problems"`
+}
+
+func GetRecentActivity(ctx context.Context, userID string) (RecentActivity, error) {
+	sends, err := getRecentSends(ctx, userID)
+	if err != nil {
+		return RecentActivity{}, err
+	}
+	problems, err := getRecentlyAddedProblems(ctx, userID)
+	if err != nil {
+		return RecentActivity{}, err
+	}
+	return RecentActivity{Sends: sends, Problems: problems}, nil
+}
+
 // UpsertProfile writes the caller's own profile. callerID must match id — a
 // user may only edit their own profile, never someone else's. Additionally,
 // changing title (the Council/Associate admin flag authz.IsAdmin checks) is
 // only permitted if the caller already holds an admin title; otherwise a
 // non-admin could grant themselves admin by just PUTing their own profile.
-func UpsertProfile(ctx context.Context, callerID, id, username string, title, tags json.RawMessage, avatarURL string) (*Profile, error) {
+// If avatarURL replaces a previously stored one, the old Cloudinary asset is
+// best-effort destroyed afterward, mirroring problems.DeleteProblem's
+// cleanup of its image_urls.
+func UpsertProfile(ctx context.Context, callerID, id, username string, title, tags json.RawMessage, avatarURL, bio, location string) (*Profile, error) {
 	if callerID != id {
 		return nil, ErrForbidden
+	}
+	if len(bio) > maxBioLength {
+		return nil, ErrBioTooLong
+	}
+	if len(location) > maxLocationLength {
+		return nil, ErrLocationTooLong
 	}
 
 	currentTitles, err := GetUserTitles(ctx, id)
@@ -191,13 +243,80 @@ func UpsertProfile(ctx context.Context, callerID, id, username string, title, ta
 		}
 	}
 
+	current, err := getProfileByID(ctx, id)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
 	if title == nil {
 		title = json.RawMessage("null")
 	}
 	if tags == nil {
 		tags = json.RawMessage("null")
 	}
-	return upsertProfileRow(ctx, id, username, title, tags, avatarURL)
+	profile, err := upsertProfileRow(ctx, id, username, title, tags, avatarURL, bio, location)
+	if err != nil {
+		return nil, err
+	}
+
+	if current != nil && current.AvatarURL != nil && *current.AvatarURL != "" && *current.AvatarURL != avatarURL {
+		if err := cloudinary.DestroyByURL(ctx, *current.AvatarURL); err != nil {
+			log.Printf("failed to delete old avatar from Cloudinary: %v", err)
+		}
+	}
+
+	return profile, nil
+}
+
+// ChangePassword verifies currentPassword against the stored hash before
+// setting newPassword, reusing the same repository write ResetPassword uses.
+func ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	user, err := getUserByID(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)) != nil {
+		return ErrInvalidCredentials
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return updatePassword(ctx, userID, string(hashed))
+}
+
+// DeleteAccount requires the caller's current password as confirmation
+// before deleting their user row. profiles/comments/sends/profile_reactions
+// all cascade via FK (migrations/0003), and problems they created are kept
+// with created_by set to NULL rather than deleted. The avatar, if any, is
+// best-effort destroyed from Cloudinary first.
+func DeleteAccount(ctx context.Context, userID, password string) error {
+	user, err := getUserByID(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+		return ErrInvalidCredentials
+	}
+
+	profile, err := getProfileByID(ctx, userID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if profile != nil && profile.AvatarURL != nil && *profile.AvatarURL != "" {
+		if err := cloudinary.DestroyByURL(ctx, *profile.AvatarURL); err != nil {
+			log.Printf("failed to delete avatar from Cloudinary: %v", err)
+		}
+	}
+
+	return deleteUser(ctx, userID)
 }
 
 // sameTitles compares two title sets order- and duplicate-insensitively.
