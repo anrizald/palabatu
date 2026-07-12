@@ -1,9 +1,10 @@
 import 'leaflet/dist/leaflet.css'
+import { Search, X, Plus, Minus } from 'lucide-react'
 import { api } from '../lib/api.js'
 import Header from '../components/Header.js'
 import { useAuth } from '../lib/AuthContext.js'
 import { useSearchParams } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
@@ -12,6 +13,240 @@ import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 
 const MAX_ZOOM = 18
+
+const circleButtonStyle = {
+    background: '#141210',
+    border: '1px solid #c87a30',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+    transition: 'all 0.2s',
+} as const;
+
+type SearchResult = {
+    place_id: number
+    display_name: string
+    lat: string
+    lon: string
+}
+
+function LocationSearchBox() {
+    const map = useMap();
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setShowDropdown(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const trimmed = query.trim();
+        if (trimmed.length < 3) {
+            setResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setIsSearching(true);
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(trimmed)}`,
+                    { signal: controller.signal }
+                );
+                const data = await res.json();
+                setResults(data);
+            } catch (err) {
+                if ((err as Error).name !== 'AbortError') {
+                    console.error('Search error:', err);
+                }
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [query]);
+
+    const handleSelect = (result: SearchResult) => {
+        map.flyTo([parseFloat(result.lat), parseFloat(result.lon)], MAX_ZOOM, { duration: 1.5 });
+        setQuery(result.display_name);
+        setResults([]);
+        setShowDropdown(false);
+    };
+
+    const handleClear = () => {
+        setQuery('');
+        setResults([]);
+        setShowDropdown(false);
+    };
+
+    const trimmedQuery = query.trim();
+
+    let dropdownContent: ReactNode = null;
+    if (isSearching) {
+        dropdownContent = (
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                Searching...
+            </div>
+        );
+    } else if (results.length === 0) {
+        dropdownContent = (
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                No results found
+            </div>
+        );
+    } else {
+        dropdownContent = (
+            <>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: '240px', overflowY: 'auto' }}>
+                    {results.map(r => (
+                        <li key={r.place_id}>
+                            <button
+                                onClick={() => handleSelect(r)}
+                                style={{
+                                    display: 'block',
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    background: 'none',
+                                    border: 'none',
+                                    borderBottom: '1px solid #1e1a16',
+                                    padding: '10px 12px',
+                                    cursor: 'pointer',
+                                    color: '#f0e0c8',
+                                    fontFamily: "'DM Sans', sans-serif",
+                                    fontSize: '13px',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,122,48,0.15)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                            >
+                                {r.display_name}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                <div style={{ padding: '6px 12px', fontSize: '10px', color: '#5a4c40', fontFamily: "'DM Sans', sans-serif", textAlign: 'right' }}>
+                    Search by OpenStreetMap
+                </div>
+            </>
+        );
+    }
+
+    return (
+        <div
+            ref={containerRef}
+            style={{ width: 'min(320px, calc(100vw - 32px))' }}
+        >
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#141210',
+                border: '1px solid #2a2420',
+                borderRadius: '10px',
+                padding: '10px 12px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            }}>
+                <Search size={16} color="#8a7060" style={{ flexShrink: 0 }} />
+                <input
+                    type="text"
+                    value={query}
+                    onChange={e => { setQuery(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => setShowDropdown(true)}
+                    onKeyDown={e => {
+                        if (e.key === 'Escape') setShowDropdown(false);
+                        else if (e.key === 'Enter' && results.length > 0) handleSelect(results[0]!);
+                    }}
+                    placeholder="Search for a place..."
+                    style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        color: '#f0e0c8',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '13px',
+                        minWidth: 0,
+                    }}
+                />
+                {query && (
+                    <button
+                        onClick={handleClear}
+                        aria-label="Clear search"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
+                    >
+                        <X size={14} color="#8a7060" />
+                    </button>
+                )}
+            </div>
+
+            {showDropdown && trimmedQuery.length >= 3 && (
+                <div style={{
+                    marginTop: '6px',
+                    background: '#141210',
+                    border: '1px solid #2a2420',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    overflow: 'hidden',
+                }}>
+                    {dropdownContent}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ZoomControlButtons() {
+    const map = useMap();
+    const [zoom, setZoom] = useState(map.getZoom());
+
+    useMapEvents({
+        zoomend() { setZoom(map.getZoom()); },
+    });
+
+    const zoomActions = [
+        { key: 'in', onClick: () => map.zoomIn(), disabled: zoom >= map.getMaxZoom(), label: 'Zoom in', Icon: Plus },
+        { key: 'out', onClick: () => map.zoomOut(), disabled: zoom <= map.getMinZoom(), label: 'Zoom out', Icon: Minus },
+    ];
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {zoomActions.map(({ key, onClick, disabled, label, Icon }) => (
+                <button
+                    key={key}
+                    onClick={onClick}
+                    disabled={disabled}
+                    title={label}
+                    aria-label={label}
+                    style={{
+                        ...circleButtonStyle,
+                        width: '40px',
+                        height: '40px',
+                        cursor: disabled ? 'default' : 'pointer',
+                        opacity: disabled ? 0.4 : 1,
+                    }}
+                >
+                    <Icon size={18} color="#f0e0c8" />
+                </button>
+            ))}
+        </div>
+    );
+}
 function LocateMeButton() {
     const map = useMap();
     const [isLocating, setIsLocating] = useState(false);
@@ -47,18 +282,11 @@ function LocateMeButton() {
             title="Find my location"
             aria-label="Find my location"
             style={{
-                background: '#141210',
-                border: '1px solid #c87a30',
-                borderRadius: '50%',
+                ...circleButtonStyle,
                 width: '48px',
                 height: '48px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                 opacity: isLocating ? 0.6 : 1,
-                transition: 'all 0.2s'
             }}
         >
             {isLocating ? (
@@ -155,13 +383,28 @@ export default function MapPage() {
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             {toast && <Toast {...toast} />}
             <Header />
-            <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} style={{ height: '100%', width: '100%' }}>
+            <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} zoomControl={false} style={{ height: '100%', width: '100%' }}>
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
                 />
                 <MapFlyTo />
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '16px',
+                        left: '16px',
+                        zIndex: 1000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                    }}
+                >
+                    <LocationSearchBox />
+                    <ZoomControlButtons />
+                </div>
                 <div
                     style={{
                         position: 'absolute',
@@ -180,16 +423,10 @@ export default function MapPage() {
                             onClick={handleFAB}
                             aria-label="Add Problem"
                             style={{
+                                ...circleButtonStyle,
                                 width: '48px',
                                 height: '48px',
-                                background: '#141210',
-                                border: '1px solid #c87a30',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
                                 cursor: 'pointer',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                                 transition: 'transform 0.2s',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
