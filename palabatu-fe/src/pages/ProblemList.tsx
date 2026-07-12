@@ -3,7 +3,7 @@ import Header from '../components/Header.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { Search, MapPin, Map as MapIcon } from 'lucide-react';
-import ProblemDetails from '../components/ProblemDetails.js';
+import { GRADE_SCALES } from '../lib/constants.js';
 
 type ProblemRow = {
     id: string | number;
@@ -19,12 +19,41 @@ type ProblemRow = {
 
 type SortBy = 'name' | 'sends';
 
+// Ordered scales to rank grades against, so V0-V15/5.9-5.10a/etc. sort by
+// actual difficulty instead of alphabetically. A grade is ranked by the
+// first scale it's found in; anything unrecognized (legacy/freeform data)
+// sorts last.
+const GRADE_SCALE_ORDER: readonly (readonly string[])[] = [
+    GRADE_SCALES.boulder['V-Scale'],
+    GRADE_SCALES.boulder['Font'],
+    GRADE_SCALES.rope['YDS'],
+    GRADE_SCALES.rope['French'],
+];
+
+function gradeRank(token: string): [scale: number, index: number] {
+    for (let scale = 0; scale < GRADE_SCALE_ORDER.length; scale++) {
+        const index = GRADE_SCALE_ORDER[scale].indexOf(token);
+        if (index !== -1) return [scale, index];
+    }
+    return [GRADE_SCALE_ORDER.length, 0];
+}
+
+// Grades may be a single token ("V5") or a range ("V5-V6"); rank by the
+// lower bound, mirroring how palabatu-be/internal/problems/validate.go
+// splits ranges.
+function compareGrades(a: string, b: string): number {
+    const [aScale, aIndex] = gradeRank(a.split('-')[0]);
+    const [bScale, bIndex] = gradeRank(b.split('-')[0]);
+    if (aScale !== bScale) return aScale - bScale;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.localeCompare(b);
+}
+
 export function ProblemList() {
     const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [search, setSearch] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [sortBy, setSortBy] = useState<SortBy>('name');
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const navigate = useNavigate();
@@ -38,17 +67,17 @@ export function ProblemList() {
         fetchProblems();
     }, []);
 
-    // Extract unique grades for our filter dropdown
+    // Extract unique grades for our filter dropdown, ordered by difficulty within scale
     const availableGrades = useMemo(() => {
         const grades = new Set(problems.map(p => p.grade));
-        return ['All', ...Array.from(grades).sort()];
+        return ['All', ...Array.from(grades).sort(compareGrades)];
     }, [problems]);
 
     // Filter + sort problems based on search, grade and sort choice
     const filteredProblems = useMemo(() => {
         const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-                p.location_name.toLowerCase().includes(search.toLowerCase());
+                (p.location_name || '').toLowerCase().includes(search.toLowerCase());
             const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;
             return matchesSearch && matchesGrade;
         });
@@ -63,7 +92,7 @@ export function ProblemList() {
         if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setSelectedProblem(problem);
+            navigate(`/problems/${problem.id}`);
         }
     };
 
@@ -121,14 +150,14 @@ export function ProblemList() {
                                 role="button"
                                 tabIndex={0}
                                 aria-label={`View details for ${problem.name}`}
-                                onClick={() => setSelectedProblem(problem)}
+                                onClick={() => navigate(`/problems/${problem.id}`)}
                                 onKeyDown={(e) => handleRowKeyDown(e, problem)}
                                 className="bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 cursor-pointer transition-colors"
                             >
                                 <div className="flex-1 min-w-0">
                                     <h3 className="font-serif text-lg font-bold text-text truncate mb-1">{problem.name}</h3>
                                     <div className="flex items-center gap-1 text-xs text-text-dim">
-                                        <MapPin size={12} /> {problem.location_name}
+                                        <MapPin size={12} /> {problem.location_name || 'Location not set'}
                                     </div>
                                     <div className="text-[11px] text-text-dim">
                                         Added by{' '}
@@ -166,21 +195,6 @@ export function ProblemList() {
                     </div>
                 )}
             </div>
-
-            {/* Reuse the ProblemDetails modal! */}
-            {selectedProblem && (
-                <ProblemDetails
-                    problem={selectedProblem}
-                    onClose={() => setSelectedProblem(null)}
-                    onDelete={(id) => {
-                        setProblems(prev => prev.filter(p => p.id !== id));
-                        setSelectedProblem(null);
-                    }}
-                    onUpdate={(updatedItem) => {
-                        setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                    }}
-                />
-            )}
         </div>
     );
 }

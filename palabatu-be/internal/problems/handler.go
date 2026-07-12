@@ -12,6 +12,7 @@ import (
 // Routes registers the problems domain's routes on the /api group.
 func Routes(rg *gin.RouterGroup) {
 	rg.GET("/problems", handleListProblems)
+	rg.GET("/problems/:id", handleGetProblem)
 	rg.POST("/problems", middleware.RequireAuth, handleCreateProblem)
 	rg.PUT("/problems/:id", middleware.RequireAuth, handleUpdateProblem)
 	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
@@ -34,6 +35,20 @@ func handleListProblems(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, problems)
+}
+
+func handleGetProblem(c *gin.Context) {
+	id := c.Param("id")
+
+	problem, err := GetProblem(c.Request.Context(), id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
 }
 
 func handleCreateProblem(c *gin.Context) {

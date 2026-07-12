@@ -47,6 +47,22 @@ type ProblemRow struct {
 	ImageURLs []string  `json:"image_urls"`
 }
 
+// ProblemDetail is the shape returned by GET /problems/:id — ProblemListItem
+// plus created_at, for the single-problem detail page.
+type ProblemDetail struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Grade        *string   `json:"grade"`
+	LocationName *string   `json:"location_name"`
+	Latitude     *float64  `json:"latitude"`
+	Longitude    *float64  `json:"longitude"`
+	CreatedBy    *string   `json:"created_by"`
+	ImageURLs    []string  `json:"image_urls"`
+	CreatorName  *string   `json:"creator_name"`
+	SendCount    int       `json:"send_count"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 func listProblems(ctx context.Context) ([]ProblemListItem, error) {
 	rows, err := db.Pool.Query(ctx, `
 		SELECT
@@ -80,6 +96,34 @@ func listProblems(ctx context.Context) ([]ProblemListItem, error) {
 		problems = append(problems, p)
 	}
 	return problems, rows.Err()
+}
+
+func getProblem(ctx context.Context, id string) (*ProblemDetail, error) {
+	var p ProblemDetail
+	err := db.Pool.QueryRow(ctx, `
+		SELECT
+			p.id,
+			p.name,
+			p.grade,
+			p.location AS location_name,
+			p.lat AS latitude,
+			p.lng AS longitude,
+			p.created_by,
+			p.image_urls,
+			pr.username AS creator_name,
+			p.created_at,
+			COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count
+		FROM problems p
+		LEFT JOIN profiles pr ON p.created_by = pr.id
+		WHERE p.id = $1
+	`, id).Scan(
+		&p.ID, &p.Name, &p.Grade, &p.LocationName, &p.Latitude, &p.Longitude,
+		&p.CreatedBy, &p.ImageURLs, &p.CreatorName, &p.CreatedAt, &p.SendCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
 }
 
 func createProblem(ctx context.Context, name, grade, location string, lat, lng float64, createdBy string, imageURLs []string) (*ProblemSummary, error) {

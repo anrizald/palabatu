@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext.js';
 import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
-import { GRADE_SCALES, type ProblemType } from '../lib/constants.js';
+import ProblemEditForm from './ProblemEditForm.js';
 
 type ProblemDetailsProps = {
     problem: any;
@@ -52,16 +52,6 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [toast, setToast] = useState<ToastProps | null>(null);
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) });
 
-    // --- GRADE PICKER STATE ---
-    const [problemType, setProblemType] = useState<ProblemType>('boulder');
-    const [gradeScale, setGradeScale] = useState<string>('V-Scale');
-    const [isRange, setIsRange] = useState(false);
-    const [gradeFrom, setGradeFrom] = useState('');
-    const [gradeTo, setGradeTo] = useState('');
-
-    const currentScales = GRADE_SCALES[problemType] as Record<string, readonly string[]>;
-    const grades: readonly string[] = currentScales[gradeScale] || [];
-
     useEffect(() => {
         const fetchComments = async () => {
             try {
@@ -87,73 +77,11 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         }
     }, [problem.id, user]);
 
-    // Auto-detect the existing grade when "Edit Details" is clicked
-    useEffect(() => {
-        if (isEditing && problem.grade) {
-            const isRng = problem.grade.includes('-');
-            setIsRange(isRng);
-
-            const from = isRng ? problem.grade.split('-')[0] : problem.grade;
-            const to = isRng ? problem.grade.split('-')[1] : '';
-
-            // Search all scales to find where this grade belongs
-            let foundType: ProblemType = 'boulder';
-            let foundScale = 'V-Scale';
-
-            for (const [ptype, scales] of Object.entries(GRADE_SCALES)) {
-                // Notice the 'readonly' string[] here!
-                for (const [scaleName, gradesArray] of Object.entries(scales as Record<string, readonly string[]>)) {
-                    if (gradesArray.includes(from)) {
-                        foundType = ptype as ProblemType;
-                        foundScale = scaleName;
-                    }
-                }
-            }
-
-            setProblemType(foundType);
-            setGradeScale(foundScale);
-            setGradeFrom(from);
-            setGradeTo(to);
-        }
-    }, [isEditing, problem.grade]);
-
-    // Sync the picker to the edit form
-    useEffect(() => {
-        if (!gradeFrom) return;
-        const gradeStr = isRange && gradeTo ? `${gradeFrom}-${gradeTo}` : gradeFrom;
-        setEditForm(prev => ({ ...prev, grade: gradeStr }));
-    }, [gradeFrom, gradeTo, isRange]);
-
     // Sync a freshly-picked map location into the edit form
     useEffect(() => {
         if (!pickedCoords) return;
         setEditForm(prev => ({ ...prev, lat: pickedCoords.lat, lng: pickedCoords.lng }));
     }, [pickedCoords]);
-
-    const handleGradePick = (g: string) => {
-        if (!isRange) {
-            setGradeFrom(g);
-            setGradeTo('');
-            return;
-        }
-        if (!gradeFrom || (gradeFrom && gradeTo)) {
-            setGradeFrom(g);
-            setGradeTo('');
-        } else {
-            const fromIdx = grades.indexOf(gradeFrom);
-            const toIdx = grades.indexOf(g);
-            if (toIdx > fromIdx) setGradeTo(g);
-            else { setGradeFrom(g); setGradeTo(''); }
-        }
-    };
-
-    const segmentBtn = (active: boolean) => ({
-        flex: 1, padding: '7px 0', fontSize: '12px', cursor: 'pointer',
-        fontFamily: "'DM Sans', sans-serif",
-        background: active ? 'rgba(200,122,48,0.15)' : 'transparent',
-        border: 'none', color: active ? '#c87a30' : '#6a5848',
-        fontWeight: active ? 700 : 400, transition: 'all 0.2s', borderRadius: '8px'
-    });
 
     const handleToggleSend = async () => {
         setIsTogglingSend(true);
@@ -298,10 +226,15 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             }}>
                 <div style={{ padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2a2420' }}>
                     <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', margin: 0 }}>{problem.name}</h2>
-                    <button onClick={onClose} style={{
-                        background: 'none', border: 'none', color: '#8a7060', fontSize: '24px', cursor: 'pointer',
-                        lineHeight: 1
-                    }}>&times;</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <Link to={`/problems/${problem.id}`} style={{ color: '#c87a30', fontSize: '11px', fontWeight: 'bold', textDecoration: 'none' }}>
+                            Full page ↗
+                        </Link>
+                        <button onClick={onClose} style={{
+                            background: 'none', border: 'none', color: '#8a7060', fontSize: '24px', cursor: 'pointer',
+                            lineHeight: 1
+                        }}>&times;</button>
+                    </div>
                 </div>
 
                 <div style={{ overflowY: 'auto', flex: 1, padding: '0 20px 20px' }}>
@@ -358,121 +291,20 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
 
                     {/* Edit Form */}
                     {isEditing && (
-                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-                            {/* Name */}
-                            <div>
-                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Problem Name</div>
-                                <input
-                                    value={editForm.name}
-                                    onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                                    placeholder="e.g. Slab Mantap"
-                                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
-                                />
-                            </div>
-
-                            {/* Grade */}
-                            {/* Grade */}
-                            <div>
-                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grade</div>
-
-                                {/* Problem Type toggle */}
-                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
-                                    {(['boulder', 'rope'] as ProblemType[]).map(t => (
-                                        <button key={t} onClick={() => { setProblemType(t); setGradeFrom(''); setGradeTo(''); }} style={segmentBtn(problemType === t)}>
-                                            {t === 'boulder' ? '🪨 Boulder' : '🧗 Rope'}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Scale toggle */}
-                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
-                                    {Object.keys(GRADE_SCALES[problemType]).map(scale => (
-                                        <button key={scale} onClick={() => { setGradeScale(scale); setGradeFrom(''); setGradeTo(''); }} style={segmentBtn(gradeScale === scale)}>
-                                            {scale}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Range toggle & Selected Text */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '12px', color: '#6a5848' }}>
-                                        {isRange
-                                            ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
-                                            : editForm.grade ? `Selected: ${editForm.grade}` : 'Pick a grade'}
-                                    </span>
-                                    <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo(''); }}
-                                        style={{
-                                            fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                                            background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
-                                            border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
-                                            color: isRange ? '#c87a30' : '#6a5848', transition: 'all 0.2s'
-                                        }}>
-                                        ⇔ Range
-                                    </button>
-                                </div>
-
-                                {/* Grade pills */}
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    {grades.map(g => {
-                                        const isFrom = g === gradeFrom;
-                                        const isTo = g === gradeTo;
-                                        const inRange = isRange && gradeFrom && gradeTo
-                                            ? grades.indexOf(g) > grades.indexOf(gradeFrom) && grades.indexOf(g) < grades.indexOf(gradeTo)
-                                            : false;
-                                        const active = isFrom || isTo || inRange;
-
-                                        return (
-                                            <button key={g} onClick={() => handleGradePick(g)} style={{
-                                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
-                                                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                                                background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
-                                                border: active ? '1px solid #c87a30' : '1px solid #2a2420',
-                                                color: active ? '#c87a30' : '#6a5848', transition: 'all 0.15s'
-                                            }}>{g}</button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Location */}
-                            <div>
-                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location Name</div>
-                                <input
-                                    value={editForm.location_name}
-                                    onChange={e => setEditForm(prev => ({ ...prev, location_name: e.target.value }))}
-                                    placeholder="e.g. Parang, Jawa Barat"
-                                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
-                                />
-                            </div>
-
-                            {/* Pinpoint */}
-                            <div>
-                                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location on Map</div>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <div style={{ flex: 1, padding: '10px 14px', background: 'rgba(93,187,106,0.1)', border: '1px solid #5dbb6a', borderRadius: '10px', color: '#5dbb6a', fontSize: '13px' }}>
-                                        📍 {editForm.lat?.toFixed(4)}, {editForm.lng?.toFixed(4)}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsPicking?.(true)}
-                                        style={{ padding: '10px 14px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
-                                    >
-                                        Change
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={handleSave} disabled={isProcessing} style={{ flex: 1, padding: '8px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-                                    {isProcessing ? 'Saving...' : 'Save'}
-                                </button>
-                                <button onClick={() => setIsEditing(false)} style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid #2a2420', color: '#8a7060', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
+                        <ProblemEditForm
+                            initialGrade={problem.grade || ''}
+                            name={editForm.name}
+                            onNameChange={v => setEditForm(prev => ({ ...prev, name: v }))}
+                            locationName={editForm.location_name}
+                            onLocationNameChange={v => setEditForm(prev => ({ ...prev, location_name: v }))}
+                            lat={editForm.lat}
+                            lng={editForm.lng}
+                            onPickLocation={() => setIsPicking?.(true)}
+                            onGradeChange={grade => setEditForm(prev => ({ ...prev, grade }))}
+                            onSave={handleSave}
+                            onCancel={() => setIsEditing(false)}
+                            isProcessing={isProcessing}
+                        />
                     )}
 
                     {/* 4. Comments / Beta Section (Placeholder UI) */}

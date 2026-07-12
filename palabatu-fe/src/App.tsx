@@ -6,7 +6,7 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage } from './pages/index.js'
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('token'));
@@ -35,6 +35,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/directory" element={<ProblemList />} />
+            <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

@@ -19,6 +19,17 @@ func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
 	return listProblems(ctx)
 }
 
+func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
+	p, err := getProblem(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 // CreateProblem intentionally has no role gate: any logged-in user may add a
 // problem for now. (The Node route's commented-out Council/Founder check on
 // POST /problems predates the role model below and is superseded by it, not

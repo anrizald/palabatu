@@ -7,3 +7,4 @@ export { default as VerifyEmail } from './VerifyEmail.js';
 export { default as ForgotPassword } from './ForgotPassword.js';
 export { default as ResetPassword } from './ResetPassword.js';
 export { default as NotFound } from './NotFound.js';
+export { default as ProblemDetailPage } from './ProblemDetailPage.js';
