@@ -44,6 +44,8 @@ function LocateMeButton() {
         <button
             onClick={handleLocate}
             disabled={isLocating}
+            title="Find my location"
+            aria-label="Find my location"
             style={{
                 position: 'absolute',
                 bottom: '100px', // Just above your Add Problem FAB
@@ -59,13 +61,28 @@ function LocateMeButton() {
                 justifyContent: 'center',
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                color: '#f0e0c8',
-                fontSize: '20px',
                 opacity: isLocating ? 0.6 : 1,
                 transition: 'all 0.2s'
             }}
         >
-            {isLocating ? '⏳' : '🎯'}
+            {isLocating ? (
+                <img
+                    src="/assets/locate_me/sandglass-24.png"
+                    srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="locate-sandglass-spin"
+                />
+            ) : (
+                <img
+                    src="/assets/locate_me/crosshair-24.png"
+                    srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
+                    alt=""
+                    width={24}
+                    height={24}
+                />
+            )}
         </button>
         </>
     );
@@ -165,7 +182,8 @@ export default function MapPage() {
 
             {canAdd && (
                 <img
-                    src="/plus_button.png"
+                    src="/assets/add_fab/boring-plus-56.png"
+                    srcSet="/assets/add_fab/boring-plus-56.png 1x, /assets/add_fab/boring-plus-112.png 2x, /assets/add_fab/boring-plus-168.png 3x"
                     alt="Add Problem"
                     onClick={handleFAB}
                     style={{
