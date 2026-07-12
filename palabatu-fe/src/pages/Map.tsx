@@ -47,10 +47,6 @@ function LocateMeButton() {
             title="Find my location"
             aria-label="Find my location"
             style={{
-                position: 'absolute',
-                bottom: '100px', // Just above your Add Problem FAB
-                right: '24px',
-                zIndex: 1000, // Must be high enough to float over the map tiles
                 background: '#141210',
                 border: '1px solid #c87a30',
                 borderRadius: '50%',
@@ -166,7 +162,49 @@ export default function MapPage() {
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
                 />
                 <MapFlyTo />
-                <LocateMeButton />
+                <div
+                    style={{
+                        position: 'absolute',
+                        bottom: '24px',
+                        right: '24px',
+                        zIndex: 1000, // Must be high enough to float over the map tiles
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '12px',
+                    }}
+                >
+                    <LocateMeButton />
+                    {canAdd && (
+                        <button
+                            onClick={handleFAB}
+                            aria-label="Add Problem"
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                background: '#141210',
+                                border: '1px solid #c87a30',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                                transition: 'transform 0.2s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
+                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                        >
+                            <img
+                                src="/assets/add_fab/boring-plus-56.png"
+                                srcSet="/assets/add_fab/boring-plus-56.png 1x, /assets/add_fab/boring-plus-112.png 2x, /assets/add_fab/boring-plus-168.png 3x"
+                                alt=""
+                                width={24}
+                                height={24}
+                            />
+                        </button>
+                    )}
+                </div>
                 <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
                 {(showModal || selectedProblem) && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
@@ -179,28 +217,6 @@ export default function MapPage() {
                     }} />
                 )}
             </MapContainer>
-
-            {canAdd && (
-                <img
-                    src="/assets/add_fab/boring-plus-56.png"
-                    srcSet="/assets/add_fab/boring-plus-56.png 1x, /assets/add_fab/boring-plus-112.png 2x, /assets/add_fab/boring-plus-168.png 3x"
-                    alt="Add Problem"
-                    onClick={handleFAB}
-                    style={{
-                        position: 'fixed',
-                        bottom: '32px',
-                        right: '32px',
-                        width: '56px',
-                        height: '56px',
-                        cursor: 'pointer',
-                        zIndex: 1000,
-                        filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
-                        transition: 'transform 0.2s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                />
-            )}
 
             {showModal && (
                 <AddProblemModal
