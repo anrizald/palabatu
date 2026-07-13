@@ -277,7 +277,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         </button>
                     </div>
                     <div style={{ marginTop: '12px', fontSize: '12px', color: '#6a5848' }}>
-                        Added by <Link to={`/profile/${problem.created_by}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>@{problem.creator_name || 'unknown'}</Link>
+                        Added by <Link to={`/profile/${problem.created_by}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>{problem.creator_name || 'unknown'}</Link>
                         {' '}•🔥 {sendCount} {sendCount === 1 ? 'Send' : 'Sends'}
                     </div>
 
@@ -348,7 +348,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                                         <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                                 <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
-                                                    @{comment.username}
+                                                    {comment.username}
                                                 </Link>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <span style={{ color: '#6a5848', fontSize: '11px' }}>

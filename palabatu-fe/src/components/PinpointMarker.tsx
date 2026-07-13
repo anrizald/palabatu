@@ -85,7 +85,7 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                         ) : (
                             creatorName && (
                                 <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px' }}>
-                                    Added by <Link to={`/profile/${creatorId}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>@{creatorName}</Link>
+                                    Added by <Link to={`/profile/${creatorId}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>{creatorName}</Link>
                                 </div>
                             )
                         )}

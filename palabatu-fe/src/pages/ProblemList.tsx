@@ -166,7 +166,7 @@ export function ProblemList() {
                                             onClick={(e) => e.stopPropagation()}
                                             className="text-accent font-bold no-underline hover:underline"
                                         >
-                                            @{problem.creator_name || 'unknown'}
+                                            {problem.creator_name || 'unknown'}
                                         </Link>
                                         {' '}· {problem.send_count || 0} {problem.send_count === 1 ? 'send' : 'sends'}
                                     </div>
