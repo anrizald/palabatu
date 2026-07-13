@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext.js';
+import { api } from '../lib/api.js';
+import { useAuth } from '../lib/useAuth.js';
 import Sidebar from './Sidebar.js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [userTitles, setUserTitles] = useState<string[]>([]);
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const closeSidebar = () => setIsSidebarOpen(false);
@@ -16,6 +18,20 @@ export default function Header() {
     const isMapActive = location.pathname === '/map';
     const isDirectoryActive = location.pathname === '/directory';
     const isProfileActive = location.pathname.startsWith('/profile');
+    const isAdmin = userTitles.includes('Council') || userTitles.includes('Associate');
+
+    useEffect(() => {
+        if (!user?.id) {
+            setUserTitles([]);
+            return;
+        }
+        api.get(`/api/profiles/${user.id}`).then(data => {
+            if (data && data.title) {
+                const parsed = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
+                setUserTitles(parsed || []);
+            }
+        });
+    }, [user]);
 
     return (
         <>
@@ -47,7 +63,7 @@ export default function Header() {
                     cursor: pointer;
                     letter-spacing: 0.05em;
                     transition: color 0.2s;
-                    padding: 0;
+                    padding: 0 0 4px;
                 }
                 .nav-logout:hover { color: #e07060; }
 
@@ -134,6 +150,7 @@ export default function Header() {
                             </>
                         ) : (
                             <>
+                                {isAdmin && <Link to="/admin/reports" className="nav-link">Reports</Link>}
                                 <Link to={`/profile/${user.id}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <button onClick={handleLogout} className="nav-logout">Logout</button>
                             </>
@@ -171,7 +188,7 @@ export default function Header() {
                 </button>
             </nav>
 
-            <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+            <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} isAdmin={isAdmin} />
         </>
     );
 }

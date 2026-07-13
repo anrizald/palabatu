@@ -3,6 +3,7 @@ package social
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,11 +12,15 @@ import (
 
 // Routes registers the social domain's routes on the /api group.
 func Routes(rg *gin.RouterGroup) {
+	// Per-IP: 20 comments/minute (burst 5), enough for real conversation
+	// while blunting spam/flood posting.
+	limitComments := middleware.RateLimit(3*time.Second, 5)
+
 	rg.GET("/problems/:id/send-status", middleware.RequireAuth, handleSendStatus)
 	rg.POST("/problems/:id/send", middleware.RequireAuth, handleToggleSend)
 
 	rg.GET("/problems/:id/comments", handleListComments)
-	rg.POST("/problems/:id/comments", middleware.RequireAuth, handleCreateComment)
+	rg.POST("/problems/:id/comments", middleware.RequireAuth, limitComments, handleCreateComment)
 	rg.DELETE("/comments/:id", middleware.RequireAuth, handleDeleteComment)
 
 	rg.GET("/profiles/:id/reactions", handleReactionCounts)

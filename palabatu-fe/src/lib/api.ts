@@ -40,10 +40,12 @@ export const api = {
         body: formData
     }).then(r => r.json()),
 
-    delete: (path: string) => fetch(getUrl(path), {
+    delete: (path: string, body?: unknown) => fetch(getUrl(path), {
         method: 'DELETE',
         headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {})
     }).then(r => r.json()),
 };

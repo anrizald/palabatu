@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import Toast from '../components/Toast.js';
-import { useAuth } from '../lib/AuthContext.js';
+import { useAuth } from '../lib/useAuth.js';
 
 export default function Signup() {
-    const { handleSignup, isLoading, toast, setToast } = useAuth();
+    const { handleSignup, isLoading, toast } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);

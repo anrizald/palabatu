@@ -21,6 +21,7 @@ import (
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/problems"
+	"palabatu-be/internal/report"
 	"palabatu-be/internal/social"
 )
 
@@ -75,6 +76,7 @@ func main() {
 	auth.ProfileRoutes(apiGroup)
 	problems.Routes(apiGroup)
 	social.Routes(apiGroup)
+	report.Routes(apiGroup)
 
 	port := os.Getenv("PORT")
 	if port == "" {

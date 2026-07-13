@@ -1,24 +1,13 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState } from 'react'
 import { Header, ErrorBoundary } from './components/index.js'
 import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports } from './pages/index.js'
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('token'));
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsLoggedIn(!!localStorage.getItem('token'));
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
@@ -35,6 +24,8 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/directory" element={<ProblemList />} />
+            <Route path="/problems/:id" element={<ProblemDetailPage />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

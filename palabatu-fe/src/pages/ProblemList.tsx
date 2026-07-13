@@ -2,7 +2,8 @@ import { api } from '../lib/api.js';
 import Header from '../components/Header.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
-import ProblemDetails from '../components/ProblemDetails.js';
+import { Search, MapPin, Map as MapIcon } from 'lucide-react';
+import { GRADE_SCALES } from '../lib/constants.js';
 
 type ProblemRow = {
     id: string | number;
@@ -13,13 +14,46 @@ type ProblemRow = {
     grade: string;
     creator_name: string;
     created_by: string;
+    send_count: number;
 };
+
+type SortBy = 'name' | 'sends';
+
+// Ordered scales to rank grades against, so V0-V15/5.9-5.10a/etc. sort by
+// actual difficulty instead of alphabetically. A grade is ranked by the
+// first scale it's found in; anything unrecognized (legacy/freeform data)
+// sorts last.
+const GRADE_SCALE_ORDER: readonly (readonly string[])[] = [
+    GRADE_SCALES.boulder['V-Scale'],
+    GRADE_SCALES.boulder['Font'],
+    GRADE_SCALES.rope['YDS'],
+    GRADE_SCALES.rope['French'],
+];
+
+function gradeRank(token: string): [scale: number, index: number] {
+    for (let scale = 0; scale < GRADE_SCALE_ORDER.length; scale++) {
+        const index = GRADE_SCALE_ORDER[scale].indexOf(token);
+        if (index !== -1) return [scale, index];
+    }
+    return [GRADE_SCALE_ORDER.length, 0];
+}
+
+// Grades may be a single token ("V5") or a range ("V5-V6"); rank by the
+// lower bound, mirroring how palabatu-be/internal/problems/validate.go
+// splits ranges.
+function compareGrades(a: string, b: string): number {
+    const [aScale, aIndex] = gradeRank(a.split('-')[0]);
+    const [bScale, bIndex] = gradeRank(b.split('-')[0]);
+    if (aScale !== bScale) return aScale - bScale;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.localeCompare(b);
+}
 
 export function ProblemList() {
     const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [search, setSearch] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('All');
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
+    const [sortBy, setSortBy] = useState<SortBy>('name');
     const [isLoading, setIsLoading] = useState(true);
 
     const navigate = useNavigate();
@@ -33,82 +67,112 @@ export function ProblemList() {
         fetchProblems();
     }, []);
 
-    // Extract unique grades for our filter dropdown
+    // Extract unique grades for our filter dropdown, ordered by difficulty within scale
     const availableGrades = useMemo(() => {
         const grades = new Set(problems.map(p => p.grade));
-        return ['All', ...Array.from(grades).sort()];
+        return ['All', ...Array.from(grades).sort(compareGrades)];
     }, [problems]);
 
-    // Filter problems based on search and grade
+    // Filter + sort problems based on search, grade and sort choice
     const filteredProblems = useMemo(() => {
-        return problems.filter(p => {
+        const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-                p.location_name.toLowerCase().includes(search.toLowerCase());
+                (p.location_name || '').toLowerCase().includes(search.toLowerCase());
             const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;
             return matchesSearch && matchesGrade;
         });
-    }, [problems, search, selectedGrade]);
+        return filtered.sort((a, b) => (
+            sortBy === 'sends'
+                ? (b.send_count || 0) - (a.send_count || 0)
+                : a.name.localeCompare(b.name)
+        ));
+    }, [problems, search, selectedGrade, sortBy]);
+
+    const handleRowKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, problem: ProblemRow) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigate(`/problems/${problem.id}`);
+        }
+    };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#0f0d0b', color: '#f0e0c8', fontFamily: "'DM Sans', sans-serif", paddingBottom: '48px' }}>
+        <div className="min-h-screen bg-ink text-text font-sans pb-12">
             <Header />
 
-            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '100px 24px 40px' }}>
-                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px', marginBottom: '8px' }}>Directory</h1>
-                <p style={{ color: '#8a7060', marginBottom: '24px' }}>Search and filter all problems in Palabatu.</p>
+            <div className="max-w-[800px] mx-auto px-6 pt-20">
+                <h1 className="font-serif text-[32px] font-black text-text mb-1">Directory</h1>
+                <p className="text-text-muted mb-6">Search and filter all problems in Palabatu.</p>
 
                 {/* Filters */}
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                    <input
-                        type="text"
-                        placeholder="Search by name or location..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        style={{ flex: 1, minWidth: '200px', padding: '12px 16px', background: '#141210', border: '1px solid #2a2420', borderRadius: '12px', color: '#fff', outline: 'none' }}
-                    />
+                <div className="flex flex-wrap gap-3 mb-3">
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Search by name or location..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
+                        />
+                    </div>
                     <select
                         value={selectedGrade}
                         onChange={(e) => setSelectedGrade(e.target.value)}
-                        style={{ padding: '12px 16px', background: '#141210', border: '1px solid #2a2420', borderRadius: '12px', color: '#fff', outline: 'none', cursor: 'pointer' }}
+                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
                     >
                         {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortBy)}
+                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
+                    >
+                        <option value="name">Sort: Name (A-Z)</option>
+                        <option value="sends">Sort: Most sent</option>
+                    </select>
                 </div>
+
+                {!isLoading && (
+                    <div className="text-xs text-text-dim mb-3">
+                        {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
+                    </div>
+                )}
 
                 {/* List */}
                 {isLoading ? (
-                    <div style={{ color: '#8a7060', textAlign: 'center', padding: '40px' }}>Loading...</div>
+                    <div className="text-text-muted font-serif tracking-wider text-center py-16">Loading...</div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                         {filteredProblems.map(problem => (
                             <div
                                 key={problem.id}
-                                onClick={() => setSelectedProblem(problem)}
-                                style={{
-                                    background: '#141210', border: '1px solid #2a2420', borderRadius: '16px', padding: '16px 20px',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-                                    transition: 'border-color 0.2s'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = '#c87a30'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2420'}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`View details for ${problem.name}`}
+                                onClick={() => navigate(`/problems/${problem.id}`)}
+                                onKeyDown={(e) => handleRowKeyDown(e, problem)}
+                                className="bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 cursor-pointer transition-colors"
                             >
-                                <div style={{ flex: 1 }}>
-                                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', margin: '0 0 4px 0' }}>{problem.name}</h3>
-                                    <div style={{ fontSize: '12px', color: '#6a5848' }}>📍 {problem.location_name}</div>
-
-                                    <div style={{ fontSize: '11px', color: '#6a5848' }}>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-serif text-lg font-bold text-text truncate mb-1">{problem.name}</h3>
+                                    <div className="flex items-center gap-1 text-xs text-text-dim">
+                                        <MapPin size={12} /> {problem.location_name || 'Location not set'}
+                                    </div>
+                                    <div className="text-[11px] text-text-dim">
                                         Added by{' '}
                                         <Link
                                             to={`/profile/${problem.created_by}`}
                                             onClick={(e) => e.stopPropagation()}
-                                            style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}
+                                            className="text-accent font-bold no-underline hover:underline"
                                         >
-                                            @{problem.creator_name || 'unknown'}
+                                            {problem.creator_name || 'unknown'}
                                         </Link>
+                                        {' '}· {problem.send_count || 0} {problem.send_count === 1 ? 'send' : 'sends'}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
-                                    <span style={{ background: 'rgba(200,122,48,0.15)', color: '#c87a30', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
+                                <div className="flex flex-col items-end gap-3 shrink-0">
+                                    <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-[13px] font-bold">
                                         {problem.grade}
                                     </span>
 
@@ -118,40 +182,19 @@ export function ProblemList() {
                                             // Sends them to the map with coordinates in the URL!
                                             navigate(`/map?lat=${problem.latitude}&lng=${problem.longitude}`);
                                         }}
-                                        style={{
-                                            background: 'transparent', border: '1px solid #4a3c30', color: '#8a7060',
-                                            padding: '4px 10px', borderRadius: '8px', fontSize: '11px', cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.color = '#c87a30'; e.currentTarget.style.borderColor = '#c87a30'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.color = '#8a7060'; e.currentTarget.style.borderColor = '#4a3c30'; }}
+                                        className="bg-transparent border border-text-faint text-text-muted hover:text-accent hover:border-accent px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                                     >
-                                        🗺️ Locate
+                                        <MapIcon size={12} /> Locate
                                     </button>
                                 </div>
                             </div>
                         ))}
                         {filteredProblems.length === 0 && (
-                            <div style={{ color: '#8a7060', textAlign: 'center', padding: '40px' }}>No problems found.</div>
+                            <div className="text-text-muted text-center py-16">No problems found.</div>
                         )}
                     </div>
                 )}
             </div>
-
-            {/* Reuse the ProblemDetails modal! */}
-            {selectedProblem && (
-                <ProblemDetails
-                    problem={selectedProblem}
-                    onClose={() => setSelectedProblem(null)}
-                    onDelete={(id) => {
-                        setProblems(prev => prev.filter(p => p.id !== id));
-                        setSelectedProblem(null);
-                    }}
-                    onUpdate={(updatedItem) => {
-                        setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                    }}
-                />
-            )}
         </div>
     );
 }

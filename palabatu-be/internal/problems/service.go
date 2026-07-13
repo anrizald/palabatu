@@ -19,15 +19,40 @@ func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
 	return listProblems(ctx)
 }
 
+func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
+	p, err := getProblem(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 // CreateProblem intentionally has no role gate: any logged-in user may add a
 // problem for now. (The Node route's commented-out Council/Founder check on
 // POST /problems predates the role model below and is superseded by it, not
 // just left disabled for parity.)
 func CreateProblem(ctx context.Context, createdBy, name, grade, location string, lat, lng float64, imageURLs []string) (*ProblemSummary, error) {
+	if err := validateGrade(grade); err != nil {
+		return nil, err
+	}
+	if err := validateLatLng(lat, lng); err != nil {
+		return nil, err
+	}
+
 	return createProblem(ctx, name, grade, location, lat, lng, createdBy, imageURLs)
 }
 
-func UpdateProblem(ctx context.Context, userID, problemID, name, grade string) (*ProblemRow, error) {
+func UpdateProblem(ctx context.Context, userID, problemID, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
+	if err := validateGrade(grade); err != nil {
+		return nil, err
+	}
+	if err := validateLatLng(lat, lng); err != nil {
+		return nil, err
+	}
+
 	createdBy, err := getProblemCreator(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -40,7 +65,7 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade string) (
 		return nil, err
 	}
 
-	return updateProblemRow(ctx, problemID, name, grade)
+	return updateProblemRow(ctx, problemID, name, grade, locationName, lat, lng)
 }
 
 // DeleteProblem authorizes and removes a problem row, best-effort destroying
@@ -66,6 +91,41 @@ func DeleteProblem(ctx context.Context, userID, problemID string) error {
 	}
 
 	return deleteProblemRow(ctx, problemID)
+}
+
+// DeleteProblemImage authorizes and removes a single image from a problem's
+// image_urls array (the Founder or an admin), best-effort destroying its
+// Cloudinary asset first — mirrors DeleteProblem's per-image cleanup, just
+// scoped to one URL instead of the whole set.
+func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string) error {
+	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+		return err
+	}
+
+	found := false
+	for _, url := range imageURLs {
+		if url == imageURL {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrImageNotFound
+	}
+
+	if err := cloudinary.DestroyByURL(ctx, imageURL); err != nil {
+		log.Printf("failed to delete image from Cloudinary: %v", err)
+	}
+
+	return removeProblemImage(ctx, problemID, imageURL)
 }
 
 // authorizeProblemEdit fetches the acting user's profile titles and defers

@@ -5,7 +5,7 @@ import type { ProblemRow } from '../types/problem.js';
 import ProblemDetails from '../components/ProblemDetails.js';
 
 export default function Landing() {
-    const [problems, setProblems] = useState<any[]>([]);
+    const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
 
     useEffect(() => {
@@ -158,7 +158,7 @@ export default function Landing() {
                                             onClick={(e) => e.stopPropagation()} // 3. Stops the card click event!
                                             style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}
                                         >
-                                            @{problem.creator_name || 'unknown'}
+                                            {problem.creator_name || 'unknown'}
                                         </Link>
                                     </div>
                                 </div>

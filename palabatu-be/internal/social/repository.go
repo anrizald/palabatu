@@ -147,6 +147,11 @@ func getCommentOwner(ctx context.Context, commentID string) (*string, error) {
 	return userID, nil
 }
 
+func getCommentTarget(ctx context.Context, commentID string) (problemID string, ownerID *string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT problem_id, user_id FROM comments WHERE id = $1`, commentID).Scan(&problemID, &ownerID)
+	return problemID, ownerID, err
+}
+
 func deleteCommentRow(ctx context.Context, commentID string) error {
 	_, err := db.Pool.Exec(ctx, `DELETE FROM comments WHERE id = $1`, commentID)
 	return err

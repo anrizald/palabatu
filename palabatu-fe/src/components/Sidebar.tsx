@@ -1,15 +1,16 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, X } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext.js';
+import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, X } from 'lucide-react';
+import { useAuth } from '../lib/useAuth.js';
 
 type SidebarProps = {
     isOpen: boolean;
     onClose: () => void;
+    isAdmin?: boolean;
 };
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarProps) {
     const { user, handleLogout } = useAuth();
     const location = useLocation();
 
@@ -192,6 +193,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 <Link to="/directory" className={`sidebar-item ${isDirectoryActive ? 'active' : ''}`} onClick={onClose}>
                                     <Users size={18} /> Directory
                                 </Link>
+                                {isAdmin && (
+                                    <Link to="/admin/reports" className="sidebar-item" onClick={onClose}>
+                                        <Flag size={18} /> Reports
+                                    </Link>
+                                )}
                             </nav>
 
                             <div className="sidebar-footer">
