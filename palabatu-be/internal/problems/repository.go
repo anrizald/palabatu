@@ -169,12 +169,12 @@ func deleteProblemRow(ctx context.Context, id string) error {
 	return err
 }
 
-func updateProblemRow(ctx context.Context, id, name, grade string, lat, lng float64) (*ProblemRow, error) {
+func updateProblemRow(ctx context.Context, id, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
 	var p ProblemRow
 	err := db.Pool.QueryRow(ctx,
-		`UPDATE problems SET name = $1, grade = $2, lat = $3, lng = $4 WHERE id = $5
+		`UPDATE problems SET name = $1, grade = $2, location = $3, lat = $4, lng = $5 WHERE id = $6
 		 RETURNING id, name, grade, location, lat, lng, created_by, created_at, image_urls`,
-		name, grade, lat, lng, id,
+		name, grade, locationName, lat, lng, id,
 	).Scan(&p.ID, &p.Name, &p.Grade, &p.Location, &p.Lat, &p.Lng, &p.CreatedBy, &p.CreatedAt, &p.ImageURLs)
 	if err != nil {
 		return nil, err

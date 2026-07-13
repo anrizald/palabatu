@@ -85,17 +85,18 @@ func handleUpdateProblem(c *gin.Context) {
 	id := c.Param("id")
 
 	var body struct {
-		Name  string  `json:"name"`
-		Grade string  `json:"grade"`
-		Lat   float64 `json:"lat"`
-		Lng   float64 `json:"lng"`
+		Name         string  `json:"name"`
+		Grade        string  `json:"grade"`
+		LocationName string  `json:"location_name"`
+		Lat          float64 `json:"lat"`
+		Lng          float64 `json:"lng"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	problem, err := UpdateProblem(c.Request.Context(), userID, id, body.Name, body.Grade, body.Lat, body.Lng)
+	problem, err := UpdateProblem(c.Request.Context(), userID, id, body.Name, body.Grade, body.LocationName, body.Lat, body.Lng)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)

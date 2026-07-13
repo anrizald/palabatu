@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem } from '../types/problem.js'
+import { useAuth } from '../lib/AuthContext.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
 import { X, Pencil } from 'lucide-react'
@@ -26,6 +27,7 @@ export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) 
 }
 
 export default function AddProblemModal({ onClose, onAdded, newProblem, setNewProblem, isPicking, setIsPicking }: Props) {
+    const { user } = useAuth()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
@@ -105,7 +107,13 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         setIsSubmitting(false);
 
         if (data.error) { showError(data.error); return; }
-        onAdded(data)
+        onAdded({
+            ...data,
+            image_urls: uploadedUrls,
+            created_by: user?.id,
+            creator_name: user?.username,
+            send_count: 0
+        })
         onClose();
     }
 

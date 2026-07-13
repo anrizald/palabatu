@@ -45,7 +45,7 @@ func CreateProblem(ctx context.Context, createdBy, name, grade, location string,
 	return createProblem(ctx, name, grade, location, lat, lng, createdBy, imageURLs)
 }
 
-func UpdateProblem(ctx context.Context, userID, problemID, name, grade string, lat, lng float64) (*ProblemRow, error) {
+func UpdateProblem(ctx context.Context, userID, problemID, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade string, l
 		return nil, err
 	}
 
-	return updateProblemRow(ctx, problemID, name, grade, lat, lng)
+	return updateProblemRow(ctx, problemID, name, grade, locationName, lat, lng)
 }
 
 // DeleteProblem authorizes and removes a problem row, best-effort destroying
