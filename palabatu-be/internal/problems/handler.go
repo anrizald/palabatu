@@ -16,6 +16,7 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/problems", middleware.RequireAuth, handleCreateProblem)
 	rg.PUT("/problems/:id", middleware.RequireAuth, handleUpdateProblem)
 	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
+	rg.DELETE("/problems/:id/images", middleware.RequireAuth, handleDeleteProblemImage)
 
 	rg.POST("/upload/topo", middleware.RequireAuth, handleUploadTopo)
 	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
@@ -125,6 +126,33 @@ func handleDeleteProblem(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this problem."})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+	}
+}
+
+func handleDeleteProblemImage(c *gin.Context) {
+	userID := currentUserID(middleware.UserFromContext(c))
+	id := c.Param("id")
+
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	err := DeleteProblemImage(c.Request.Context(), userID, id, body.URL)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this problem."})
+	case errors.Is(err, ErrImageNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}

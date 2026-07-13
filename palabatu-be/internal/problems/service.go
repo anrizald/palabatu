@@ -93,6 +93,41 @@ func DeleteProblem(ctx context.Context, userID, problemID string) error {
 	return deleteProblemRow(ctx, problemID)
 }
 
+// DeleteProblemImage authorizes and removes a single image from a problem's
+// image_urls array (the Founder or an admin), best-effort destroying its
+// Cloudinary asset first — mirrors DeleteProblem's per-image cleanup, just
+// scoped to one URL instead of the whole set.
+func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string) error {
+	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+		return err
+	}
+
+	found := false
+	for _, url := range imageURLs {
+		if url == imageURL {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrImageNotFound
+	}
+
+	if err := cloudinary.DestroyByURL(ctx, imageURL); err != nil {
+		log.Printf("failed to delete image from Cloudinary: %v", err)
+	}
+
+	return removeProblemImage(ctx, problemID, imageURL)
+}
+
 // authorizeProblemEdit fetches the acting user's profile titles and defers
 // the actual admin/Founder policy decision to authz.CanEditOwned, which
 // takes that already-fetched data as an argument rather than reaching into

@@ -169,6 +169,15 @@ func deleteProblemRow(ctx context.Context, id string) error {
 	return err
 }
 
+// removeProblemImage drops one URL from a problem's image_urls jsonb array.
+// The ::text cast disambiguates jsonb's overloaded "-" operator (text /
+// integer / text[] operands), which Postgres can't resolve from a bare
+// parameter placeholder.
+func removeProblemImage(ctx context.Context, id, url string) error {
+	_, err := db.Pool.Exec(ctx, `UPDATE problems SET image_urls = image_urls - $2::text WHERE id = $1`, id, url)
+	return err
+}
+
 func updateProblemRow(ctx context.Context, id, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
 	var p ProblemRow
 	err := db.Pool.QueryRow(ctx,

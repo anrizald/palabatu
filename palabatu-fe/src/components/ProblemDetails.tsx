@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext.js';
 import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
+import ReportModal, { type ReportTarget } from './ReportModal.js';
 
 type ProblemDetailsProps = {
     problem: any;
@@ -49,8 +50,11 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
     const [toast, setToast] = useState<ToastProps | null>(null);
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) });
+    const showOk = (message: string) => setToast({ message, type: 'success', onClose: () => setToast(null) });
 
     useEffect(() => {
         const fetchComments = async () => {
@@ -183,6 +187,29 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         }
     };
 
+    const submitReport = async (reason: string) => {
+        if (!reportTarget) return;
+        setIsSubmittingReport(true);
+
+        try {
+            const res = reportTarget.type === 'comment'
+                ? await api.post(`/api/comments/${reportTarget.id}/report`, { reason })
+                : await api.post(`/api/problems/${problem.id}/images/report`, { url: reportTarget.url, reason });
+
+            if (res.error) {
+                showError(`Error: ${res.error}`);
+            } else {
+                showOk(`${reportTarget.type === 'comment' ? 'Comment' : 'Image'} reported. Thanks for flagging it.`);
+                setReportTarget(null);
+            }
+        } catch (e) {
+            console.error('Report failed', e);
+            showError('Failed to submit report. Check your connection.');
+        } finally {
+            setIsSubmittingReport(false);
+        }
+    };
+
     if (isPicking) {
         return (
             <div style={{
@@ -215,6 +242,14 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
             padding: '20px 0 0 0'
         }}>
             {toast && <Toast {...toast} />}
+            {reportTarget && (
+                <ReportModal
+                    target={reportTarget}
+                    onClose={() => setReportTarget(null)}
+                    onSubmit={submitReport}
+                    isSubmitting={isSubmittingReport}
+                />
+            )}
             <div style={{
                 background: '#141210', borderTop: '1px solid #2a2420',
                 borderRadius: '24px',
@@ -243,10 +278,27 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         <div style={{ margin: '20px 0' }}>
                             <HorizontalScrollCarousel itemCount={problem.image_urls.length}>
                                 {problem.image_urls.map((url: string, i: number) => (
-                                    <img key={i} src={url} alt="Topo" style={{
-                                        height: '300px', width: '80vw', maxWidth: '400px', objectFit: 'cover',
-                                        borderRadius: '16px', scrollSnapAlign: 'center', flexShrink: 0
-                                    }} />
+                                    <div key={i} style={{ position: 'relative', scrollSnapAlign: 'center', flexShrink: 0 }}>
+                                        <img src={url} alt="Topo" style={{
+                                            height: '300px', width: '80vw', maxWidth: '400px', objectFit: 'cover',
+                                            borderRadius: '16px', display: 'block'
+                                        }} />
+                                        {user && (
+                                            <button
+                                                onClick={() => setReportTarget({ type: 'image', url })}
+                                                title="Report image"
+                                                style={{
+                                                    position: 'absolute', top: '8px', right: '8px',
+                                                    background: 'rgba(20,18,16,0.75)', backdropFilter: 'blur(6px)',
+                                                    border: '1px solid #2a2420', color: '#f0e0c8',
+                                                    width: '28px', height: '28px', borderRadius: '50%',
+                                                    cursor: 'pointer', fontSize: '13px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                ⚑
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </HorizontalScrollCarousel>
                         </div>
@@ -354,6 +406,16 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                                                     <span style={{ color: '#6a5848', fontSize: '11px' }}>
                                                         {new Date(comment.created_at).toLocaleDateString()}
                                                     </span>
+                                                    {user && user.id !== comment.user_id && (
+                                                        <button
+                                                            onClick={() => setReportTarget({ type: 'comment', id: comment.id, content: comment.content })}
+                                                            style={{
+                                                                background: 'none', border: 'none', color: '#8a7060',
+                                                                fontSize: '11px', cursor: 'pointer', padding: 0
+                                                            }}>
+                                                            Report
+                                                        </button>
+                                                    )}
                                                     {canDeleteComment && (
                                                         <button
                                                             onClick={() => handleDeleteComment(comment.id)}

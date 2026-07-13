@@ -6,6 +6,7 @@ import Toast, { type ToastProps } from '../components/Toast.js';
 import HorizontalScrollCarousel from '../components/HorizontalScrollCarousel.js';
 import ProblemEditForm from '../components/ProblemEditForm.js';
 import PinpointMarker from '../components/PinpointMarker.js';
+import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
@@ -78,6 +79,8 @@ export default function ProblemDetailPage() {
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
     const [nearby, setNearby] = useState<NearbyProblem[]>([]);
 
@@ -239,6 +242,29 @@ export default function ProblemDetailPage() {
         }
     };
 
+    const submitReport = async (reason: string) => {
+        if (!id || !reportTarget) return;
+        setIsSubmittingReport(true);
+
+        try {
+            const res = reportTarget.type === 'comment'
+                ? await api.post(`/api/comments/${reportTarget.id}/report`, { reason })
+                : await api.post(`/api/problems/${id}/images/report`, { url: reportTarget.url, reason });
+
+            if (res.error) {
+                showError(`Error: ${res.error}`);
+            } else {
+                showOk(`${reportTarget.type === 'comment' ? 'Comment' : 'Image'} reported. Thanks for flagging it.`);
+                setReportTarget(null);
+            }
+        } catch (e) {
+            console.error('Report failed', e);
+            showError('Failed to submit report. Check your connection.');
+        } finally {
+            setIsSubmittingReport(false);
+        }
+    };
+
     const handleShare = async () => {
         try {
             await navigator.clipboard.writeText(window.location.href);
@@ -275,6 +301,14 @@ export default function ProblemDetailPage() {
         <>
             <Header />
             {toast && <Toast {...toast} />}
+            {reportTarget && (
+                <ReportModal
+                    target={reportTarget}
+                    onClose={() => setReportTarget(null)}
+                    onSubmit={submitReport}
+                    isSubmitting={isSubmittingReport}
+                />
+            )}
 
             <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
                 <div className="max-w-[820px] mx-auto flex flex-col gap-5">
@@ -287,7 +321,18 @@ export default function ProblemDetailPage() {
                         {problem.image_urls && problem.image_urls.length > 0 && (
                             <HorizontalScrollCarousel itemCount={problem.image_urls.length} outerMarginX={0} paddingX={0}>
                                 {problem.image_urls.map((url, i) => (
-                                    <img key={i} src={url} alt="Topo" className="h-[320px] w-full max-w-[820px] object-cover shrink-0" style={{ scrollSnapAlign: 'center' }} />
+                                    <div key={i} className="relative shrink-0" style={{ scrollSnapAlign: 'center' }}>
+                                        <img src={url} alt="Topo" className="h-[320px] w-full max-w-[820px] object-cover" />
+                                        {user && (
+                                            <button
+                                                onClick={() => setReportTarget({ type: 'image', url })}
+                                                title="Report image"
+                                                className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-full bg-ink/75 border border-border text-text backdrop-blur-sm cursor-pointer"
+                                            >
+                                                ⚑
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </HorizontalScrollCarousel>
                         )}
@@ -466,6 +511,14 @@ export default function ProblemDetailPage() {
                                                 </Link>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-text-dim text-[11px]">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                                    {user && user.id !== comment.user_id && (
+                                                        <button
+                                                            onClick={() => setReportTarget({ type: 'comment', id: comment.id, content: comment.content })}
+                                                            className="bg-transparent text-text-dim text-[11px] cursor-pointer"
+                                                        >
+                                                            Report
+                                                        </button>
+                                                    )}
                                                     {canDeleteComment && (
                                                         <button
                                                             onClick={() => handleDeleteComment(comment.id)}
