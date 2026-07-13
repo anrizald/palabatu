@@ -1,18 +1,19 @@
 import { api } from '../lib/api.js';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../lib/AuthContext.js';
+import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
 import ReportModal, { type ReportTarget } from './ReportModal.js';
+import type { ProblemRow } from '../types/problem.js';
 
 type ProblemDetailsProps = {
-    problem: any;
+    problem: ProblemRow;
     userTitles?: string[],
     onClose: () => void;
     onDelete: (id: string | number) => void;
-    onUpdate: (updatedProblem: any) => void;
+    onUpdate: (updatedProblem: ProblemRow) => void;
     isPicking?: boolean;
     setIsPicking?: (val: boolean) => void;
     pickedCoords?: { lat: number; lng: number } | null;

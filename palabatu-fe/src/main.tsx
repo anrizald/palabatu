@@ -17,7 +17,7 @@ ReactDOM.createRoot(rootElement).render(
   </BrowserRouter>
 )
 
-const updateSW = registerSW({
+registerSW({
   onNeedRefresh() {
     // You can later add a prompt here asking users to refresh when there's an update
     console.log('New content available, please refresh.')

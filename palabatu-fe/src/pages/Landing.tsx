@@ -5,7 +5,7 @@ import type { ProblemRow } from '../types/problem.js';
 import ProblemDetails from '../components/ProblemDetails.js';
 
 export default function Landing() {
-    const [problems, setProblems] = useState<any[]>([]);
+    const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
 
     useEffect(() => {

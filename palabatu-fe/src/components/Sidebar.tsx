@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, X } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext.js';
+import { useAuth } from '../lib/useAuth.js';
 
 type SidebarProps = {
     isOpen: boolean;

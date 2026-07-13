@@ -1,27 +1,10 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from './api.js';
+import { AuthContext } from './authContextInstance.js';
+import type { User } from './authContextInstance.js';
 import type { ToastProps } from '../components/Toast.js';
-
-type User = {
-    id: string;
-    email: string;
-    username: string;
-} | null;
-
-type AuthContextType = {
-    user: User;
-    isLoading: boolean;
-    toast: ToastProps | null;
-    setToast: (toast: ToastProps | null) => void;
-    showToast: (message: string, type?: "success" | "error") => void;
-    handleLogin: (email: string, password: string) => Promise<void>;
-    handleSignup: (email: string, password: string) => Promise<void>;
-    handleLogout: () => void;
-};
-
-const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User>(null);
@@ -91,10 +74,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-    return ctx;
 }

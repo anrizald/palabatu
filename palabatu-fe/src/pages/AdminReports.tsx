@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { useAuth } from '../lib/AuthContext.js';
+import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 
 type Report = {

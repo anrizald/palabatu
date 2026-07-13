@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { api } from '../lib/api.js';
-import { useAuth } from '../lib/AuthContext.js';
+import { useAuth } from '../lib/useAuth.js';
 import Sidebar from './Sidebar.js';
 
 export default function Header() {

@@ -2,15 +2,15 @@ import { api } from '../lib/api.js'
 import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
-import type { NewProblem } from '../types/problem.js'
-import { useAuth } from '../lib/AuthContext.js'
+import type { NewProblem, ProblemRow } from '../types/problem.js'
+import { useAuth } from '../lib/useAuth.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
 import { X, Pencil } from 'lucide-react'
 
 type Props = {
     onClose: () => void
-    onAdded: (problem: any) => void
+    onAdded: (problem: ProblemRow) => void
     newProblem: NewProblem
     setNewProblem: (val: NewProblem) => void
     isPicking: boolean

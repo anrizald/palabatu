@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api.js'
-import { useAuth } from '../lib/AuthContext.js'
+import { useAuth } from '../lib/useAuth.js'
 import Header from '../components/Header.js'
 import Toast from '../components/Toast.js'
 
@@ -238,6 +238,7 @@ export default function Profile() {
                 showToast(`Upload failed: ${uploadRes.error}`, 'error');
             }
         } catch (error) {
+            console.error('Avatar upload failed', error);
             showToast('Upload failed due to network error.', 'error');
         } finally {
             setIsUploading(false);

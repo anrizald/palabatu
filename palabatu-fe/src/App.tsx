@@ -1,6 +1,5 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState } from 'react'
 import { Header, ErrorBoundary } from './components/index.js'
 import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
@@ -9,16 +8,6 @@ import { ProblemList } from './pages/ProblemList.js'
 import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports } from './pages/index.js'
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('token'));
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsLoggedIn(!!localStorage.getItem('token'));
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
