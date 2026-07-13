@@ -1,3 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+
+@import "tailwindcss";
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities; */
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -20,13 +27,6 @@ body,
 #root {
   height: 100%;
 }
-
-@import "tailwindcss";
-/* @tailwind base;
-@tailwind components;
-@tailwind utilities; */
-
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
 
 /* Shared dark palette used across the app's auth/profile-style pages
    (Login, Signup, Header, Profile, ...). Most of those still hand-roll this
