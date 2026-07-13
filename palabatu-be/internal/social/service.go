@@ -114,3 +114,10 @@ func DeleteComment(ctx context.Context, userID, commentID string) error {
 
 	return deleteCommentRow(ctx, commentID)
 }
+
+// GetCommentTarget exposes a comment's parent problem and owner so
+// internal/report can validate a report against it without reaching into
+// this package's repository tier directly.
+func GetCommentTarget(ctx context.Context, commentID string) (string, *string, error) {
+	return getCommentTarget(ctx, commentID)
+}
