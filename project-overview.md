@@ -21,20 +21,18 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 - **Auth UI:** Supabase Auth UI (pre-built components)
 - **Animation Tool:** Rive.js for interactive animations
 
-### Backend
-- **Runtime:** Node.js
-- **Server:** Express 5.2.1
-- **Language:** TypeScript
-- **Database:** PostgreSQL
-- **Auth:** JWT (jsonwebtoken 9.0.3)
-- **Password Hashing:** Bcrypt 6.0.0
-- **Email:** Nodemailer 8.0.7
-- **CORS:** Enabled for client requests
-- **File Upload:** Multer 2.1.1, Cloudinary integration
+### Backend (`palabatu-be/`)
+- **Language:** Go
+- **Router:** gin (`gin-gonic/gin`)
+- **Database:** PostgreSQL via `jackc/pgx/v5` (`pgxpool`), no ORM
+- **Auth:** JWT via `golang-jwt/jwt/v5`
+- **CORS:** `gin-contrib/cors`
+- **Env loading:** `joho/godotenv`
+- **File Upload:** `cloudinary-go/v2` integration
+- **Metrics:** `prometheus/client_golang`, exposed at `GET /metrics`
 
 ### DevTools
 - **Frontend Linting:** ESLint with React hooks/refresh plugins
-- **Backend Dev:** ts-node-dev with auto-respawn
 - **PWA Support:** vite-plugin-pwa (installable web app)
 
 ---
@@ -43,59 +41,77 @@ A community web app for Indonesian bouldering enthusiasts. Users can discover bo
 
 ```
 kepalabatu/
-├── src/                      # React frontend
-│   ├── components/           # React components
-│   │   ├── AddProblemModal.tsx
-│   │   ├── Auth.tsx
-│   │   ├── Header.tsx
-│   │   ├── Footer.tsx
-│   │   ├── ProblemDetails.tsx
-│   │   ├── ProblemList.tsx
-│   │   ├── HorizontalScrollCarousel.tsx
-│   │   ├── PinpointMarker.tsx
-│   │   └── Toast.tsx
-│   ├── pages/                # Page components
-│   │   ├── Landing.tsx
-│   │   ├── Map.tsx
-│   │   ├── Login.tsx
-│   │   ├── Signup.tsx
-│   │   ├── Auth.tsx
-│   │   ├── ForgotPassword.tsx
-│   │   ├── ResetPassword.tsx
-│   │   ├── VerifyEmail.tsx
-│   │   └── profile.tsx
-│   ├── lib/
-│   │   ├── api.ts            # API client with JWT auth
-│   │   ├── AuthContext.tsx    # Auth state management
-│   │   └── constants.ts
-│   ├── types/
-│   │   └── problem.ts
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── assets/
+├── palabatu-fe/               # React frontend (independent npm project)
+│   ├── src/
+│   │   ├── components/        # React components
+│   │   │   ├── AddProblemModal.tsx
+│   │   │   ├── Auth.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── ProblemDetails.tsx
+│   │   │   ├── ProblemList.tsx
+│   │   │   ├── HorizontalScrollCarousel.tsx
+│   │   │   ├── PinpointMarker.tsx
+│   │   │   └── Toast.tsx
+│   │   ├── pages/              # Page components
+│   │   │   ├── Landing.tsx
+│   │   │   ├── Map.tsx
+│   │   │   ├── Login.tsx
+│   │   │   ├── Signup.tsx
+│   │   │   ├── Auth.tsx
+│   │   │   ├── ForgotPassword.tsx
+│   │   │   ├── ResetPassword.tsx
+│   │   │   ├── VerifyEmail.tsx
+│   │   │   └── profile.tsx
+│   │   ├── lib/
+│   │   │   ├── api.ts          # API client with JWT auth
+│   │   │   ├── AuthContext.tsx # Auth state management
+│   │   │   └── constants.ts
+│   │   ├── types/
+│   │   │   └── problem.ts
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── assets/
+│   ├── public/                 # Static assets & PWA manifest
+│   │   ├── index.html
+│   │   ├── manifest.json
+│   │   └── icons/
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   ├── eslint.config.ts
+│   └── package.json
 │
-├── server/                   # Express backend
-│   ├── index.ts
-│   ├── db/
-│   │   └── client.ts         # PostgreSQL connection
-│   ├── lib/
-│   │   └── mailer.ts         # Email with Nodemailer
-│   ├── middleware/
-│   │   └── auth.ts           # JWT verification
-│   └── routes/
-│       ├── api.ts            # Problem CRUD endpoints
-│       └── auth.ts           # Auth endpoints
+├── palabatu-be/                 # Go backend (independent Go module)
+│   ├── cmd/
+│   │   └── api/
+│   │       └── main.go         # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
+│   ├── internal/
+│   │   ├── db/
+│   │   │   └── db.go           # pgxpool connection
+│   │   ├── cloudinary/
+│   │   │   └── cloudinary.go   # upload-to-folder + destroy-by-URL
+│   │   ├── metrics/
+│   │   │   └── metrics.go      # Prometheus HTTP middleware, GET /metrics
+│   │   ├── mailer/
+│   │   │   └── mailer.go       # SMTP sender
+│   │   ├── middleware/
+│   │   │   └── auth.go         # JWT verification (RequireAuth)
+│   │   ├── handler/             # HTTP routers: auth, api, problem, profile, interaction, upload
+│   │   ├── service/              # business logic: auth, problem, profile, send, comment
+│   │   └── repository/           # SQL queries: user, problem, profile, send, comment
+│   ├── environments/
+│   │   └── .env.example
+│   ├── docs/
+│   │   └── domain-restructure.md
+│   └── go.mod
 │
-├── public/                   # Static assets & PWA manifest
-│   ├── index.html
-│   ├── manifest.json
-│   └── icons/
+├── migrations/                  # golang-migrate-style SQL, applied via the `migrate` CLI
+│   ├── 0001_init.up.sql         # schema captured from the live Neon DB (users/profiles/problems/sends/comments, all uuid PKs)
+│   └── 0001_init.down.sql       # drops all 5 tables, in FK-safe order
 │
-├── vite.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-├── eslint.config.ts
-└── package.json
+├── README.md
+└── project-overview.md
 ```
 
 ---
@@ -157,8 +173,10 @@ type ProblemRow = {
 - `npm run lint` - ESLint check
 - `npm run preview` - Preview production build
 
-### Backend
-- `npm run dev` - ts-node-dev with auto-restart (port 3001)
+### Backend (Go)
+- `go run ./cmd/api` - run the server (port 3001 by default)
+- `go build ./cmd/api` - compile a binary
+- `go vet ./...` - static checks
 
 ---
 
@@ -170,9 +188,9 @@ type ProblemRow = {
 ### Backend (.env)
 - Database credentials (PostgreSQL)
 - JWT secret
-- Email provider credentials (Nodemailer)
+- Email provider credentials
 - Cloudinary credentials
-- CORS allowed origins
+- CORS allowed origins (see `palabatu-be/environments/.env.example`)
 
 ---
 
@@ -181,17 +199,18 @@ type ProblemRow = {
 - **Status:** WIP - actively in development
 - **PWA Support:** Configured but may need manifest adjustments
 - **Image Hosting:** Cloudinary integrated for problem photos
-- **Email:** Nodemailer configured for verification & password reset
+- **Email:** configured for verification & password reset
+- **Backend:** Go, layered as handler → service → repository. Both `/auth/*` and `/api/*` (problems/profiles/sends/comments/uploads) are fully implemented.
 
 ---
 
 ## Development Workflow
 
 1. Frontend runs on Vite dev server → uses proxy/env to reach backend
-2. Backend Express server handles API routes & serves public/
+2. Backend Go server (gin) handles API routes
 3. PostgreSQL stores problems, users, auth data
 4. Cloudinary stores climbing route photos
-5. Nodemailer sends verification & password reset emails
+5. Backend sends verification & password reset emails via SMTP
 
 ---
 
