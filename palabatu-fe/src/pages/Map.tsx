@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { Search, X, Plus, Minus } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import Header from '../components/Header.js'
 import { useAuth } from '../lib/useAuth.js'
@@ -11,19 +11,10 @@ import Toast, { type ToastProps } from '../components/Toast.js'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
+import { ZoomControlButtons } from '../components/MapControls.js'
+import { circleButtonStyle } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
-
-const circleButtonStyle = {
-    background: '#141210',
-    border: '1px solid #c87a30',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-    transition: 'all 0.2s',
-} as const;
 
 type SearchResult = {
     place_id: number
@@ -211,42 +202,6 @@ function LocationSearchBox() {
     );
 }
 
-function ZoomControlButtons() {
-    const map = useMap();
-    const [zoom, setZoom] = useState(map.getZoom());
-
-    useMapEvents({
-        zoomend() { setZoom(map.getZoom()); },
-    });
-
-    const zoomActions = [
-        { key: 'in', onClick: () => map.zoomIn(), disabled: zoom >= map.getMaxZoom(), label: 'Zoom in', Icon: Plus },
-        { key: 'out', onClick: () => map.zoomOut(), disabled: zoom <= map.getMinZoom(), label: 'Zoom out', Icon: Minus },
-    ];
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {zoomActions.map(({ key, onClick, disabled, label, Icon }) => (
-                <button
-                    key={key}
-                    onClick={onClick}
-                    disabled={disabled}
-                    title={label}
-                    aria-label={label}
-                    style={{
-                        ...circleButtonStyle,
-                        width: '40px',
-                        height: '40px',
-                        cursor: disabled ? 'default' : 'pointer',
-                        opacity: disabled ? 0.4 : 1,
-                    }}
-                >
-                    <Icon size={18} color="#f0e0c8" />
-                </button>
-            ))}
-        </div>
-    );
-}
 function LocateMeButton() {
     const map = useMap();
     const [isLocating, setIsLocating] = useState(false);

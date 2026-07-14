@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
 import { MapPin, Calendar, Share2, ArrowLeft, Flame, Map as MapIcon } from 'lucide-react';
+import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
 
 type ProblemDetail = {
     id: string;
@@ -277,6 +278,11 @@ export default function ProblemDetailPage() {
 
     const joinDate = useMemo(() => problem ? formatDate(problem.created_at) : null, [problem]);
 
+    const markerPosition = useMemo<[number, number] | null>(() => {
+        if (problem?.latitude == null || problem?.longitude == null) return null;
+        return [editForm.lat || problem.latitude, editForm.lng || problem.longitude];
+    }, [editForm.lat, editForm.lng, problem?.latitude, problem?.longitude]);
+
     if (isLoading) return (
         <>
             <Header />
@@ -419,7 +425,7 @@ export default function ProblemDetailPage() {
                     </div>
 
                     {/* Mini map */}
-                    {problem.latitude != null && problem.longitude != null && (
+                    {markerPosition && (
                         <div className="bg-panel border border-border rounded-2xl overflow-hidden">
                             {isPickingLocation && (
                                 <div className="px-4 py-2 bg-accent/10 border-b border-accent/25 text-xs text-accent">
@@ -428,20 +434,26 @@ export default function ProblemDetailPage() {
                             )}
                             <div className="h-[220px]">
                                 <MapContainer
-                                    center={[editForm.lat || problem.latitude, editForm.lng || problem.longitude]}
+                                    center={markerPosition}
                                     zoom={13}
                                     style={{ height: '100%', width: '100%' }}
                                     zoomControl={false}
-                                    dragging={isPickingLocation}
-                                    scrollWheelZoom={false}
-                                    doubleClickZoom={false}
-                                    touchZoom={isPickingLocation}
+                                    dragging={true}
+                                    scrollWheelZoom={true}
+                                    doubleClickZoom={true}
+                                    touchZoom={true}
                                 >
                                     <TileLayer
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                     />
-                                    <PinpointMarker position={[editForm.lat || problem.latitude, editForm.lng || problem.longitude]} />
+                                    <PinpointMarker position={markerPosition} />
+                                    <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000 }}>
+                                        <ZoomControlButtons />
+                                    </div>
+                                    <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000 }}>
+                                        <RecenterButton position={markerPosition} />
+                                    </div>
                                     {isPickingLocation && (
                                         <ClickToPick onPick={(lat, lng) => {
                                             setEditForm(prev => ({ ...prev, lat, lng }));
