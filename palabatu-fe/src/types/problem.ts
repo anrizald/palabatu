@@ -19,4 +19,5 @@ export type ProblemRow = {
     created_by: string
     image_urls?: string[]
     send_count?: number
+    created_at?: string
 }

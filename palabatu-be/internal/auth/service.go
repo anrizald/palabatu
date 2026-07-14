@@ -183,6 +183,12 @@ func GetProfile(ctx context.Context, id string) (*Profile, error) {
 	return profile, nil
 }
 
+// CountUsers returns the total number of registered users, for the landing
+// page's climber-count stat.
+func CountUsers(ctx context.Context) (int, error) {
+	return countUsers(ctx)
+}
+
 // GetProfileStats returns a user's sends count and problems-added count.
 func GetProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
 	return getProfileStats(ctx, userID)

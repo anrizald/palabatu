@@ -29,6 +29,7 @@ func AuthRoutes(rg *gin.RouterGroup) {
 	rg.POST("/reset-password", limitCredentialEndpoints, handleResetPassword)
 	rg.PUT("/password", middleware.RequireAuth, limitCredentialEndpoints, handleChangePassword)
 	rg.DELETE("/account", middleware.RequireAuth, limitCredentialEndpoints, handleDeleteAccount)
+	rg.GET("/users/count", handleUserCount)
 }
 
 // minPasswordLength applies to change-password (and, going forward, any
@@ -102,6 +103,17 @@ func handleSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+// handleUserCount backs the landing page's climber-count stat. It's
+// unauthenticated, same trust level as GET /problems.
+func handleUserCount(c *gin.Context) {
+	count, err := CountUsers(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func handleVerifyEmail(c *gin.Context) {

@@ -83,6 +83,12 @@ func getUserByID(ctx context.Context, id string) (*User, error) {
 	return &u, nil
 }
 
+func countUsers(ctx context.Context) (int, error) {
+	var count int
+	err := db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count)
+	return count, err
+}
+
 func getUserCreatedAt(ctx context.Context, id string) (time.Time, error) {
 	var t time.Time
 	err := db.Pool.QueryRow(ctx, `SELECT created_at FROM users WHERE id = $1`, id).Scan(&t)
