@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { Search, X } from 'lucide-react'
+import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
 import { api } from '../lib/api.js'
 import Header from '../components/Header.js'
 import { useAuth } from '../lib/useAuth.js'
@@ -12,6 +12,7 @@ import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
+import FallbackImg from '../components/FallbackImg.js'
 import { circleButtonStyle } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
@@ -245,21 +246,23 @@ function LocateMeButton() {
             }}
         >
             {isLocating ? (
-                <img
+                <FallbackImg
                     src="/assets/locate_me/sandglass-24.png"
                     srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
                     alt=""
                     width={24}
                     height={24}
                     className="locate-sandglass-spin"
+                    fallback={Hourglass}
                 />
             ) : (
-                <img
+                <FallbackImg
                     src="/assets/locate_me/crosshair-24.png"
                     srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
                     alt=""
                     width={24}
                     height={24}
+                    fallback={Crosshair}
                 />
             )}
         </button>
@@ -387,12 +390,13 @@ export default function MapPage() {
                             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
                             onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                         >
-                            <img
+                            <FallbackImg
                                 src="/assets/add_fab/boring-plus-56.png"
                                 srcSet="/assets/add_fab/boring-plus-56.png 1x, /assets/add_fab/boring-plus-112.png 2x, /assets/add_fab/boring-plus-168.png 3x"
                                 alt=""
                                 width={24}
                                 height={24}
+                                fallback={Plus}
                             />
                         </button>
                     )}

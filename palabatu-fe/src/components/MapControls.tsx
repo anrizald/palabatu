@@ -1,7 +1,8 @@
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Crosshair } from 'lucide-react';
 import { useState } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { circleButtonStyle } from '../lib/constants.js';
+import FallbackImg from './FallbackImg.js';
 
 export function ZoomControlButtons() {
     const map = useMap();
@@ -54,12 +55,13 @@ export function RecenterButton({ position }: { position: [number, number] }) {
                 cursor: 'pointer',
             }}
         >
-            <img
+            <FallbackImg
                 src="/assets/locate_me/crosshair-24.png"
                 srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
                 alt=""
                 width={40}
                 height={40}
+                fallback={Crosshair}
             />
         </button>
     );
