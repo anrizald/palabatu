@@ -1,0 +1,24 @@
+{
+  "name": "kepalabatu",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Palabatu",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anrizald/palabatu.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/anrizald/palabatu/issues"
+  },
+  "homepage": "https://github.com/anrizald/palabatu#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1"
+  }
+}

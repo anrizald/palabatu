@@ -32,9 +32,20 @@ go build ./cmd/api # compiles a binary
 go vet ./...
 ```
 
-There is no test suite configured in either project (no test script/runner in the frontend, no `_test.go` files yet in the backend). Don't assume Vitest/`go test` coverage exists — check before referencing test commands.
+There is no test suite configured in either project (no test script/runner in the frontend, no `_test.go` files yet in the backend) — see below for the separate root-level Playwright e2e suite. Don't assume Vitest/`go test` coverage exists — check before referencing test commands.
 
 Both `palabatu-fe/` and `palabatu-be/` must run simultaneously for the app to work end to end. Vite proxies `/api` and `/auth` to `http://localhost:3001` in dev ([palabatu-fe/vite.config.ts](palabatu-fe/vite.config.ts)), and `palabatu-fe/src/lib/api.ts` falls back to `VITE_API_URL` or `http://localhost:3001` otherwise.
+
+## Browser automation & E2E testing
+
+Playwright is already installed (`@playwright/test` dev dependency) and the browser
+binaries are already downloaded. Do NOT run `npm install playwright`,
+`npx playwright install`, or install chrome-cli — the tooling is in place.
+
+- Run tests: `npx playwright test`  (add `--headed` to watch, `--debug` for inspector)
+- Screenshot a page: `npx playwright screenshot http://localhost:5173 out.png`
+- The Vite dev server auto-starts via the `webServer` block in playwright.config.ts.
+- Tests live in `tests/`; base URL is http://localhost:5173.
 
 ## Database migrations (`migrations/`)
 
