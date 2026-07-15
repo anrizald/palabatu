@@ -78,6 +78,12 @@ func main() {
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)
 
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "../palabatu-fe/dist"
+	}
+	r.NoRoute(newSPAHandler(staticDir))
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3001"
