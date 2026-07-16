@@ -1,5 +1,4 @@
 import { api } from '../lib/api.js';
-import Header from '../components/Header.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { Search, MapPin, Map as MapIcon } from 'lucide-react';
@@ -32,7 +31,7 @@ const GRADE_SCALE_ORDER: readonly (readonly string[])[] = [
 
 function gradeRank(token: string): [scale: number, index: number] {
     for (let scale = 0; scale < GRADE_SCALE_ORDER.length; scale++) {
-        const index = GRADE_SCALE_ORDER[scale].indexOf(token);
+        const index = GRADE_SCALE_ORDER[scale]!.indexOf(token);
         if (index !== -1) return [scale, index];
     }
     return [GRADE_SCALE_ORDER.length, 0];
@@ -42,8 +41,8 @@ function gradeRank(token: string): [scale: number, index: number] {
 // lower bound, mirroring how palabatu-be/internal/problems/validate.go
 // splits ranges.
 function compareGrades(a: string, b: string): number {
-    const [aScale, aIndex] = gradeRank(a.split('-')[0]);
-    const [bScale, bIndex] = gradeRank(b.split('-')[0]);
+    const [aScale, aIndex] = gradeRank(a.split('-')[0] ?? a);
+    const [bScale, bIndex] = gradeRank(b.split('-')[0] ?? b);
     if (aScale !== bScale) return aScale - bScale;
     if (aIndex !== bIndex) return aIndex - bIndex;
     return a.localeCompare(b);
@@ -98,8 +97,6 @@ export function ProblemList() {
 
     return (
         <div className="min-h-screen bg-ink text-text font-sans pb-12">
-            <Header />
-
             <div className="max-w-[800px] mx-auto px-6 pt-20">
                 <h1 className="font-serif text-[32px] font-black text-text mb-1">Directory</h1>
                 <p className="text-text-muted mb-6">Search and filter all problems in Palabatu.</p>

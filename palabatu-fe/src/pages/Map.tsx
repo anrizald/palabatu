@@ -1,7 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
 import { api } from '../lib/api.js'
-import Header from '../components/Header.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -340,7 +339,6 @@ export default function MapPage() {
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             {toast && <Toast {...toast} />}
-            <Header />
             <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} zoomControl={false} style={{ height: '100%', width: '100%' }}>
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
                 <TileLayer

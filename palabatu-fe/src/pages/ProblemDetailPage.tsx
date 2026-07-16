@@ -1,6 +1,5 @@
 import 'leaflet/dist/leaflet.css';
 import { api } from '../lib/api.js';
-import Header from '../components/Header.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 import HorizontalScrollCarousel from '../components/HorizontalScrollCarousel.js';
@@ -284,28 +283,21 @@ export default function ProblemDetailPage() {
     }, [editForm.lat, editForm.lng, problem?.latitude, problem?.longitude]);
 
     if (isLoading) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex items-center justify-center">
-                <div className="text-text-muted font-serif tracking-wider">Loading problem...</div>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="text-text-muted font-serif tracking-wider">Loading problem...</div>
+        </div>
     );
 
     if (loadError || !problem) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="font-serif text-2xl font-black text-text">Problem not found</div>
-                <div className="text-sm text-text-dim">{loadError}</div>
-                <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="font-serif text-2xl font-black text-text">Problem not found</div>
+            <div className="text-sm text-text-dim">{loadError}</div>
+            <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
+        </div>
     );
 
     return (
         <>
-            <Header />
             {toast && <Toast {...toast} />}
             {reportTarget && (
                 <ReportModal

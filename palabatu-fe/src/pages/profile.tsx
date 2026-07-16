@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
-import Header from '../components/Header.js'
 import Toast from '../components/Toast.js'
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
@@ -276,23 +275,17 @@ export default function Profile() {
     };
 
     if (isLoading) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex items-center justify-center">
-                <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
+        </div>
     );
 
     if (loadError) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="font-serif text-2xl font-black text-text">Profile not found</div>
-                <div className="text-sm text-text-dim">{loadError}</div>
-                <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="font-serif text-2xl font-black text-text">Profile not found</div>
+            <div className="text-sm text-text-dim">{loadError}</div>
+            <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
+        </div>
     );
 
     const initials = profile.username ? profile.username.slice(0, 2).toUpperCase() : '??';
@@ -300,7 +293,6 @@ export default function Profile() {
 
     return (
         <>
-            <Header />
             {toast && <Toast {...toast} />}
 
             <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-10">
