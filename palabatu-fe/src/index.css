@@ -111,6 +111,15 @@ body,
   }
 }
 
+/* Leaflet's own CSS gives internal panes/controls z-index up to 1000 but
+   never sets a z-index on .leaflet-container, so it never gets its own
+   stacking context — those values leak into whatever stacking context the
+   map sits in and can climb over unrelated fixed-position UI (e.g. the
+   mobile sidebar drawer). Isolate it so the map's stacking stays local. */
+.leaflet-container {
+  isolation: isolate;
+}
+
 .pinpoint-marker-icon {
   background: transparent;
   border: none;

@@ -1,8 +1,9 @@
 import { api } from '../lib/api.js';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, Map as MapIcon } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, MapPin, Map as MapIcon, Mountain } from 'lucide-react';
 import { GRADE_SCALES } from '../lib/constants.js';
+import FallbackImg from '../components/FallbackImg.js';
 
 type ProblemRow = {
     id: string | number;
@@ -14,6 +15,7 @@ type ProblemRow = {
     creator_name: string;
     created_by: string;
     send_count: number;
+    image_urls: string[];
 };
 
 type SortBy = 'name' | 'sends';
@@ -54,17 +56,34 @@ export function ProblemList() {
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [sortBy, setSortBy] = useState<SortBy>('name');
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        async function fetchProblems() {
-            const data = await api.get('/api/problems');
-            if (!data.error) setProblems(data as ProblemRow[]);
-            setIsLoading(false);
-        }
-        fetchProblems();
+    const fetchProblems = useCallback(() => {
+        setIsLoading(true);
+        setLoadError(null);
+        api.get('/api/problems')
+            .then(data => {
+                if (data && !data.error) {
+                    setProblems(data as ProblemRow[]);
+                } else {
+                    setLoadError(data?.error || 'Failed to load problems.');
+                }
+            })
+            .catch(() => setLoadError('Failed to load problems. Check your connection.'))
+            .finally(() => setIsLoading(false));
     }, []);
+
+    useEffect(() => {
+        fetchProblems();
+    }, [fetchProblems]);
+
+    const hasActiveFilters = search !== '' || selectedGrade !== 'All';
+    const clearFilters = () => {
+        setSearch('');
+        setSelectedGrade('All');
+    };
 
     // Extract unique grades for our filter dropdown, ordered by difficulty within scale
     const availableGrades = useMemo(() => {
@@ -130,14 +149,28 @@ export function ProblemList() {
                     </select>
                 </div>
 
-                {!isLoading && (
-                    <div className="text-xs text-text-dim mb-3">
-                        {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
+                {!isLoading && !loadError && (
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs text-text-dim">
+                            {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
+                        </div>
+                        {hasActiveFilters && (
+                            <button onClick={clearFilters} className="bg-transparent border-none text-xs text-accent hover:underline cursor-pointer p-0">
+                                Clear filters
+                            </button>
+                        )}
                     </div>
                 )}
 
                 {/* List */}
-                {isLoading ? (
+                {loadError ? (
+                    <div className="flex flex-col items-center gap-3 text-center py-16">
+                        <div className="text-text-muted">{loadError}</div>
+                        <button onClick={fetchProblems} className="bg-transparent border-none text-sm text-accent hover:underline cursor-pointer p-0">
+                            Try again
+                        </button>
+                    </div>
+                ) : isLoading ? (
                     <div className="text-text-muted font-serif tracking-wider text-center py-16">Loading...</div>
                 ) : (
                     <div className="flex flex-col gap-3">
@@ -149,8 +182,23 @@ export function ProblemList() {
                                 aria-label={`View details for ${problem.name}`}
                                 onClick={() => navigate(`/problems/${problem.id}`)}
                                 onKeyDown={(e) => handleRowKeyDown(e, problem)}
-                                className="bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 cursor-pointer transition-colors"
+                                className="bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl px-5 py-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-colors"
                             >
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-surface border border-border shrink-0 flex items-center justify-center">
+                                    {problem.image_urls?.[0] ? (
+                                        <FallbackImg
+                                            src={problem.image_urls[0]}
+                                            alt=""
+                                            width={56}
+                                            height={56}
+                                            className="w-full h-full object-cover"
+                                            fallback={Mountain}
+                                            fallbackColor="var(--color-text-faint)"
+                                        />
+                                    ) : (
+                                        <Mountain size={22} className="text-text-faint" />
+                                    )}
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="font-serif text-lg font-bold text-text truncate mb-1">{problem.name}</h3>
                                     <div className="flex items-center gap-1 text-xs text-text-dim">
@@ -187,7 +235,13 @@ export function ProblemList() {
                             </div>
                         ))}
                         {filteredProblems.length === 0 && (
-                            <div className="text-text-muted text-center py-16">No problems found.</div>
+                            <div className="text-text-muted text-center py-16">
+                                {problems.length === 0 ? (
+                                    <>No problems added yet. <Link to="/map" className="text-accent hover:underline">Add one from the map</Link>.</>
+                                ) : (
+                                    <>No problems match your search. <button onClick={clearFilters} className="bg-transparent border-none text-accent hover:underline cursor-pointer p-0">Clear filters</button>.</>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}

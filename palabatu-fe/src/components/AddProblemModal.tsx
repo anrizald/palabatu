@@ -6,7 +6,7 @@ import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { useAuth } from '../lib/useAuth.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
-import { X, Pencil } from 'lucide-react'
+import { X, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
 
 type Props = {
     onClose: () => void
@@ -38,6 +38,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
     const [isRange, setIsRange] = useState(false)
     const [gradeFrom, setGradeFrom] = useState('')
     const [gradeTo, setGradeTo] = useState('')
+    const [gradeExpanded, setGradeExpanded] = useState(false)
 
     const currentScales = GRADE_SCALES[problemType] as Record<string, readonly string[]>;
     const grades: readonly string[] = currentScales[gradeScale] || [];
@@ -181,18 +182,25 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             {toast && <Toast {...toast} />}
             <div style={{
                 background: '#141210', border: '1px solid #2a2420',
-                borderRadius: '20px', padding: '32px',
+                borderRadius: '20px',
                 width: '100%', maxWidth: '440px',
+                maxHeight: 'calc(100vh - 48px)',
+                display: 'flex', flexDirection: 'column',
                 boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
                 fontFamily: "'DM Sans', sans-serif"
             }}>
                 <h2 style={{
                     fontFamily: "'Playfair Display', serif",
                     fontSize: '22px', fontWeight: 900,
-                    color: '#f0e0c8', marginBottom: '24px'
+                    color: '#f0e0c8',
+                    padding: '16px 32px 10px', flexShrink: 0
                 }}>Add Problem</h2>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                    overflowY: 'auto', minHeight: 0, flex: 1,
+                    padding: '0 32px 16px',
+                    display: 'flex', flexDirection: 'column', gap: '16px'
+                }}>
                     {/* Multi-Image Picker */}
                     <div>
                         <div style={labelStyle}>Topo Photos</div>
@@ -254,67 +262,84 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
 
                     {/* Grade */}
                     <div>
-                        <div style={labelStyle}>Grade</div>
-
-                        {/* Problem Type toggle */}
-                        <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
-                            {(['boulder', 'rope'] as ProblemType[]).map(t => (
-                                <button key={t} onClick={() => setProblemType(t)} style={segmentBtn(problemType === t)}>
-                                    {t === 'boulder' ? '🪨 Boulder' : '🧗 Rope'}
-                                </button>
-                            ))}
+                        <div
+                            onClick={() => setGradeExpanded(v => !v)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                        >
+                            <div style={{ ...labelStyle, marginBottom: 0 }}>Grade</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', color: newProblem.grade ? '#c87a30' : '#6a5848' }}>
+                                    {isRange
+                                        ? gradeFrom && gradeTo ? `${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}…` : 'Pick a range'
+                                        : newProblem.grade || 'Not set'}
+                                </span>
+                                {gradeExpanded ? <ChevronUp size={14} color="#6a5848" /> : <ChevronDown size={14} color="#6a5848" />}
+                            </div>
                         </div>
 
-                        {/* Scale toggle */}
-                        <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
-                            {Object.keys(GRADE_SCALES[problemType]).map(scale => (
-                                <button key={scale} onClick={() => setGradeScale(scale)} style={segmentBtn(gradeScale === scale)}>
-                                    {scale}
-                                </button>
-                            ))}
-                        </div>
+                        {gradeExpanded && (
+                            <div style={{ marginTop: '10px' }}>
+                                {/* Problem Type toggle */}
+                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                                    {(['boulder', 'rope'] as ProblemType[]).map(t => (
+                                        <button key={t} onClick={() => setProblemType(t)} style={segmentBtn(problemType === t)}>
+                                            {t === 'boulder' ? '🪨 Boulder' : '🧗 Rope'}
+                                        </button>
+                                    ))}
+                                </div>
 
-                        {/* Range toggle */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                            <span style={{ fontSize: '12px', color: '#6a5848' }}>
-                                {isRange
-                                    ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
-                                    : newProblem.grade ? `Selected: ${newProblem.grade}` : 'Pick a grade'}
-                            </span>
-                            <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo('') }}
-                                style={{
-                                    fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                                    background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
-                                    border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
-                                    color: isRange ? '#c87a30' : '#6a5848',
-                                    fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s'
-                                }}>
-                                ⇔ Range
-                            </button>
-                        </div>
+                                {/* Scale toggle */}
+                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                                    {Object.keys(GRADE_SCALES[problemType]).map(scale => (
+                                        <button key={scale} onClick={() => setGradeScale(scale)} style={segmentBtn(gradeScale === scale)}>
+                                            {scale}
+                                        </button>
+                                    ))}
+                                </div>
 
-                        {/* Grade pills */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {grades.map(g => {
-                                const isFrom = g === gradeFrom
-                                const isTo = g === gradeTo
-                                const inRange = isRange && gradeFrom && gradeTo
-                                    ? grades.indexOf(g) > grades.indexOf(gradeFrom) && grades.indexOf(g) < grades.indexOf(gradeTo)
-                                    : false
-                                const active = isFrom || isTo || inRange
+                                {/* Range toggle */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '12px', color: '#6a5848' }}>
+                                        {isRange
+                                            ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
+                                            : newProblem.grade ? `Selected: ${newProblem.grade}` : 'Pick a grade'}
+                                    </span>
+                                    <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo('') }}
+                                        style={{
+                                            fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
+                                            background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
+                                            border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
+                                            color: isRange ? '#c87a30' : '#6a5848',
+                                            fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s'
+                                        }}>
+                                        ⇔ Range
+                                    </button>
+                                </div>
 
-                                return (
-                                    <button key={g} onClick={() => handleGradePick(g)} style={{
-                                        padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
-                                        fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                                        background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
-                                        border: active ? '1px solid #c87a30' : '1px solid #2a2420',
-                                        color: active ? '#c87a30' : '#6a5848',
-                                        transition: 'all 0.15s'
-                                    }}>{g}</button>
-                                )
-                            })}
-                        </div>
+                                {/* Grade pills */}
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {grades.map(g => {
+                                        const isFrom = g === gradeFrom
+                                        const isTo = g === gradeTo
+                                        const inRange = isRange && gradeFrom && gradeTo
+                                            ? grades.indexOf(g) > grades.indexOf(gradeFrom) && grades.indexOf(g) < grades.indexOf(gradeTo)
+                                            : false
+                                        const active = isFrom || isTo || inRange
+
+                                        return (
+                                            <button key={g} onClick={() => handleGradePick(g)} style={{
+                                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
+                                                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+                                                background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
+                                                border: active ? '1px solid #c87a30' : '1px solid #2a2420',
+                                                color: active ? '#c87a30' : '#6a5848',
+                                                transition: 'all 0.15s'
+                                            }}>{g}</button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Location name */}
@@ -367,25 +392,29 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                             </button>
                         )}
                     </div>
+                </div>
 
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                        <button onClick={onClose} style={{
-                            flex: 1, padding: '11px',
-                            background: 'transparent', border: '1px solid #2a2420',
-                            borderRadius: '10px', color: '#6a5848',
-                            fontFamily: "'DM Sans', sans-serif", fontSize: '14px', cursor: 'pointer'
-                        }}>Cancel</button>
-                        <button onClick={handleSubmit} disabled={isSubmitting} style={{
-                            flex: 2, padding: '11px',
-                            background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
-                            border: 'none', borderRadius: '10px',
-                            color: '#fef3e6', fontFamily: "'DM Sans', sans-serif",
-                            fontSize: '14px', fontWeight: 500, cursor: 'pointer',
-                            opacity: isSubmitting ? 0.5 : 1,
-                            boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
-                        }}>{isSubmitting ? 'Submitting...' : 'Add Problem'}</button>
-                    </div>
+                {/* Actions */}
+                <div style={{
+                    display: 'flex', gap: '10px',
+                    padding: '16px 32px 16px', flexShrink: 0,
+                    borderTop: '1px solid #2a2420'
+                }}>
+                    <button onClick={onClose} style={{
+                        flex: 1, padding: '11px',
+                        background: 'transparent', border: '1px solid #2a2420',
+                        borderRadius: '10px', color: '#6a5848',
+                        fontFamily: "'DM Sans', sans-serif", fontSize: '14px', cursor: 'pointer'
+                    }}>Cancel</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting} style={{
+                        flex: 2, padding: '11px',
+                        background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
+                        border: 'none', borderRadius: '10px',
+                        color: '#fef3e6', fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+                        opacity: isSubmitting ? 0.5 : 1,
+                        boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
+                    }}>{isSubmitting ? 'Submitting...' : 'Add Problem'}</button>
                 </div>
             </div>
         </div>
