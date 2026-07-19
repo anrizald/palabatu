@@ -107,11 +107,17 @@ palabatu-be/
 │   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
 │   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
-│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization
-│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar
+│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization,
+│   │   │                    # topo photo annotation (drawn route lines/holds)
+│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar, /problems/:id/annotations
 │   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
 │   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
 │   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditProblem
+│   │   ├── annotation.go / annotation_repository.go / annotation_handler.go
+│   │   │                    # ListAnnotations/SaveAnnotation for `topo_annotations` (one vector-shape overlay per
+│   │   │                    # problem image, keyed by (problem_id, image_url) since images have no per-row id — same
+│   │   │                    # precedent as `report`'s image reports); reuses authorizeProblemEdit/getProblemOwnerAndImages
+│   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
 │   │   ├── repository.go    # `problems` table queries
 │   │   └── errors.go        # ErrNotFound, ErrForbidden
 │   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
@@ -136,6 +142,8 @@ palabatu-be/
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
+- Topo photo annotation (drawing route lines/holds on a problem's photo): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx`. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
+- **lucide-react icons inside a `display:flex`/`inline-flex` parent can render at 0 width** (confirmed repeatedly live via `getComputedStyle` — height resolves correctly but width resolves to `0px` — despite correct SVG markup, `currentColor`, and computed `color`) — a real, reproducible rendering bug in this app's environment, not a hypothetical. Any icon that is a child of a flex-display element (inline `style={{display:'flex'}}`, Tailwind `flex`/`inline-flex` classes, or a CSS class rule) needs an explicit `flexShrink:0` (inline) / `shrink-0` (Tailwind) / `flex-shrink: 0` (CSS rule) on the icon itself. `tsc`/`eslint` passing is never sufficient evidence a new icon-in-a-flex-button actually renders — visually verify (screenshot or live) any new one.
 
 ## Known WIP rough edges
 

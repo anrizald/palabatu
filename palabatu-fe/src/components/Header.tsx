@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Sidebar from './Sidebar.js';
+import NotificationBell from './NotificationBell.js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
@@ -151,6 +152,7 @@ export default function Header() {
                         ) : (
                             <>
                                 {isAdmin && <Link to="/admin/reports" className="nav-link">Reports</Link>}
+                                <NotificationBell />
                                 <Link to={`/profile/${user.id}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <button onClick={handleLogout} className="nav-logout">Logout</button>
                             </>
