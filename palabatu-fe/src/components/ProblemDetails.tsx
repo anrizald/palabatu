@@ -6,6 +6,8 @@ import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
 import ReportModal, { type ReportTarget } from './ReportModal.js';
+import TopoImage from './topo-annotations/TopoImage.js';
+import type { Shape } from '../types/annotation.js';
 import type { ProblemRow } from '../types/problem.js';
 
 type ProblemDetailsProps = {
@@ -51,6 +53,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [annotationsByUrl, setAnnotationsByUrl] = useState<Record<string, Shape[]>>({});
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
     const [toast, setToast] = useState<ToastProps | null>(null);
@@ -87,6 +90,14 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         if (!pickedCoords) return;
         setEditForm(prev => ({ ...prev, lat: pickedCoords.lat, lng: pickedCoords.lng }));
     }, [pickedCoords]);
+
+    useEffect(() => {
+        api.get(`/api/problems/${problem.id}/annotations`).then(rows => {
+            if (Array.isArray(rows)) {
+                setAnnotationsByUrl(Object.fromEntries(rows.map((r: { image_url: string; data: Shape[] }) => [r.image_url, r.data])));
+            }
+        }).catch((e: unknown) => console.error('Failed to fetch annotations', e));
+    }, [problem.id]);
 
     const handleToggleSend = async () => {
         setIsTogglingSend(true);
@@ -279,26 +290,17 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         <div style={{ margin: '20px 0' }}>
                             <HorizontalScrollCarousel itemCount={problem.image_urls.length}>
                                 {problem.image_urls.map((url: string, i: number) => (
-                                    <div key={i} style={{ position: 'relative', scrollSnapAlign: 'center', flexShrink: 0 }}>
-                                        <img src={url} alt="Topo" style={{
-                                            height: '300px', width: '80vw', maxWidth: '400px', objectFit: 'cover',
-                                            borderRadius: '16px', display: 'block'
-                                        }} />
-                                        {user && (
-                                            <button
-                                                onClick={() => setReportTarget({ type: 'image', url })}
-                                                title="Report image"
-                                                style={{
-                                                    position: 'absolute', top: '8px', right: '8px',
-                                                    background: 'rgba(20,18,16,0.75)', backdropFilter: 'blur(6px)',
-                                                    border: '1px solid #2a2420', color: '#f0e0c8',
-                                                    width: '28px', height: '28px', borderRadius: '50%',
-                                                    cursor: 'pointer', fontSize: '13px',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                }}>
-                                                ⚑
-                                            </button>
-                                        )}
+                                    <div key={i} style={{ scrollSnapAlign: 'center', flexShrink: 0 }}>
+                                        <TopoImage
+                                            problemId={String(problem.id)}
+                                            url={url}
+                                            shapes={annotationsByUrl[url] ?? []}
+                                            canEdit={!!canEdit}
+                                            canReport={!!user}
+                                            onReport={() => setReportTarget({ type: 'image', url })}
+                                            onSaved={(shapes) => setAnnotationsByUrl(prev => ({ ...prev, [url]: shapes }))}
+                                            style={{ height: '300px', width: '80vw', maxWidth: '400px', borderRadius: '16px' }}
+                                        />
                                     </div>
                                 ))}
                             </HorizontalScrollCarousel>

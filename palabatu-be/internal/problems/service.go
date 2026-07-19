@@ -125,7 +125,18 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 		log.Printf("failed to delete image from Cloudinary: %v", err)
 	}
 
-	return removeProblemImage(ctx, problemID, imageURL)
+	if err := removeProblemImage(ctx, problemID, imageURL); err != nil {
+		return err
+	}
+
+	// Best-effort, mirroring the Cloudinary destroy above: an orphaned
+	// annotation row (pointing at a URL no longer in image_urls) is
+	// harmless — nothing ever looks it up, since the frontend only renders
+	// annotations for URLs it iterates from image_urls.
+	if err := deleteAnnotationForImage(ctx, problemID, imageURL); err != nil {
+		log.Printf("failed to delete annotation for image: %v", err)
+	}
+	return nil
 }
 
 // authorizeProblemEdit fetches the acting user's profile titles and defers

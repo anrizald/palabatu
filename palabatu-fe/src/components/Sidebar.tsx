@@ -85,6 +85,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     transition: color 0.2s, background 0.2s;
                 }
                 .sidebar-close:hover { color: #f0e0c8; background: rgba(240,224,200,0.08); }
+                .sidebar-close svg { flex-shrink: 0; }
 
                 .sidebar-nav {
                     display: flex;
@@ -148,7 +149,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     transition: background 0.2s, color 0.2s;
                     text-align: left;
                 }
-                .sidebar-logout-btn svg { color: #8a7060; transition: color 0.2s; }
+                .sidebar-logout-btn svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
                 .sidebar-logout-btn:hover { background: rgba(224,112,96,0.08); color: #e07060; }
                 .sidebar-logout-btn:hover svg { color: #e07060; }
             `}</style>

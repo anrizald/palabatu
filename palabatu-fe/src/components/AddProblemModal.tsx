@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
+import type { Shape } from '../types/annotation.js'
 import { useAuth } from '../lib/useAuth.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
+import TopoAnnotationEditor from './topo-annotations/TopoAnnotationEditor.js'
 import { X, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
 
 type Props = {
@@ -31,6 +33,14 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
+
+    // Parallel to imageFiles/imagePreviews (same index). Photos aren't
+    // uploaded to Cloudinary — and the problem doesn't exist yet — until
+    // final submit, so there's no problem_id/URL to key a real annotation
+    // row on yet; drawings are staged here and persisted in handleSubmit
+    // once both exist.
+    const [draftAnnotations, setDraftAnnotations] = useState<Shape[][]>([])
+    const [annotatingIndex, setAnnotatingIndex] = useState<number | null>(null)
 
     // Grade state
     const [problemType, setProblemType] = useState<ProblemType>('boulder')
@@ -92,7 +102,8 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         }
         setIsSubmitting(true);
 
-        let uploadedUrls: string[] = [];
+        const uploadedUrls: string[] = [];
+        const uploadedDrafts: (Shape[] | undefined)[] = [];
         if (newProblem.imageFiles.length > 0) {
             const uploadPromises = newProblem.imageFiles.map(file => {
                 const formData = new FormData();
@@ -101,13 +112,33 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             });
 
             const result = await Promise.all(uploadPromises);
-            uploadedUrls = result.filter(res => !res.error).map(res => res.url);
+            // Pair each result with its original index BEFORE filtering out
+            // failures, so a failed upload can't shift a later photo's draft
+            // annotation onto the wrong surviving URL.
+            result.forEach((res, idx) => {
+                if (!res.error) {
+                    uploadedUrls.push(res.url);
+                    uploadedDrafts.push(draftAnnotations[idx]);
+                }
+            });
         }
 
         const data = await api.post('/api/problems', { ...newProblem, image_urls: uploadedUrls });
         setIsSubmitting(false);
 
         if (data.error) { showError(data.error); return; }
+
+        // Persist staged drawings now that the problem (and its final image
+        // URLs) exist. Best-effort — the problem itself already succeeded,
+        // so an annotation save failure here shouldn't block finishing add.
+        const annotationSaves = uploadedUrls
+            .map((url, idx) => ({ url, shapes: uploadedDrafts[idx] }))
+            .filter((pair): pair is { url: string; shapes: Shape[] } => !!pair.shapes && pair.shapes.length > 0)
+            .map(({ url, shapes }) => api.put(`/api/problems/${data.id}/annotations`, { url, data: shapes }));
+        if (annotationSaves.length > 0) {
+            await Promise.all(annotationSaves).catch(e => console.error('Failed to save one or more annotations', e));
+        }
+
         onAdded({
             ...data,
             image_urls: uploadedUrls,
@@ -215,10 +246,25 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                             newFiles.splice(idx, 1);
                                             newPreviews.splice(idx, 1);
                                             setNewProblem({ ...newProblem, imageFiles: newFiles, imagePreviews: newPreviews });
+                                            const newDrafts = [...draftAnnotations];
+                                            newDrafts.splice(idx, 1);
+                                            setDraftAnnotations(newDrafts);
                                         }}
                                         style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         aria-label="Remove photo"
-                                    ><X size={14} /></button>
+                                    ><X size={14} style={{ flexShrink: 0 }} /></button>
+                                    <button
+                                        onClick={() => setAnnotatingIndex(idx)}
+                                        title="Annotate route"
+                                        aria-label="Annotate route"
+                                        style={{
+                                            position: 'absolute', bottom: '4px', left: '4px',
+                                            background: (draftAnnotations[idx]?.length ?? 0) > 0 ? 'rgba(200,122,48,0.9)' : 'rgba(0,0,0,0.6)',
+                                            color: '#fff', border: 'none', borderRadius: '50%',
+                                            width: '24px', height: '24px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}
+                                    ><Pencil size={12} style={{ flexShrink: 0 }} /></button>
                                 </div>
                             ))}
 
@@ -243,6 +289,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                             imageFiles: [...newProblem.imageFiles, ...files],
                                             imagePreviews: [...newProblem.imagePreviews, ...previews]
                                         });
+                                        setDraftAnnotations([...draftAnnotations, ...files.map(() => [])]);
                                     }}
                                 />
                             </label>
@@ -273,7 +320,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                         ? gradeFrom && gradeTo ? `${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}…` : 'Pick a range'
                                         : newProblem.grade || 'Not set'}
                                 </span>
-                                {gradeExpanded ? <ChevronUp size={14} color="#6a5848" /> : <ChevronDown size={14} color="#6a5848" />}
+                                {gradeExpanded ? <ChevronUp size={14} color="#6a5848" style={{ flexShrink: 0 }} /> : <ChevronDown size={14} color="#6a5848" style={{ flexShrink: 0 }} />}
                             </div>
                         </div>
 
@@ -376,7 +423,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                     fontSize: '12px', whiteSpace: 'nowrap',
                                     transition: 'all 0.2s',
                                     display: 'flex', alignItems: 'center', gap: '6px'
-                                }}><Pencil size={14} /> Edit</button>
+                                }}><Pencil size={14} style={{ flexShrink: 0 }} /> Edit</button>
                             </div>
                         ) : (
                             <button onClick={() => setIsPicking(true)} style={{
@@ -417,6 +464,20 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                     }}>{isSubmitting ? 'Submitting...' : 'Add Problem'}</button>
                 </div>
             </div>
+
+            {annotatingIndex !== null && newProblem.imagePreviews[annotatingIndex] && (
+                <TopoAnnotationEditor
+                    url={newProblem.imagePreviews[annotatingIndex]}
+                    initialShapes={draftAnnotations[annotatingIndex] ?? []}
+                    onCancel={() => setAnnotatingIndex(null)}
+                    onSaved={(shapes) => {
+                        const next = [...draftAnnotations];
+                        next[annotatingIndex] = shapes;
+                        setDraftAnnotations(next);
+                        setAnnotatingIndex(null);
+                    }}
+                />
+            )}
         </div>
     )
 }

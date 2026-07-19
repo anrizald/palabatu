@@ -181,7 +181,7 @@ function LocationSearchBox() {
                         aria-label="Clear search"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
                     >
-                        <X size={14} color="#8a7060" />
+                        <X size={14} color="#8a7060" style={{ flexShrink: 0 }} />
                     </button>
                 )}
             </div>

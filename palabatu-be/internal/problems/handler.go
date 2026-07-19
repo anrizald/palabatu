@@ -17,6 +17,8 @@ func Routes(rg *gin.RouterGroup) {
 	rg.PUT("/problems/:id", middleware.RequireAuth, handleUpdateProblem)
 	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
 	rg.DELETE("/problems/:id/images", middleware.RequireAuth, handleDeleteProblemImage)
+	rg.GET("/problems/:id/annotations", handleListAnnotations)
+	rg.PUT("/problems/:id/annotations", middleware.RequireAuth, handleSaveAnnotation)
 
 	rg.POST("/upload/topo", middleware.RequireAuth, handleUploadTopo)
 	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)

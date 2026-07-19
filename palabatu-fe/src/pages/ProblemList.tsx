@@ -196,13 +196,13 @@ export function ProblemList() {
                                             fallbackColor="var(--color-text-faint)"
                                         />
                                     ) : (
-                                        <Mountain size={22} className="text-text-faint" />
+                                        <Mountain size={22} className="text-text-faint shrink-0" />
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="font-serif text-lg font-bold text-text truncate mb-1">{problem.name}</h3>
                                     <div className="flex items-center gap-1 text-xs text-text-dim">
-                                        <MapPin size={12} /> {problem.location_name || 'Location not set'}
+                                        <MapPin size={12} className="shrink-0" /> {problem.location_name || 'Location not set'}
                                     </div>
                                     <div className="text-[11px] text-text-dim">
                                         Added by{' '}
@@ -229,7 +229,7 @@ export function ProblemList() {
                                         }}
                                         className="bg-transparent border border-text-faint text-text-muted hover:text-accent hover:border-accent px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                                     >
-                                        <MapIcon size={12} /> Locate
+                                        <MapIcon size={12} className="shrink-0" /> Locate
                                     </button>
                                 </div>
                             </div>

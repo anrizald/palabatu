@@ -76,7 +76,7 @@ export default function Signup() {
                                     color: '#6a5848', display: 'flex', alignItems: 'center'
                                 }}
                             >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                {showPassword ? <EyeOff size={18} style={{ flexShrink: 0 }} /> : <Eye size={18} style={{ flexShrink: 0 }} />}
                             </button>
                         </div>
                         <button

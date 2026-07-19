@@ -332,12 +332,12 @@ export default function Profile() {
                             <div className="flex flex-col items-center gap-1">
                                 {joinDate && (
                                     <div className="flex items-center gap-1.5 text-xs text-text-dim">
-                                        <Calendar size={12} /> {joinDate}
+                                        <Calendar size={12} className="shrink-0" /> {joinDate}
                                     </div>
                                 )}
                                 {profile.location && (
                                     <div className="flex items-center gap-1.5 text-xs text-text-dim">
-                                        <MapPin size={12} /> {profile.location}
+                                        <MapPin size={12} className="shrink-0" /> {profile.location}
                                     </div>
                                 )}
                             </div>
@@ -576,7 +576,7 @@ export default function Profile() {
                                 ${saved ? 'bg-gradient-to-br from-associate to-associate-dark shadow-[0_2px_12px_rgba(93,187,106,0.3)]' : 'bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)]'}
                                 ${isSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
-                            {isSaving ? 'Saving...' : saved ? <><Check size={16} /> Saved</> : 'Save Changes'}
+                            {isSaving ? 'Saving...' : saved ? <><Check size={16} className="shrink-0" /> Saved</> : 'Save Changes'}
                         </button>
 
                         {/* Account Security */}
@@ -587,7 +587,7 @@ export default function Profile() {
                                     className="w-full bg-transparent flex items-center justify-between px-5 py-4 text-left cursor-pointer"
                                 >
                                     <span className="font-serif text-base font-bold text-text">Advanced Settings</span>
-                                    <ChevronDown size={18} className={`text-text-dim transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={18} className={`text-text-dim transition-transform shrink-0 ${showAdvanced ? 'rotate-180' : ''}`} />
                                 </button>
 
                                 {showAdvanced && (
@@ -634,7 +634,7 @@ export default function Profile() {
                                             onClick={() => setShowDeleteConfirm(true)}
                                             className="self-start bg-transparent inline-flex items-center gap-1.5 px-5 py-2 rounded-[10px] border border-danger/40 text-sm text-danger hover:bg-danger/10 transition-colors"
                                         >
-                                            <Trash2 size={14} /> Delete Account
+                                            <Trash2 size={14} className="shrink-0" /> Delete Account
                                         </button>
                                     ) : (
                                         <div className="flex flex-col gap-2">

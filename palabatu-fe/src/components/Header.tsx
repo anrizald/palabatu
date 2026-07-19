@@ -170,7 +170,7 @@ export default function Header() {
                                 exit={{ rotate: 90, opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                             >
-                                <X size={22} />
+                                <X size={22} style={{ flexShrink: 0 }} />
                             </motion.span>
                         ) : (
                             <motion.span
@@ -181,7 +181,7 @@ export default function Header() {
                                 exit={{ rotate: -90, opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                             >
-                                <Menu size={22} />
+                                <Menu size={22} style={{ flexShrink: 0 }} />
                             </motion.span>
                         )}
                     </AnimatePresence>
