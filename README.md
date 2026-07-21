@@ -78,8 +78,8 @@ GETTING STARTED
 ### Prerequisites
 
 * Node.js v18+
-* PostgreSQL
-
+* Go 1.22+
+* Docker (spins up local PostgreSQL - see step 4) or your own local PostgreSQL install
 * npm
 ```sh
   npm install npm@latest -g
@@ -99,15 +99,17 @@ GETTING STARTED
 ```sh
    cd ../palabatu-be && go mod download
 ```
-4. Create `.env` in `/palabatu-be`
-```env
-   PORT=5000
-   DATABASE_URL=postgresql://user:password@localhost:5432/palabatu
-   JWT_SECRET=your_jwt_secret
+4. Start PostgreSQL and apply the schema (the `migrate` service in `docker-compose.yml` runs everything in `migrations/` automatically, then exits):
+```sh
+   docker compose up -d
 ```
-5. Create `.env` in `/palabatu-fe`
+5. Create `palabatu-be/.env` from the example and fill in the values (the default `DATABASE_URL` already matches the docker-compose credentials; comments in the file explain where to get a JWT secret and free-tier Resend/Cloudinary credentials):
+```sh
+   cp palabatu-be/environments/.env.example palabatu-be/.env
+```
+6. Create `.env` in `/palabatu-fe`
 ```env
-   VITE_API_URL=http://localhost:5000
+   VITE_API_URL=http://localhost:3001
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: palabatu
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d palabatu"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: applies migrations/ against the postgres service above, then exits.
+  # Matches the connection string baked into palabatu-be/environments/.env.example.
+  migrate:
+    image: migrate/migrate:v4.19.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command:
+      - "-path"
+      - "/migrations"
+      - "-database"
+      - "postgres://user:password@postgres:5432/palabatu?sslmode=disable"
+      - "up"
+    restart: "no"
+
+volumes:
+  postgres_data:
