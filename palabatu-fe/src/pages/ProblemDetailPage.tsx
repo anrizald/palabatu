@@ -24,6 +24,7 @@ type ProblemDetail = {
     created_by: string | null;
     image_urls: string[];
     creator_name: string | null;
+    creator_slug: string | null;
     send_count: number;
     created_at: string;
 };
@@ -41,6 +42,7 @@ type Comment = {
     username: string;
     created_at: string;
     user_id: string;
+    user_slug: string;
 };
 
 function formatDate(iso: string) {
@@ -373,7 +375,7 @@ export default function ProblemDetailPage() {
 
                             <div className="text-xs text-text-dim">
                                 Added by{' '}
-                                <Link to={`/profile/${problem.created_by}`} className="text-accent font-bold no-underline hover:underline">
+                                <Link to={`/profile/${problem.creator_slug}`} className="text-accent font-bold no-underline hover:underline">
                                     {problem.creator_name || 'unknown'}
                                 </Link>
                             </div>
@@ -519,7 +521,7 @@ export default function ProblemDetailPage() {
                                     return (
                                         <div key={comment.id} className="text-sm text-text-secondary bg-ink/50 p-3 rounded-xl border border-border">
                                             <div className="flex justify-between items-center mb-1">
-                                                <Link to={`/profile/${comment.user_id}`} className="text-accent font-bold no-underline hover:underline">
+                                                <Link to={`/profile/${comment.user_slug}`} className="text-accent font-bold no-underline hover:underline">
                                                     {comment.username}
                                                 </Link>
                                                 <div className="flex items-center gap-2">

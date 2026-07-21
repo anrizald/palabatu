@@ -14,6 +14,7 @@ type ProblemRow = {
     grade: string;
     creator_name: string;
     created_by: string;
+    creator_slug: string;
     send_count: number;
     image_urls: string[];
 };
@@ -207,7 +208,7 @@ export function ProblemList() {
                                     <div className="text-[11px] text-text-dim">
                                         Added by{' '}
                                         <Link
-                                            to={`/profile/${problem.created_by}`}
+                                            to={`/profile/${problem.creator_slug}`}
                                             onClick={(e) => e.stopPropagation()}
                                             className="text-accent font-bold no-underline hover:underline"
                                         >

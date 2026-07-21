@@ -18,7 +18,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
 
     const isMapActive = location.pathname === '/map';
     const isDirectoryActive = location.pathname === '/directory';
-    const isProfileActive = location.pathname.startsWith('/profile');
+    const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isNotificationsActive = location.pathname === '/notifications';
 
     const onLogoutClick = () => {
@@ -251,7 +251,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                                     </>
                                 ) : (
                                     <>
-                                        <Link to={`/profile/${user.id}`} className={`sidebar-item ${isProfileActive ? 'active' : ''}`} onClick={onClose}>
+                                        <Link to={`/profile/${user.slug}`} className={`sidebar-item ${isProfileActive ? 'active' : ''}`} onClick={onClose}>
                                             <User size={18} /> Profile
                                         </Link>
                                         <button onClick={onLogoutClick} className="sidebar-logout-btn">

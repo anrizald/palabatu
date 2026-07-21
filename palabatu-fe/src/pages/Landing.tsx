@@ -81,7 +81,7 @@ function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: Problem
             <div className="p-card-foot">
                 Added by{' '}
                 <Link
-                    to={`/profile/${problem.created_by}`}
+                    to={`/profile/${problem.creator_slug}`}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {problem.creator_name || 'unknown'}

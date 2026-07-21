@@ -9,11 +9,13 @@ package report
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/notification"
 	"palabatu-be/internal/problems"
 	"palabatu-be/internal/social"
 )
@@ -103,7 +105,7 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 		return err
 	}
 
-	targetType, commentID, imageURL, problemID, status, err := getReportTarget(ctx, reportID)
+	targetType, commentID, imageURL, problemID, reporterID, status, err := getReportTarget(ctx, reportID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -114,7 +116,18 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 		return ErrAlreadyResolved
 	}
 
+	// Best-effort lookup for notification text/routing only — a failure
+	// here (e.g. the problem was already deleted) must never block
+	// resolving the report itself.
+	var problemName string
+	var problemOwnerID *string
+	if p, err := problems.GetProblem(ctx, problemID); err == nil {
+		problemName = p.Name
+		problemOwnerID = p.CreatedBy
+	}
+
 	if action == "dismiss" {
+		notifyReportResolved(ctx, reporterID, problemID, problemName, false)
 		return markDismissed(ctx, reportID, adminID)
 	}
 
@@ -130,8 +143,12 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 		// through the ordinary DELETE /comments/:id path while this
 		// report was still pending — nothing left to remove.
 		if commentID != nil {
+			_, commentOwnerID, targetErr := social.GetCommentTarget(ctx, *commentID)
 			if err := social.DeleteComment(ctx, adminID, *commentID); err != nil && !errors.Is(err, social.ErrNotFound) {
 				return err
+			}
+			if targetErr == nil {
+				notifyContentRemoved(ctx, commentOwnerID, problemID, problemName, "a comment you posted")
 			}
 		}
 	} else {
@@ -139,7 +156,25 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 			!errors.Is(err, problems.ErrNotFound) && !errors.Is(err, problems.ErrImageNotFound) {
 			return err
 		}
+		notifyContentRemoved(ctx, problemOwnerID, problemID, problemName, "a photo you added")
 	}
 
+	notifyReportResolved(ctx, reporterID, problemID, problemName, true)
+
 	return markResolved(ctx, reportID, adminID)
+}
+
+// notifyReportResolved and notifyContentRemoved are best-effort, mirroring
+// cloudinary.DestroyByURL's precedent elsewhere in this codebase: a failed
+// notification write must never fail the report resolution itself.
+func notifyReportResolved(ctx context.Context, reporterID, problemID, problemName string, removed bool) {
+	if err := notification.NotifyReportResolved(ctx, reporterID, problemID, problemName, removed); err != nil {
+		log.Printf("failed to create report-resolved notification: %v", err)
+	}
+}
+
+func notifyContentRemoved(ctx context.Context, ownerID *string, problemID, problemName, contentDescription string) {
+	if err := notification.NotifyContentRemoved(ctx, ownerID, problemID, problemName, contentDescription); err != nil {
+		log.Printf("failed to create content-removed notification: %v", err)
+	}
 }

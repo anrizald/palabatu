@@ -1,0 +1,2 @@
+ALTER TABLE users DROP CONSTRAINT users_slug_key;
+ALTER TABLE users DROP COLUMN slug;

@@ -13,6 +13,7 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
 	"palabatu-be/internal/cloudinary"
+	"palabatu-be/internal/notification"
 )
 
 func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
@@ -65,7 +66,14 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade, location
 		return nil, err
 	}
 
-	return updateProblemRow(ctx, problemID, name, grade, locationName, lat, lng)
+	row, err := updateProblemRow(ctx, problemID, name, grade, locationName, lat, lng)
+	if err != nil {
+		return nil, err
+	}
+
+	notifyProblemEdited(ctx, createdBy, userID, problemID, row.Name)
+
+	return row, nil
 }
 
 // DeleteProblem authorizes and removes a problem row, best-effort destroying
@@ -84,13 +92,26 @@ func DeleteProblem(ctx context.Context, userID, problemID string) error {
 		return err
 	}
 
+	// Best-effort, for the deletion notification's message text only — the
+	// delete itself must proceed even if this lookup fails.
+	var problemName string
+	if p, err := GetProblem(ctx, problemID); err == nil {
+		problemName = p.Name
+	}
+
 	for _, url := range imageURLs {
 		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
 			log.Printf("failed to delete image from Cloudinary: %v", err)
 		}
 	}
 
-	return deleteProblemRow(ctx, problemID)
+	if err := deleteProblemRow(ctx, problemID); err != nil {
+		return err
+	}
+
+	notifyProblemDeleted(ctx, createdBy, userID, problemName)
+
+	return nil
 }
 
 // DeleteProblemImage authorizes and removes a single image from a problem's
@@ -137,6 +158,40 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 		log.Printf("failed to delete annotation for image: %v", err)
 	}
 	return nil
+}
+
+// notifyProblemEdited and notifyProblemDeleted are best-effort, mirroring
+// cloudinary.DestroyByURL's precedent elsewhere in this codebase: a failed
+// notification write must never fail the edit/delete itself. Both are
+// no-ops (checked inside the notification package) when ownerID is nil or
+// equals the actor — a Founder editing/deleting their own problem shouldn't
+// notify themselves; only an admin acting on someone else's problem should.
+func notifyProblemEdited(ctx context.Context, ownerID *string, actorID, problemID, problemName string) {
+	actor, err := auth.GetProfile(ctx, actorID)
+	if err != nil {
+		return
+	}
+	username := "Someone"
+	if actor.Username != nil {
+		username = *actor.Username
+	}
+	if err := notification.NotifyProblemEdited(ctx, ownerID, actorID, username, problemID, problemName); err != nil {
+		log.Printf("failed to create problem-edited notification: %v", err)
+	}
+}
+
+func notifyProblemDeleted(ctx context.Context, ownerID *string, actorID, problemName string) {
+	actor, err := auth.GetProfile(ctx, actorID)
+	if err != nil {
+		return
+	}
+	username := "Someone"
+	if actor.Username != nil {
+		username = *actor.Username
+	}
+	if err := notification.NotifyProblemDeleted(ctx, ownerID, actorID, username, problemName); err != nil {
+		log.Printf("failed to create problem-deleted notification: %v", err)
+	}
 }
 
 // authorizeProblemEdit fetches the acting user's profile titles and defers

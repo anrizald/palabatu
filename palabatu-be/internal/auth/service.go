@@ -13,6 +13,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -159,13 +160,38 @@ func ResetPassword(ctx context.Context, token, password string) error {
 	return updatePassword(ctx, user.ID, string(hashed))
 }
 
+// uuidPattern matches a canonical Postgres uuid's textual form, letting
+// ResolveUserID tell a real id apart from a profile slug without a DB
+// round-trip.
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// ResolveUserID accepts either a user's real id or their public profile slug
+// (migrations/0008_user_slug.up.sql) and returns the underlying user id, so
+// callers — profile routes, the social package's reaction routes — can
+// accept whichever a URL happens to contain without duplicating this check.
+func ResolveUserID(ctx context.Context, idOrSlug string) (string, error) {
+	if uuidPattern.MatchString(idOrSlug) {
+		return idOrSlug, nil
+	}
+	id, err := getUserIDBySlug(ctx, idOrSlug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return id, err
+}
+
 // GetProfile returns a blank Profile (id set, everything else zero) when the
 // user exists but hasn't saved a profile row yet — that's a normal state,
-// not an error. ErrNotFound is only returned when id doesn't match any user
-// at all, so the frontend can tell "new user, empty profile" apart from
+// not an error. ErrNotFound is only returned when idOrSlug doesn't match any
+// user at all, so the frontend can tell "new user, empty profile" apart from
 // "no such user" and render a proper not-found page for the latter.
-func GetProfile(ctx context.Context, id string) (*Profile, error) {
-	createdAt, err := getUserCreatedAt(ctx, id)
+func GetProfile(ctx context.Context, idOrSlug string) (*Profile, error) {
+	id, err := ResolveUserID(ctx, idOrSlug)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	createdAt, slug, err := getUserMeta(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -180,7 +206,18 @@ func GetProfile(ctx context.Context, id string) (*Profile, error) {
 		return nil, err
 	}
 	profile.CreatedAt = createdAt
+	profile.Slug = slug
 	return profile, nil
+}
+
+// GetUserIDByUsername resolves a username to a user id, for @mention
+// notifications parsed out of comment text.
+func GetUserIDByUsername(ctx context.Context, username string) (string, error) {
+	id, err := getProfileIDByUsername(ctx, username)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return id, err
 }
 
 // CountUsers returns the total number of registered users, for the landing
@@ -190,8 +227,12 @@ func CountUsers(ctx context.Context) (int, error) {
 }
 
 // GetProfileStats returns a user's sends count and problems-added count.
-func GetProfileStats(ctx context.Context, userID string) (ProfileStats, error) {
-	return getProfileStats(ctx, userID)
+func GetProfileStats(ctx context.Context, idOrSlug string) (ProfileStats, error) {
+	id, err := ResolveUserID(ctx, idOrSlug)
+	if err != nil {
+		return ProfileStats{}, err
+	}
+	return getProfileStats(ctx, id)
 }
 
 // RecentActivity is the profile page's activity feed: a user's most recent
@@ -202,12 +243,16 @@ type RecentActivity struct {
 	Problems []RecentProblem `json:"problems"`
 }
 
-func GetRecentActivity(ctx context.Context, userID string) (RecentActivity, error) {
-	sends, err := getRecentSends(ctx, userID)
+func GetRecentActivity(ctx context.Context, idOrSlug string) (RecentActivity, error) {
+	id, err := ResolveUserID(ctx, idOrSlug)
 	if err != nil {
 		return RecentActivity{}, err
 	}
-	problems, err := getRecentlyAddedProblems(ctx, userID)
+	sends, err := getRecentSends(ctx, id)
+	if err != nil {
+		return RecentActivity{}, err
+	}
+	problems, err := getRecentlyAddedProblems(ctx, id)
 	if err != nil {
 		return RecentActivity{}, err
 	}
@@ -222,7 +267,11 @@ func GetRecentActivity(ctx context.Context, userID string) (RecentActivity, erro
 // If avatarURL replaces a previously stored one, the old Cloudinary asset is
 // best-effort destroyed afterward, mirroring problems.DeleteProblem's
 // cleanup of its image_urls.
-func UpsertProfile(ctx context.Context, callerID, id, username string, title, tags json.RawMessage, avatarURL, bio, location string) (*Profile, error) {
+func UpsertProfile(ctx context.Context, callerID, idOrSlug, username string, title, tags json.RawMessage, avatarURL, bio, location string) (*Profile, error) {
+	id, err := ResolveUserID(ctx, idOrSlug)
+	if err != nil {
+		return nil, ErrForbidden
+	}
 	if callerID != id {
 		return nil, ErrForbidden
 	}

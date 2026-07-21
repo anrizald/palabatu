@@ -1,4 +1,12 @@
-export type NotificationType = 'comment' | 'send' | 'report_resolved' | 'content_removed';
+export type NotificationType =
+    | 'comment'
+    | 'send'
+    | 'report_resolved'
+    | 'content_removed'
+    | 'reaction'
+    | 'problem_edited'
+    | 'problem_deleted'
+    | 'mention';
 
 export type Notification = {
     id: string;

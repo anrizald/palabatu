@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"palabatu-be/internal/auth"
 	"palabatu-be/internal/middleware"
 )
 
@@ -95,8 +96,23 @@ func handleCreateComment(c *gin.Context) {
 	}
 }
 
+// resolveProfileID accepts either a profile's real id or its public slug
+// (see auth.ResolveUserID) — the reaction routes are mounted at
+// /profiles/:id, which the frontend now addresses by slug.
+func resolveProfileID(c *gin.Context, idOrSlug string) (string, bool) {
+	id, err := auth.ResolveUserID(c.Request.Context(), idOrSlug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return "", false
+	}
+	return id, true
+}
+
 func handleReactionCounts(c *gin.Context) {
-	id := c.Param("id")
+	id, ok := resolveProfileID(c, c.Param("id"))
+	if !ok {
+		return
+	}
 
 	counts, err := GetReactionCounts(c.Request.Context(), id)
 	if err != nil {
@@ -108,7 +124,10 @@ func handleReactionCounts(c *gin.Context) {
 
 func handleReactionStatus(c *gin.Context) {
 	userID := currentUserID(middleware.UserFromContext(c))
-	id := c.Param("id")
+	id, ok := resolveProfileID(c, c.Param("id"))
+	if !ok {
+		return
+	}
 
 	status, err := GetReactionStatus(c.Request.Context(), id, userID)
 	if err != nil {
@@ -120,7 +139,10 @@ func handleReactionStatus(c *gin.Context) {
 
 func handleToggleReaction(c *gin.Context) {
 	userID := currentUserID(middleware.UserFromContext(c))
-	id := c.Param("id")
+	id, ok := resolveProfileID(c, c.Param("id"))
+	if !ok {
+		return
+	}
 	reactionType := c.Param("type")
 
 	action, err := ToggleReaction(c.Request.Context(), id, userID, reactionType)

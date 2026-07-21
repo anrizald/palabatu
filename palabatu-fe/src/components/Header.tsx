@@ -18,7 +18,7 @@ export default function Header() {
 
     const isMapActive = location.pathname === '/map';
     const isDirectoryActive = location.pathname === '/directory';
-    const isProfileActive = location.pathname.startsWith('/profile');
+    const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isAdmin = userTitles.includes('Council') || userTitles.includes('Associate');
 
     useEffect(() => {
@@ -153,7 +153,7 @@ export default function Header() {
                             <>
                                 {isAdmin && <Link to="/admin/reports" className="nav-link">Reports</Link>}
                                 <NotificationBell />
-                                <Link to={`/profile/${user.id}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
+                                <Link to={`/profile/${user.slug}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <button onClick={handleLogout} className="nav-logout">Logout</button>
                             </>
                         )}

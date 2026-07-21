@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, markRead, markAllRead, formatRelativeTime } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -10,6 +10,10 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     send: CheckCheck,
     report_resolved: Flag,
     content_removed: Trash2,
+    reaction: Heart,
+    problem_edited: Pencil,
+    problem_deleted: Trash2,
+    mention: AtSign,
 };
 
 export default function Notifications() {
@@ -20,7 +24,7 @@ export default function Notifications() {
     const refresh = () => {
         if (!user) return;
         setIsLoading(true);
-        listNotifications(user.id).then(data => {
+        listNotifications().then(data => {
             setItems(data);
             setIsLoading(false);
         });
@@ -34,14 +38,14 @@ export default function Notifications() {
 
     const handleItemClick = async (n: Notification) => {
         if (!n.read && user) {
-            await markRead(user.id, n.id);
+            await markRead(n.id);
             refresh();
         }
     };
 
     const handleMarkAllRead = async () => {
         if (!user) return;
-        await markAllRead(user.id);
+        await markAllRead();
         refresh();
     };
 

@@ -5,6 +5,7 @@ export type User = {
     id: string;
     email: string;
     username: string;
+    slug: string;
 } | null;
 
 export type AuthContextType = {

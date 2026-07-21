@@ -526,7 +526,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                             location={item.location_name}
                             grade={item.grade}
                             creatorName={item.creator_name}
-                            creatorId={item.created_by}
+                            creatorSlug={item.creator_slug}
                             zoom={currentZoom}
                             onClickDetails={() => setSelectedProblem(item)}
                         />

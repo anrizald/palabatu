@@ -76,7 +76,7 @@ const formatRelativeDate = (iso: string) => {
 };
 
 export default function Profile() {
-    const { id } = useParams<{ id: string }>();
+    const { slug } = useParams<{ slug: string }>();
     const { user, handleLogout, toast, showToast } = useAuth();
 
     const [profile, setProfile] = useState<Profile>({
@@ -115,15 +115,15 @@ export default function Profile() {
 
     const [showAdvanced, setShowAdvanced] = useState(false);
 
-    const isOwner = !!(user && user.id === id);
+    const isOwner = !!(user && user.slug === slug);
     const isSelfAdmin = isOwner && (profile.title.includes('Council') || profile.title.includes('Associate'));
 
     useEffect(() => {
-        if (!id) return;
+        if (!slug) return;
         setIsLoading(true);
         setLoadError(null);
 
-        api.get(`/api/profiles/${id}`).then(data => {
+        api.get(`/api/profiles/${slug}`).then(data => {
             if (data && !data.error) {
                 setProfile({
                     username: data.username || '',
@@ -145,26 +145,26 @@ export default function Profile() {
             setIsLoading(false);
         });
 
-        api.get(`/api/profiles/${id}/stats`).then(data => {
+        api.get(`/api/profiles/${slug}/stats`).then(data => {
             if (data && !data.error) setStats(data);
         });
 
-        api.get(`/api/profiles/${id}/activity`).then(data => {
+        api.get(`/api/profiles/${slug}/activity`).then(data => {
             if (data && !data.error) setActivity(data);
         });
 
-        api.get(`/api/profiles/${id}/reactions`).then(data => {
+        api.get(`/api/profiles/${slug}/reactions`).then(data => {
             if (data && !data.error) setReactionCounts(data);
         });
-    }, [id]);
+    }, [slug]);
 
     useEffect(() => {
-        if (!id || !user) return;
+        if (!slug || !user) return;
 
-        api.get(`/api/profiles/${id}/reactions/status`).then(data => {
+        api.get(`/api/profiles/${slug}/reactions/status`).then(data => {
             if (data && !data.error) setReactionStatus(data);
         });
-    }, [id, user]);
+    }, [slug, user]);
 
     const handleToggleReaction = async (type: ReactionType) => {
         if (!user) {
@@ -174,7 +174,7 @@ export default function Profile() {
         setReactingType(type);
 
         try {
-            const res = await api.post(`/api/profiles/${id}/reactions/${type}`, {});
+            const res = await api.post(`/api/profiles/${slug}/reactions/${type}`, {});
             if (res.error) {
                 showToast(res.error, 'error');
             } else {

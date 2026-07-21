@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, getUnreadCount, markRead, markAllRead, formatRelativeTime, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -10,6 +10,10 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     send: CheckCheck,
     report_resolved: Flag,
     content_removed: Trash2,
+    reaction: Heart,
+    problem_edited: Pencil,
+    problem_deleted: Trash2,
+    mention: AtSign,
 };
 
 type NotificationBellProps = {
@@ -25,8 +29,8 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
 
     const refresh = () => {
         if (!user) return;
-        listNotifications(user.id).then(setItems);
-        getUnreadCount(user.id).then(setUnreadCount);
+        listNotifications().then(setItems);
+        getUnreadCount().then(setUnreadCount);
     };
 
     useEffect(() => {
@@ -54,7 +58,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
 
     const handleItemClick = async (n: Notification) => {
         if (!n.read) {
-            await markRead(user.id, n.id);
+            await markRead(n.id);
             refresh();
         }
         setIsOpen(false);
@@ -62,7 +66,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
     };
 
     const handleMarkAllRead = async () => {
-        await markAllRead(user.id);
+        await markAllRead();
         refresh();
     };
 

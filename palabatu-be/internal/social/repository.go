@@ -16,6 +16,7 @@ type Comment struct {
 	CreatedAt time.Time `json:"created_at"`
 	Username  string    `json:"username"`
 	UserID    string    `json:"user_id"`
+	UserSlug  string    `json:"user_slug"`
 }
 
 func sendExists(ctx context.Context, problemID, userID string) (bool, error) {
@@ -45,9 +46,10 @@ func deleteSend(ctx context.Context, problemID, userID string) error {
 
 func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	rows, err := db.Pool.Query(ctx, `
-		SELECT c.id, c.content, c.created_at, p.username, c.user_id
+		SELECT c.id, c.content, c.created_at, p.username, c.user_id, u.slug
 		FROM comments c
 		JOIN profiles p ON c.user_id = p.id
+		JOIN users u ON c.user_id = u.id
 		WHERE c.problem_id = $1
 		ORDER BY c.created_at ASC
 	`, problemID)
@@ -59,7 +61,7 @@ func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	comments := []Comment{}
 	for rows.Next() {
 		var c Comment
-		if err := rows.Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.UserID); err != nil {
+		if err := rows.Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.UserID, &c.UserSlug); err != nil {
 			return nil, err
 		}
 		comments = append(comments, c)
@@ -165,10 +167,11 @@ func createComment(ctx context.Context, problemID, userID, content string) (*Com
 			VALUES ($1, $2, $3)
 			RETURNING id, content, created_at, user_id
 		)
-		SELECT nc.id, nc.content, nc.created_at, p.username, nc.user_id
+		SELECT nc.id, nc.content, nc.created_at, p.username, nc.user_id, u.slug
 		FROM new_comment nc
 		JOIN profiles p ON nc.user_id = p.id
-	`, problemID, userID, content).Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.UserID)
+		JOIN users u ON nc.user_id = u.id
+	`, problemID, userID, content).Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.UserID, &c.UserSlug)
 	if err != nil {
 		return nil, err
 	}

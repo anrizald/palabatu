@@ -2,22 +2,51 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"palabatu-be/internal/db"
 )
 
+// slugAlphabet excludes no characters for readability's sake — a slug is
+// never meant to be read aloud or hand-typed, just short and URL-safe.
+const slugAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+const slugLength = 8
+
+// generateSlug produces a short, opaque, URL-safe public identifier. It's
+// not a secret (it's a public profile URL segment, not a token), so the
+// minor modulo bias from byte%len(alphabet) doesn't matter here — the only
+// property that matters is that collisions stay rare, which ~41 bits of
+// entropy already gives at this app's scale.
+func generateSlug() (string, error) {
+	b := make([]byte, slugLength)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	out := make([]byte, slugLength)
+	for i, v := range b {
+		out[i] = slugAlphabet[int(v)%len(slugAlphabet)]
+	}
+	return string(out), nil
+}
+
 // User.ID is a Postgres uuid (see migrations/0001_init_schema.sql), not a
-// numeric id.
+// numeric id. Slug is a short, opaque, system-generated public identifier
+// (migrations/0008_user_slug.up.sql) used in profile URLs instead of ID or
+// Username: Username defaults to the email's local part and is editable
+// with no uniqueness guarantee once copied onto profiles.username, so it
+// isn't safe to expose as a lookup key.
 type User struct {
 	ID         string `json:"id"`
 	Email      string `json:"email"`
 	Password   string `json:"-"`
 	Username   string `json:"username"`
+	Slug       string `json:"slug"`
 	IsVerified bool   `json:"-"`
 }
 
@@ -30,6 +59,7 @@ type User struct {
 // populated by GetProfile, not getProfileByID.
 type Profile struct {
 	ID        string          `json:"id"`
+	Slug      string          `json:"slug"`
 	Username  *string         `json:"username"`
 	Title     json.RawMessage `json:"title"`
 	Tags      json.RawMessage `json:"tags"`
@@ -39,15 +69,36 @@ type Profile struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
+// createUser retries slug generation on a rare collision (the slug's
+// uniqueness constraint is the only one that's safe to retry past — an
+// email or username collision should surface to the caller, not be
+// silently retried with a different slug).
 func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string) (string, error) {
-	var id string
-	err := db.Pool.QueryRow(ctx,
-		`INSERT INTO users (email, password, username, verification_token, is_verified)
-		 VALUES ($1, $2, $3, $4, false)
-		 RETURNING id`,
-		email, hashedPassword, username, verificationToken,
-	).Scan(&id)
-	return id, err
+	const maxSlugAttempts = 5
+	for attempt := 0; attempt < maxSlugAttempts; attempt++ {
+		slug, err := generateSlug()
+		if err != nil {
+			return "", err
+		}
+
+		var id string
+		err = db.Pool.QueryRow(ctx,
+			`INSERT INTO users (email, password, username, slug, verification_token, is_verified)
+			 VALUES ($1, $2, $3, $4, $5, false)
+			 RETURNING id`,
+			email, hashedPassword, username, slug, verificationToken,
+		).Scan(&id)
+		if err == nil {
+			return id, nil
+		}
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "users_slug_key" {
+			continue
+		}
+		return "", err
+	}
+	return "", errors.New("failed to generate a unique profile slug")
 }
 
 func deleteUser(ctx context.Context, id string) error {
@@ -58,9 +109,9 @@ func deleteUser(ctx context.Context, id string) error {
 func getUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := db.Pool.QueryRow(ctx,
-		`SELECT id, email, password, username, is_verified FROM users WHERE email = $1`,
+		`SELECT id, email, password, username, slug, is_verified FROM users WHERE email = $1`,
 		email,
-	).Scan(&u.ID, &u.Email, &u.Password, &u.Username, &u.IsVerified)
+	).Scan(&u.ID, &u.Email, &u.Password, &u.Username, &u.Slug, &u.IsVerified)
 	if err != nil {
 		return nil, err
 	}
@@ -74,13 +125,20 @@ func getUserByEmail(ctx context.Context, email string) (*User, error) {
 func getUserByID(ctx context.Context, id string) (*User, error) {
 	var u User
 	err := db.Pool.QueryRow(ctx,
-		`SELECT id, email, password, username FROM users WHERE id = $1`,
+		`SELECT id, email, password, username, slug FROM users WHERE id = $1`,
 		id,
-	).Scan(&u.ID, &u.Email, &u.Password, &u.Username)
+	).Scan(&u.ID, &u.Email, &u.Password, &u.Username, &u.Slug)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// getUserIDBySlug resolves a profile URL slug to the underlying user id.
+func getUserIDBySlug(ctx context.Context, slug string) (string, error) {
+	var id string
+	err := db.Pool.QueryRow(ctx, `SELECT id FROM users WHERE slug = $1`, slug).Scan(&id)
+	return id, err
 }
 
 func countUsers(ctx context.Context) (int, error) {
@@ -89,10 +147,12 @@ func countUsers(ctx context.Context) (int, error) {
 	return count, err
 }
 
-func getUserCreatedAt(ctx context.Context, id string) (time.Time, error) {
-	var t time.Time
-	err := db.Pool.QueryRow(ctx, `SELECT created_at FROM users WHERE id = $1`, id).Scan(&t)
-	return t, err
+// getUserMeta reads the two users-table fields GetProfile needs that don't
+// live on profiles: CreatedAt (profiles has no signup date of its own) and
+// Slug (profiles rows are created lazily and may not exist yet).
+func getUserMeta(ctx context.Context, id string) (createdAt time.Time, slug string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT created_at, slug FROM users WHERE id = $1`, id).Scan(&createdAt, &slug)
+	return createdAt, slug, err
 }
 
 // verifyEmailByToken clears verification_token and marks the user verified,
@@ -134,6 +194,15 @@ func updatePassword(ctx context.Context, id string, hashedPassword string) error
 		hashedPassword, id,
 	)
 	return err
+}
+
+// getProfileIDByUsername resolves a username to a user id case-insensitively
+// — used for @mention notifications, where free-text comment content won't
+// necessarily match a profile's saved casing.
+func getProfileIDByUsername(ctx context.Context, username string) (string, error) {
+	var id string
+	err := db.Pool.QueryRow(ctx, `SELECT id FROM profiles WHERE LOWER(username) = LOWER($1)`, username).Scan(&id)
+	return id, err
 }
 
 func getProfileByID(ctx context.Context, id string) (*Profile, error) {

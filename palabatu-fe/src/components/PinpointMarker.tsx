@@ -10,7 +10,7 @@ type Props = {
     type?: 'pinpoint' | 'cluster'
     grade?: string
     creatorName?: string
-    creatorId?: string
+    creatorSlug?: string
     zoom?: number
     onClickDetails?: () => void;
 }
@@ -38,7 +38,7 @@ const CLUSTER_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 const PINPOINT_FALLBACK_URI = `data:image/svg+xml,${encodeURIComponent(PINPOINT_FALLBACK_SVG)}`
 const CLUSTER_FALLBACK_URI = `data:image/svg+xml,${encodeURIComponent(CLUSTER_FALLBACK_SVG)}`
 
-export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorId, zoom = MAX_ZOOM, onClickDetails }: Props) {
+export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorSlug, zoom = MAX_ZOOM, onClickDetails }: Props) {
     const markerRef = useRef<L.Marker>(null)
 
     const markerIcon = useMemo(() => {
@@ -99,7 +99,7 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                         ) : (
                             creatorName && (
                                 <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px' }}>
-                                    Added by <Link to={`/profile/${creatorId}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>{creatorName}</Link>
+                                    Added by <Link to={`/profile/${creatorSlug}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>{creatorName}</Link>
                                 </div>
                             )
                         )}
