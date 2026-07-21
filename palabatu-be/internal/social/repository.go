@@ -46,10 +46,10 @@ func deleteSend(ctx context.Context, problemID, userID string) error {
 
 func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	rows, err := db.Pool.Query(ctx, `
-		SELECT c.id, c.content, c.created_at, p.username, c.user_id, u.slug
+		SELECT c.id, c.content, c.created_at, COALESCE(p.username, 'Climber'), c.user_id, u.slug
 		FROM comments c
-		JOIN profiles p ON c.user_id = p.id
 		JOIN users u ON c.user_id = u.id
+		LEFT JOIN profiles p ON c.user_id = p.id
 		WHERE c.problem_id = $1
 		ORDER BY c.created_at ASC
 	`, problemID)
@@ -167,10 +167,10 @@ func createComment(ctx context.Context, problemID, userID, content string) (*Com
 			VALUES ($1, $2, $3)
 			RETURNING id, content, created_at, user_id
 		)
-		SELECT nc.id, nc.content, nc.created_at, p.username, nc.user_id, u.slug
+		SELECT nc.id, nc.content, nc.created_at, COALESCE(p.username, 'Climber'), nc.user_id, u.slug
 		FROM new_comment nc
-		JOIN profiles p ON nc.user_id = p.id
 		JOIN users u ON nc.user_id = u.id
+		LEFT JOIN profiles p ON nc.user_id = p.id
 	`, problemID, userID, content).Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.UserID, &c.UserSlug)
 	if err != nil {
 		return nil, err
