@@ -49,23 +49,32 @@ func ProfileRoutes(rg *gin.RouterGroup) {
 
 func handleSignup(c *gin.Context) {
 	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-		Username string `json:"username"`
+		Email         string `json:"email"`
+		Password      string `json:"password"`
+		Username      string `json:"username"`
+		TermsAccepted bool   `json:"terms_accepted"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username)
+	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username, body.TermsAccepted)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, gin.H{"message": "Signup successful, check your email for verification"})
 	case errors.Is(err, ErrEmailSendFailed):
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
-	default:
+	case errors.Is(err, ErrMissingFields):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email, username, and password are required"})
+	case errors.Is(err, ErrTermsNotAccepted):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You must accept the Terms of Service and Privacy Policy"})
+	case errors.Is(err, ErrUsernameExists):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already taken"})
+	case errors.Is(err, ErrEmailExists):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }
 

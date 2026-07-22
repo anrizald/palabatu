@@ -70,10 +70,17 @@ type Profile struct {
 }
 
 // createUser retries slug generation on a rare collision (the slug's
-// uniqueness constraint is the only one that's safe to retry past — an
-// email or username collision should surface to the caller, not be
-// silently retried with a different slug).
-func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string) (string, error) {
+// uniqueness constraint is the only one that's safe to retry past). Email
+// and username collisions surface to the caller as distinct sentinel
+// errors instead — username became a user-typed signup field, not just an
+// email-derived one, so conflating the two into one generic error would be
+// a real UX bug (a brand-new email getting told it's "already registered"
+// because someone else happened to have picked the same username).
+//
+// The users row and its profiles row are inserted together in one
+// transaction, so a profile always exists from the moment of signup rather
+// than being created lazily on first edit (see GetProfile).
+func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string, termsAcceptedAt time.Time) (string, error) {
 	const maxSlugAttempts = 5
 	for attempt := 0; attempt < maxSlugAttempts; attempt++ {
 		slug, err := generateSlug()
@@ -81,24 +88,56 @@ func createUser(ctx context.Context, email, hashedPassword, username, verificati
 			return "", err
 		}
 
-		var id string
-		err = db.Pool.QueryRow(ctx,
-			`INSERT INTO users (email, password, username, slug, verification_token, is_verified)
-			 VALUES ($1, $2, $3, $4, $5, false)
-			 RETURNING id`,
-			email, hashedPassword, username, slug, verificationToken,
-		).Scan(&id)
+		id, err := insertUserAndProfile(ctx, email, hashedPassword, username, slug, verificationToken, termsAcceptedAt)
 		if err == nil {
 			return id, nil
 		}
 
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.ConstraintName == "users_slug_key" {
-			continue
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "users_slug_key":
+				continue
+			case "users_username_key":
+				return "", ErrUsernameExists
+			case "users_email_key":
+				return "", ErrEmailExists
+			}
 		}
 		return "", err
 	}
 	return "", errors.New("failed to generate a unique profile slug")
+}
+
+func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, slug, verificationToken string, termsAcceptedAt time.Time) (string, error) {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	var id string
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (email, password, username, slug, verification_token, is_verified, terms_accepted_at)
+		 VALUES ($1, $2, $3, $4, $5, false, $6)
+		 RETURNING id`,
+		email, hashedPassword, username, slug, verificationToken, termsAcceptedAt,
+	).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO profiles (id, username) VALUES ($1, $2)`,
+		id, username,
+	); err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func deleteUser(ctx context.Context, id string) error {

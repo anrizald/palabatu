@@ -8,7 +8,7 @@ import { useAuth } from '../lib/useAuth.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
 import TopoAnnotationEditor from './topo-annotations/TopoAnnotationEditor.js'
-import { X, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Pencil, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 
 type Props = {
     onClose: () => void
@@ -27,6 +27,11 @@ export function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) 
     })
     return null
 }
+
+const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
+const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const segmentBtnClass = (active: boolean) =>
+    `flex-1 py-[7px] text-xs font-sans border-0 rounded-lg cursor-pointer transition-all ${active ? 'bg-accent/15 text-accent font-bold' : 'bg-transparent text-text-dim font-normal'}`
 
 export default function AddProblemModal({ onClose, onAdded, newProblem, setNewProblem, isPicking, setIsPicking }: Props) {
     const { user } = useAuth()
@@ -149,96 +154,31 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         onClose();
     }
 
-    const inputStyle = {
-        width: '100%', background: '#1a1612',
-        border: '1px solid #2a2420', borderRadius: '10px',
-        padding: '10px 14px', color: '#d8c8b8',
-        fontFamily: "'DM Sans', sans-serif'",
-        fontSize: '14px',
-        outline: 'none'
-    }
-
-    const labelStyle = {
-        fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em',
-        textTransform: 'uppercase' as const, marginBottom: '6px'
-    }
-
-    const segmentBtn = (active: boolean) => ({
-        flex: 1, padding: '7px 0', fontSize: '12px', cursor: 'pointer',
-        fontFamily: "'DM Sans', sans-serif",
-        background: active ? 'rgba(200,122,48,0.15)' : 'transparent',
-        border: 'none',
-        color: active ? '#c87a30' : '#6a5848',
-        fontWeight: active ? 700 : 400,
-        transition: 'all 0.2s',
-        borderRadius: '8px'
-    })
-
     if (isPicking) {
         return (
-            <>
-                {/* Mini card */}
-                <div style={{
-                    position: 'fixed', bottom: '32px', left: '32px',
-                    background: 'rgba(20,18,16,0.97)', border: '1px solid #c87a30',
-                    borderRadius: '16px', padding: '16px 20px',
-                    zIndex: 1000, fontFamily: "'DM Sans', sans-serif",
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
-                    display: 'flex', flexDirection: 'column', gap: '10px',
-                    minWidth: '220px'
-                }}>
-                    <p style={{ fontSize: '13px', color: '#f0e0c8', fontWeight: 500 }}>
-                        📍 Click on the map to set location
-                    </p>
-                    <button onClick={() => setIsPicking(false)} style={{
-                        padding: '7px 14px', background: 'transparent',
-                        border: '1px solid #2a2420', borderRadius: '8px',
-                        color: '#6a5848', fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '12px', cursor: 'pointer'
-                    }}>Cancel</button>
-                </div>
-            </>
+            <div className="fixed bottom-8 left-8 bg-panel/[0.97] border border-accent rounded-2xl px-5 py-4 z-[1000] font-sans shadow-[0_4px_24px_rgba(0,0,0,0.5)] flex flex-col gap-2.5 min-w-[220px]">
+                <p className="text-[13px] text-text font-medium flex items-center gap-1.5">
+                    <MapPin size={14} className="shrink-0" /> Click on the map to set location
+                </p>
+                <button onClick={() => setIsPicking(false)} className="px-3.5 py-[7px] bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">Cancel</button>
+            </div>
         )
     }
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '24px'
-        }}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-6">
             {toast && <Toast {...toast} />}
-            <div style={{
-                background: '#141210', border: '1px solid #2a2420',
-                borderRadius: '20px',
-                width: '100%', maxWidth: '440px',
-                maxHeight: 'calc(100vh - 48px)',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: '0 40px 80px rgba(0,0,0,0.6)',
-                fontFamily: "'DM Sans', sans-serif"
-            }}>
-                <h2 style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: '22px', fontWeight: 900,
-                    color: '#f0e0c8',
-                    padding: '16px 32px 10px', flexShrink: 0
-                }}>Add Problem</h2>
+            <div className="bg-panel border border-border rounded-[20px] w-full max-w-[440px] max-h-[calc(100vh-48px)] flex flex-col shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+                <h2 className="font-serif text-[22px] font-black text-text pt-4 px-8 pb-2.5 shrink-0">Add Problem</h2>
 
-                <div style={{
-                    overflowY: 'auto', minHeight: 0, flex: 1,
-                    padding: '0 32px 16px',
-                    display: 'flex', flexDirection: 'column', gap: '16px'
-                }}>
+                <div className="overflow-y-auto min-h-0 flex-1 px-8 pb-4 flex flex-col gap-4">
                     {/* Multi-Image Picker */}
                     <div>
-                        <div style={labelStyle}>Topo Photos</div>
-                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
+                        <div className={labelClass}>Topo Photos</div>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
                             {newProblem.imagePreviews.map((preview, idx) => (
-                                <div key={idx} style={{ position: 'relative', minWidth: '100px', height: '100px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0 }}>
-                                    <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                                <div key={idx} className="relative min-w-[100px] h-[100px] rounded-[10px] overflow-hidden shrink-0">
+                                    <img src={preview} className="w-full h-full object-cover" alt="Preview" />
                                     <button
                                         onClick={() => {
                                             const newFiles = [...newProblem.imageFiles];
@@ -250,37 +190,26 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                             newDrafts.splice(idx, 1);
                                             setDraftAnnotations(newDrafts);
                                         }}
-                                        style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center"
                                         aria-label="Remove photo"
-                                    ><X size={14} style={{ flexShrink: 0 }} /></button>
+                                    ><X size={14} className="shrink-0" /></button>
                                     <button
                                         onClick={() => setAnnotatingIndex(idx)}
                                         title="Annotate route"
                                         aria-label="Annotate route"
-                                        style={{
-                                            position: 'absolute', bottom: '4px', left: '4px',
-                                            background: (draftAnnotations[idx]?.length ?? 0) > 0 ? 'rgba(200,122,48,0.9)' : 'rgba(0,0,0,0.6)',
-                                            color: '#fff', border: 'none', borderRadius: '50%',
-                                            width: '24px', height: '24px', cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                        }}
-                                    ><Pencil size={12} style={{ flexShrink: 0 }} /></button>
+                                        className={`absolute bottom-1 left-1 ${(draftAnnotations[idx]?.length ?? 0) > 0 ? 'bg-accent/90' : 'bg-black/60'} text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center`}
+                                    ><Pencil size={12} className="shrink-0" /></button>
                                 </div>
                             ))}
 
-                            <label style={{
-                                minWidth: '100px', height: '100px', background: '#1a1612',
-                                border: '1px dashed #4a3c30', borderRadius: '10px', cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                color: '#6a5848', fontSize: '20px', flexShrink: 0
-                            }}>
+                            <label className="min-w-[100px] h-[100px] bg-surface border border-dashed border-text-faint rounded-[10px] cursor-pointer flex flex-col items-center justify-center text-text-dim text-xl shrink-0">
                                 +
-                                <span style={{ fontSize: '10px', marginTop: '4px' }}>Add Photo</span>
+                                <span className="text-[10px] mt-1">Add Photo</span>
                                 <input
                                     type="file"
                                     accept="image/*"
                                     multiple // <-- Allows selecting multiple files at once!
-                                    style={{ display: 'none' }}
+                                    className="hidden"
                                     onChange={(e) => {
                                         const files = Array.from(e.target.files || []);
                                         const previews = files.map(f => URL.createObjectURL(f));
@@ -298,12 +227,12 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
 
                     {/* Name */}
                     <div>
-                        <div style={labelStyle}>Problem Name *</div>
+                        <div className={labelClass}>Problem Name *</div>
                         <input
                             value={newProblem.name}
                             onChange={e => setNewProblem({ ...newProblem, name: e.target.value })}
                             placeholder="e.g. Slab Mantap"
-                            style={inputStyle}
+                            className={inputClass}
                         />
                     </div>
 
@@ -311,60 +240,54 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                     <div>
                         <div
                             onClick={() => setGradeExpanded(v => !v)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                            className="flex items-center justify-between cursor-pointer"
                         >
-                            <div style={{ ...labelStyle, marginBottom: 0 }}>Grade</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '12px', color: newProblem.grade ? '#c87a30' : '#6a5848' }}>
+                            <div className="text-[11px] text-text-dim tracking-[0.1em] uppercase">Grade</div>
+                            <div className="flex items-center gap-1.5">
+                                <span className={`text-xs ${newProblem.grade ? 'text-accent' : 'text-text-dim'}`}>
                                     {isRange
                                         ? gradeFrom && gradeTo ? `${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}…` : 'Pick a range'
                                         : newProblem.grade || 'Not set'}
                                 </span>
-                                {gradeExpanded ? <ChevronUp size={14} color="#6a5848" style={{ flexShrink: 0 }} /> : <ChevronDown size={14} color="#6a5848" style={{ flexShrink: 0 }} />}
+                                {gradeExpanded ? <ChevronUp size={14} className="shrink-0 text-text-dim" /> : <ChevronDown size={14} className="shrink-0 text-text-dim" />}
                             </div>
                         </div>
 
                         {gradeExpanded && (
-                            <div style={{ marginTop: '10px' }}>
+                            <div className="mt-2.5">
                                 {/* Problem Type toggle */}
-                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                                <div className="flex gap-1 bg-surface border border-border rounded-[10px] p-1 mb-2.5">
                                     {(['boulder', 'rope'] as ProblemType[]).map(t => (
-                                        <button key={t} onClick={() => setProblemType(t)} style={segmentBtn(problemType === t)}>
-                                            {t === 'boulder' ? '🪨 Boulder' : '🧗 Rope'}
+                                        <button key={t} onClick={() => setProblemType(t)} className={segmentBtnClass(problemType === t)}>
+                                            {t === 'boulder' ? 'Boulder' : 'Rope'}
                                         </button>
                                     ))}
                                 </div>
 
                                 {/* Scale toggle */}
-                                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                                <div className="flex gap-1 bg-surface border border-border rounded-[10px] p-1 mb-2.5">
                                     {Object.keys(GRADE_SCALES[problemType]).map(scale => (
-                                        <button key={scale} onClick={() => setGradeScale(scale)} style={segmentBtn(gradeScale === scale)}>
+                                        <button key={scale} onClick={() => setGradeScale(scale)} className={segmentBtnClass(gradeScale === scale)}>
                                             {scale}
                                         </button>
                                     ))}
                                 </div>
 
                                 {/* Range toggle */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '12px', color: '#6a5848' }}>
+                                <div className="flex items-center justify-between mb-2.5">
+                                    <span className="text-xs text-text-dim">
                                         {isRange
                                             ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
                                             : newProblem.grade ? `Selected: ${newProblem.grade}` : 'Pick a grade'}
                                     </span>
                                     <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo('') }}
-                                        style={{
-                                            fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                                            background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
-                                            border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
-                                            color: isRange ? '#c87a30' : '#6a5848',
-                                            fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s'
-                                        }}>
-                                        ⇔ Range
+                                        className={`text-[11px] px-2.5 py-1 rounded-full cursor-pointer font-sans transition-all border ${isRange ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}`}>
+                                        Range
                                     </button>
                                 </div>
 
                                 {/* Grade pills */}
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <div className="flex gap-1.5 flex-wrap">
                                     {grades.map(g => {
                                         const isFrom = g === gradeFrom
                                         const isTo = g === gradeTo
@@ -374,14 +297,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
                                         const active = isFrom || isTo || inRange
 
                                         return (
-                                            <button key={g} onClick={() => handleGradePick(g)} style={{
-                                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
-                                                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                                                background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
-                                                border: active ? '1px solid #c87a30' : '1px solid #2a2420',
-                                                color: active ? '#c87a30' : '#6a5848',
-                                                transition: 'all 0.15s'
-                                            }}>{g}</button>
+                                            <button key={g} onClick={() => handleGradePick(g)} className={`py-1.5 px-3 rounded-full text-xs font-sans cursor-pointer transition-all border ${active ? 'border-accent text-accent' : 'border-border text-text-dim'} ${isFrom || isTo ? 'bg-accent/20' : inRange ? 'bg-accent/[0.08]' : 'bg-transparent'}`}>{g}</button>
                                         )
                                     })}
                                 </div>
@@ -391,77 +307,39 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
 
                     {/* Location name */}
                     <div>
-                        <div style={labelStyle}>Location Name</div>
+                        <div className={labelClass}>Location Name</div>
                         <input
                             value={newProblem.location}
                             onChange={e => setNewProblem({ ...newProblem, location: e.target.value })}
                             placeholder="e.g. Parang, Jawa Barat"
-                            style={inputStyle}
+                            className={inputClass}
                         />
                     </div>
 
                     {/* Lat Lng picker */}
                     <div>
-                        <div style={labelStyle}>Location on Map *</div>
+                        <div className={labelClass}>Location on Map *</div>
                         {newProblem.lat ? (
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <div style={{
-                                    flex: 1, padding: '10px 14px',
-                                    background: 'rgba(93,187,106,0.1)',
-                                    border: '1px solid #5dbb6a',
-                                    borderRadius: '10px', color: '#5dbb6a',
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '13px'
-                                }}>
-                                    📍 {newProblem.lat.toFixed(4)}, {newProblem.lng?.toFixed(4)}
+                            <div className="flex gap-2 items-center">
+                                <div className="flex-1 px-3.5 py-2.5 bg-associate/10 border border-associate rounded-[10px] text-associate font-sans text-[13px] flex items-center gap-1.5">
+                                    <MapPin size={13} className="shrink-0" /> {newProblem.lat.toFixed(4)}, {newProblem.lng?.toFixed(4)}
                                 </div>
-                                <button onClick={() => setIsPicking(true)} style={{
-                                    padding: '10px 14px',
-                                    background: 'transparent',
-                                    border: '1px solid #2a2420',
-                                    borderRadius: '10px', cursor: 'pointer',
-                                    color: '#8a7060', fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: '12px', whiteSpace: 'nowrap',
-                                    transition: 'all 0.2s',
-                                    display: 'flex', alignItems: 'center', gap: '6px'
-                                }}><Pencil size={14} style={{ flexShrink: 0 }} /> Edit</button>
+                                <button onClick={() => setIsPicking(true)} className="px-3.5 py-2.5 bg-transparent border border-border rounded-[10px] cursor-pointer text-text-muted font-sans text-xs whitespace-nowrap transition-all flex items-center gap-1.5">
+                                    <Pencil size={14} className="shrink-0" /> Edit
+                                </button>
                             </div>
                         ) : (
-                            <button onClick={() => setIsPicking(true)} style={{
-                                width: '100%', padding: '10px',
-                                background: 'transparent',
-                                border: '1px solid #2a2420',
-                                borderRadius: '10px', cursor: 'pointer',
-                                color: '#6a5848',
-                                fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
-                                transition: 'all 0.2s'
-                            }}>
-                                📍 Click to pick on map
+                            <button onClick={() => setIsPicking(true)} className="w-full py-2.5 bg-transparent border border-border rounded-[10px] cursor-pointer text-text-dim font-sans text-[13px] transition-all flex items-center justify-center gap-1.5">
+                                <MapPin size={14} className="shrink-0" /> Click to pick on map
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div style={{
-                    display: 'flex', gap: '10px',
-                    padding: '16px 32px 16px', flexShrink: 0,
-                    borderTop: '1px solid #2a2420'
-                }}>
-                    <button onClick={onClose} style={{
-                        flex: 1, padding: '11px',
-                        background: 'transparent', border: '1px solid #2a2420',
-                        borderRadius: '10px', color: '#6a5848',
-                        fontFamily: "'DM Sans', sans-serif", fontSize: '14px', cursor: 'pointer'
-                    }}>Cancel</button>
-                    <button onClick={handleSubmit} disabled={isSubmitting} style={{
-                        flex: 2, padding: '11px',
-                        background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
-                        border: 'none', borderRadius: '10px',
-                        color: '#fef3e6', fontFamily: "'DM Sans', sans-serif",
-                        fontSize: '14px', fontWeight: 500, cursor: 'pointer',
-                        opacity: isSubmitting ? 0.5 : 1,
-                        boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
-                    }}>{isSubmitting ? 'Submitting...' : 'Add Problem'}</button>
+                <div className="flex gap-2.5 px-8 py-4 shrink-0 border-t border-border">
+                    <button onClick={onClose} className="flex-1 py-[11px] bg-transparent border border-border rounded-[10px] text-text-dim font-sans text-sm cursor-pointer">Cancel</button>
+                    <button onClick={handleSubmit} disabled={isSubmitting} className={`flex-[2] py-[11px] rounded-[10px] border-0 text-on-accent font-sans text-sm font-medium cursor-pointer shadow-[0_2px_12px_rgba(200,122,48,0.3)] bg-[linear-gradient(145deg,var(--color-accent),var(--color-accent-dark))] ${isSubmitting ? 'opacity-50' : 'opacity-100'}`}>{isSubmitting ? 'Submitting...' : 'Add Problem'}</button>
                 </div>
             </div>
 

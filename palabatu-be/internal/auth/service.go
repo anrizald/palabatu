@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -43,9 +44,19 @@ func generateToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// Signup creates a user and emails a verification link. If the email fails
-// to send, the user row is rolled back, mirroring palabatu-be/routes/auth.ts.
-func Signup(ctx context.Context, email, password, username string) error {
+// Signup creates a user and its profile row together (see
+// insertUserAndProfile) and emails a verification link. If the email fails
+// to send, the user row is rolled back, mirroring
+// palabatu-be/routes/auth.ts — the profile row goes with it via
+// profiles_id_fkey's ON DELETE CASCADE (migrations/0003).
+func Signup(ctx context.Context, email, password, username string, termsAccepted bool) error {
+	if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" || strings.TrimSpace(username) == "" {
+		return ErrMissingFields
+	}
+	if !termsAccepted {
+		return ErrTermsNotAccepted
+	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -56,9 +67,9 @@ func Signup(ctx context.Context, email, password, username string) error {
 		return err
 	}
 
-	id, err := createUser(ctx, email, string(hashed), username, verificationToken)
+	id, err := createUser(ctx, email, string(hashed), username, verificationToken, time.Now())
 	if err != nil {
-		return ErrEmailExists
+		return err
 	}
 
 	if err := mailer.SendVerificationEmail(email, verificationToken); err != nil {
@@ -181,10 +192,12 @@ func ResolveUserID(ctx context.Context, idOrSlug string) (string, error) {
 }
 
 // GetProfile returns a blank Profile (id set, everything else zero) when the
-// user exists but hasn't saved a profile row yet — that's a normal state,
-// not an error. ErrNotFound is only returned when idOrSlug doesn't match any
-// user at all, so the frontend can tell "new user, empty profile" apart from
-// "no such user" and render a proper not-found page for the latter.
+// user exists but has no profile row — Signup creates one atomically for
+// every new account, so this now only happens for accounts created before
+// that change; it's a normal state, not an error. ErrNotFound is only
+// returned when idOrSlug doesn't match any user at all, so the frontend can
+// tell "new user, empty profile" apart from "no such user" and render a
+// proper not-found page for the latter.
 func GetProfile(ctx context.Context, idOrSlug string) (*Profile, error) {
 	id, err := ResolveUserID(ctx, idOrSlug)
 	if err != nil {

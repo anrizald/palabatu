@@ -31,17 +31,14 @@ function detectGrade(grade: string): { type: ProblemType; scale: string; from: s
     return { type: 'boulder', scale: 'V-Scale', from, to, isRange };
 }
 
-const segmentBtn = (active: boolean) => ({
-    flex: 1, padding: '7px 0', fontSize: '12px', cursor: 'pointer',
-    fontFamily: "'DM Sans', sans-serif",
-    background: active ? 'rgba(200,122,48,0.15)' : 'transparent',
-    border: 'none', color: active ? '#c87a30' : '#6a5848',
-    fontWeight: active ? 700 : 400, transition: 'all 0.2s', borderRadius: '8px'
-});
+const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3 py-2.5 text-text-secondary text-sm outline-none box-border"
+const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const segmentBtnClass = (active: boolean) =>
+    `flex-1 py-[7px] text-xs font-sans border-0 rounded-lg cursor-pointer transition-all ${active ? 'bg-accent/15 text-accent font-bold' : 'bg-transparent text-text-dim font-normal'}`
 
-// Shared inline-styled grade-picker + name/location/coords fields for
-// editing a problem. Used by both the map's ProblemDetails modal and
-// the /problems/:id detail page's inline edit block.
+// Shared grade-picker + name/location/coords fields for editing a problem.
+// Used by both the map's ProblemDetails modal and the /problems/:id detail
+// page's inline edit block.
 export default function ProblemEditForm({
     initialGrade, name, onNameChange, locationName, onLocationNameChange,
     lat, lng, onPickLocation, onGradeChange, onSave, onCancel, isProcessing,
@@ -81,56 +78,51 @@ export default function ProblemEditForm({
     };
 
     return (
-        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="mt-4 flex flex-col gap-3">
             {/* Name */}
             <div>
-                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Problem Name</div>
+                <div className={labelClass}>Problem Name</div>
                 <input
                     value={name}
                     onChange={e => onNameChange(e.target.value)}
                     placeholder="e.g. Slab Mantap"
-                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                    className={inputClass}
                 />
             </div>
 
             {/* Grade */}
             <div>
-                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grade</div>
+                <div className={labelClass}>Grade</div>
 
-                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                <div className="flex gap-1 bg-surface border border-border rounded-[10px] p-1 mb-2.5">
                     {(['boulder', 'rope'] as ProblemType[]).map(t => (
-                        <button key={t} onClick={() => { setProblemType(t); setGradeFrom(''); setGradeTo(''); }} style={segmentBtn(problemType === t)}>
+                        <button key={t} onClick={() => { setProblemType(t); setGradeFrom(''); setGradeTo(''); }} className={segmentBtnClass(problemType === t)}>
                             {t === 'boulder' ? 'Boulder' : 'Rope'}
                         </button>
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: '4px', background: '#1a1612', border: '1px solid #2a2420', borderRadius: '10px', padding: '4px', marginBottom: '10px' }}>
+                <div className="flex gap-1 bg-surface border border-border rounded-[10px] p-1 mb-2.5">
                     {Object.keys(GRADE_SCALES[problemType]).map(scale => (
-                        <button key={scale} onClick={() => { setGradeScale(scale); setGradeFrom(''); setGradeTo(''); }} style={segmentBtn(gradeScale === scale)}>
+                        <button key={scale} onClick={() => { setGradeScale(scale); setGradeFrom(''); setGradeTo(''); }} className={segmentBtnClass(gradeScale === scale)}>
                             {scale}
                         </button>
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '12px', color: '#6a5848' }}>
+                <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-xs text-text-dim">
                         {isRange
                             ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
                             : gradeFrom ? `Selected: ${gradeFrom}` : 'Pick a grade'}
                     </span>
                     <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo(''); }}
-                        style={{
-                            fontSize: '11px', padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                            background: isRange ? 'rgba(200,122,48,0.15)' : 'transparent',
-                            border: `1px solid ${isRange ? '#c87a30' : '#2a2420'}`,
-                            color: isRange ? '#c87a30' : '#6a5848', transition: 'all 0.2s'
-                        }}>
+                        className={`text-[11px] px-2.5 py-1 rounded-full cursor-pointer font-sans transition-all border ${isRange ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}`}>
                         Range
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div className="flex gap-1.5 flex-wrap">
                     {grades.map(g => {
                         const isFrom = g === gradeFrom;
                         const isTo = g === gradeTo;
@@ -140,13 +132,7 @@ export default function ProblemEditForm({
                         const active = isFrom || isTo || inRange;
 
                         return (
-                            <button key={g} onClick={() => handleGradePick(g)} style={{
-                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px',
-                                fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                                background: isFrom || isTo ? 'rgba(200,122,48,0.2)' : inRange ? 'rgba(200,122,48,0.08)' : 'transparent',
-                                border: active ? '1px solid #c87a30' : '1px solid #2a2420',
-                                color: active ? '#c87a30' : '#6a5848', transition: 'all 0.15s'
-                            }}>{g}</button>
+                            <button key={g} onClick={() => handleGradePick(g)} className={`py-1.5 px-3 rounded-full text-xs font-sans cursor-pointer transition-all border ${active ? 'border-accent text-accent' : 'border-border text-text-dim'} ${isFrom || isTo ? 'bg-accent/20' : inRange ? 'bg-accent/[0.08]' : 'bg-transparent'}`}>{g}</button>
                         );
                     })}
                 </div>
@@ -154,26 +140,26 @@ export default function ProblemEditForm({
 
             {/* Location */}
             <div>
-                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location Name</div>
+                <div className={labelClass}>Location Name</div>
                 <input
                     value={locationName}
                     onChange={e => onLocationNameChange(e.target.value)}
                     placeholder="e.g. Parang, Jawa Barat"
-                    style={{ width: '100%', background: '#1a1612', border: '1px solid #2a2420', padding: '10px 12px', borderRadius: '10px', color: '#d8c8b8', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                    className={inputClass}
                 />
             </div>
 
             {/* Pinpoint */}
             <div>
-                <div style={{ fontSize: '11px', color: '#6a5848', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Location on Map</div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ flex: 1, padding: '10px 14px', background: 'rgba(93,187,106,0.1)', border: '1px solid #5dbb6a', borderRadius: '10px', color: '#5dbb6a', fontSize: '13px' }}>
+                <div className={labelClass}>Location on Map</div>
+                <div className="flex gap-2 items-center">
+                    <div className="flex-1 px-3.5 py-2.5 bg-associate/10 border border-associate rounded-[10px] text-associate text-[13px]">
                         {lat?.toFixed(4)}, {lng?.toFixed(4)}
                     </div>
                     <button
                         type="button"
                         onClick={onPickLocation}
-                        style={{ padding: '10px 14px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+                        className="px-3.5 py-2.5 bg-accent/10 border border-accent/25 text-accent rounded-[10px] cursor-pointer text-xs whitespace-nowrap"
                     >
                         Change
                     </button>
@@ -181,11 +167,11 @@ export default function ProblemEditForm({
             </div>
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={onSave} disabled={isProcessing} style={{ flex: 1, padding: '8px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+            <div className="flex gap-2">
+                <button onClick={onSave} disabled={isProcessing} className="flex-1 p-2 bg-accent/10 border border-accent/25 text-accent rounded-lg cursor-pointer text-xs">
                     {isProcessing ? 'Saving...' : 'Save'}
                 </button>
-                <button onClick={onCancel} style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid #2a2420', color: '#8a7060', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+                <button onClick={onCancel} className="flex-1 p-2 bg-white/5 border border-border text-text-muted rounded-lg cursor-pointer text-xs">
                     Cancel
                 </button>
             </div>
