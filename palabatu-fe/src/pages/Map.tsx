@@ -2,10 +2,12 @@ import 'leaflet/dist/leaflet.css'
 import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
+import { useIsMobile } from '../lib/useIsMobile.js'
 import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
+import ClusterCardRail from '../components/ClusterCardRail.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
@@ -458,7 +460,9 @@ type Cluster = {
 
 function ProximityClusters({ problems, setSelectedProblem }: { problems: ProblemRow[]; setSelectedProblem: (problem: ProblemRow) => void }) {
     const map = useMap()
+    const isMobile = useIsMobile()
     const [tick, setTick] = useState(0)
+    const [mobileCluster, setMobileCluster] = useState<Cluster | null>(null)
 
     useMapEvents({
         moveend() { setTick(t => t + 1) },
@@ -512,6 +516,11 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
 
     const currentZoom = map?.getZoom?.() ?? 13
 
+    const focusItem = (item: ProblemRow) => {
+        map.flyTo([item.latitude, item.longitude], MAX_ZOOM, { duration: 1.2 })
+        setSelectedProblem(item)
+    }
+
     return (
         <>
             {clusters.map((c, idx) => {
@@ -540,9 +549,64 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                         location={c.items.slice(0, 3).map(i => i.name).join(', ')}
                         type="cluster"
                         zoom={currentZoom}
+                        clusterItems={c.items}
+                        onSelectItem={focusItem}
+                        {...(isMobile ? { onClusterTap: () => setMobileCluster(c) } : {})}
                     />
                 )
             })}
+            <MobileClusterSheet
+                cluster={mobileCluster}
+                onClose={() => setMobileCluster(null)}
+                onSelect={item => {
+                    setMobileCluster(null)
+                    focusItem(item)
+                }}
+            />
+        </>
+    )
+}
+
+function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: ProblemRow) => void }) {
+    if (!cluster) return null
+
+    return (
+        <>
+            <div
+                onClick={onClose}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(10,8,6,0.45)', zIndex: 1150 }}
+            />
+            <div
+                style={{
+                    position: 'fixed',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 1200,
+                    background: '#141210',
+                    borderTop: '1px solid #2a2420',
+                    borderTopLeftRadius: '16px',
+                    borderTopRightRadius: '16px',
+                    boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
+                    paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                        {cluster.items.length} locations here
+                    </span>
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
+                    >
+                        <X size={18} color="#8a7060" style={{ flexShrink: 0 }} />
+                    </button>
+                </div>
+                <div style={{ padding: '0 16px 4px' }}>
+                    <ClusterCardRail items={cluster.items} onSelect={onSelect} />
+                </div>
+            </div>
         </>
     )
 }

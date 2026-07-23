@@ -1,7 +1,10 @@
 import L from 'leaflet'
+import { MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Marker, Popup } from 'react-leaflet'
 import { useEffect, useMemo, useRef } from 'react'
+import ClusterCardRail from './ClusterCardRail.js'
+import type { ProblemRow } from '../types/problem.js'
 
 type Props = {
     position: [number, number]
@@ -13,6 +16,9 @@ type Props = {
     creatorSlug?: string
     zoom?: number
     onClickDetails?: () => void;
+    clusterItems?: ProblemRow[];
+    onSelectItem?: (item: ProblemRow) => void;
+    onClusterTap?: () => void;
 }
 
 const MIN_ZOOM = 3
@@ -38,7 +44,7 @@ const CLUSTER_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 const PINPOINT_FALLBACK_URI = `data:image/svg+xml,${encodeURIComponent(PINPOINT_FALLBACK_SVG)}`
 const CLUSTER_FALLBACK_URI = `data:image/svg+xml,${encodeURIComponent(CLUSTER_FALLBACK_SVG)}`
 
-export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorSlug, zoom = MAX_ZOOM, onClickDetails }: Props) {
+export default function PinpointMarker({ position, name, location, type = 'pinpoint', grade, creatorName, creatorSlug, zoom = MAX_ZOOM, onClickDetails, clusterItems, onSelectItem, onClusterTap }: Props) {
     const markerRef = useRef<L.Marker>(null)
 
     const markerIcon = useMemo(() => {
@@ -61,10 +67,16 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
         markerRef.current?.setIcon(markerIcon)
     }, [markerIcon])
 
+    const isMobileClusterTap = type === 'cluster' && !!onClusterTap
+
     return (
-        <Marker position={position} ref={markerRef}>
-            {(name || location) && (
-                <Popup>
+        <Marker
+            position={position}
+            ref={markerRef}
+            {...(isMobileClusterTap ? { eventHandlers: { click: onClusterTap! } } : {})}
+        >
+            {!isMobileClusterTap && (name || location) && (
+                <Popup maxWidth={type === 'cluster' && clusterItems?.length ? 340 : 300}>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", minWidth: '160px' }}>
                         {/* Header Row: Name and Grade Badge */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '6px' }}>
@@ -88,14 +100,20 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
 
                         {/* Location */}
                         <div style={{ fontSize: '12px', color: '#6a5848', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            📍 {location}
+                            <MapPin size={12} color="#6a5848" style={{ flexShrink: 0 }} /> {location}
                         </div>
 
-                        {/* Footer: Creator (or cluster hint) */}
+                        {/* Footer: Creator (or cluster card rail) */}
                         {type === 'cluster' ? (
-                            <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px', fontStyle: 'italic' }}>
-                                Zoom in to view individual problems
-                            </div>
+                            clusterItems && clusterItems.length > 0 && onSelectItem ? (
+                                <div style={{ borderTop: '1px solid #f0e0c8', paddingTop: '8px' }}>
+                                    <ClusterCardRail items={clusterItems} onSelect={onSelectItem} />
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px', fontStyle: 'italic' }}>
+                                    Zoom in to view individual problems
+                                </div>
+                            )
                         ) : (
                             creatorName && (
                                 <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px' }}>
