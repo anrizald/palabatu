@@ -17,13 +17,8 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/notifications/read-all", middleware.RequireAuth, handleMarkAllRead)
 }
 
-func currentUserID(claims map[string]interface{}) string {
-	id, _ := claims["id"].(string)
-	return id
-}
-
 func handleList(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 
 	items, err := List(c.Request.Context(), userID)
 	if err != nil {
@@ -34,7 +29,7 @@ func handleList(c *gin.Context) {
 }
 
 func handleUnreadCount(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 
 	count, err := UnreadCount(c.Request.Context(), userID)
 	if err != nil {
@@ -45,7 +40,7 @@ func handleUnreadCount(c *gin.Context) {
 }
 
 func handleMarkRead(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	err := MarkRead(c.Request.Context(), userID, id)
@@ -60,7 +55,7 @@ func handleMarkRead(c *gin.Context) {
 }
 
 func handleMarkAllRead(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 
 	if err := MarkAllRead(c.Request.Context(), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})

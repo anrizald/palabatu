@@ -25,7 +25,7 @@ func handleListAnnotations(c *gin.Context) {
 }
 
 func handleSaveAnnotation(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {

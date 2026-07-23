@@ -24,13 +24,6 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
 }
 
-// currentUserID reads the "id" claim attached by middleware.RequireAuth,
-// mirroring (req as any).user.id in the Node routes.
-func currentUserID(claims map[string]interface{}) string {
-	id, _ := claims["id"].(string)
-	return id
-}
-
 func handleListProblems(c *gin.Context) {
 	problems, err := ListProblems(c.Request.Context())
 	if err != nil {
@@ -55,7 +48,7 @@ func handleGetProblem(c *gin.Context) {
 }
 
 func handleCreateProblem(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 
 	var body struct {
 		Name      string   `json:"name"`
@@ -84,7 +77,7 @@ func handleCreateProblem(c *gin.Context) {
 }
 
 func handleUpdateProblem(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {
@@ -117,7 +110,7 @@ func handleUpdateProblem(c *gin.Context) {
 }
 
 func handleDeleteProblem(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	err := DeleteProblem(c.Request.Context(), userID, id)
@@ -134,7 +127,7 @@ func handleDeleteProblem(c *gin.Context) {
 }
 
 func handleDeleteProblemImage(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {

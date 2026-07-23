@@ -102,8 +102,7 @@ func handleSignin(c *gin.Context) {
 }
 
 func handleSession(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	id, _ := claims["id"].(string)
+	id := middleware.UserFromContext(c).ID
 
 	user, err := Session(c.Request.Context(), id)
 	if err != nil {
@@ -216,8 +215,7 @@ func handleGetRecentActivity(c *gin.Context) {
 }
 
 func handleUpsertProfile(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	callerID, _ := claims["id"].(string)
+	callerID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {
@@ -249,8 +247,7 @@ func handleUpsertProfile(c *gin.Context) {
 }
 
 func handleChangePassword(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	userID, _ := claims["id"].(string)
+	userID := middleware.UserFromContext(c).ID
 
 	var body struct {
 		CurrentPassword string `json:"current_password"`
@@ -277,8 +274,7 @@ func handleChangePassword(c *gin.Context) {
 }
 
 func handleDeleteAccount(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	userID, _ := claims["id"].(string)
+	userID := middleware.UserFromContext(c).ID
 
 	var body struct {
 		Password string `json:"password"`
