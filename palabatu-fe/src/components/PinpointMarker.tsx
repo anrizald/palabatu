@@ -68,6 +68,7 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
     }, [markerIcon])
 
     const isMobileClusterTap = type === 'cluster' && !!onClusterTap
+    const isClusterRail = type === 'cluster' && !!clusterItems?.length && !!onSelectItem
 
     return (
         <Marker
@@ -76,11 +77,14 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
             {...(isMobileClusterTap ? { eventHandlers: { click: onClusterTap! } } : {})}
         >
             {!isMobileClusterTap && (name || location) && (
-                <Popup maxWidth={type === 'cluster' && clusterItems?.length ? 340 : 300}>
+                <Popup
+                    maxWidth={isClusterRail ? 370 : 300}
+                    {...(isClusterRail ? { className: 'cluster-popup' } : {})}
+                >
                     <div style={{ fontFamily: "'DM Sans', sans-serif", minWidth: '160px' }}>
                         {/* Header Row: Name and Grade Badge */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '6px' }}>
-                            <strong style={{ fontFamily: "'Playfair Display', serif", fontSize: '16px', color: '#1a1612', lineHeight: '1.2' }}>
+                            <strong style={{ fontFamily: "'Playfair Display', serif", fontSize: '16px', color: isClusterRail ? '#f7ead4' : '#1a1612', lineHeight: '1.2' }}>
                                 {name}
                             </strong>
                             {grade && (
@@ -99,15 +103,15 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                         </div>
 
                         {/* Location */}
-                        <div style={{ fontSize: '12px', color: '#6a5848', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <MapPin size={12} color="#6a5848" style={{ flexShrink: 0 }} /> {location}
+                        <div style={{ fontSize: '12px', color: isClusterRail ? 'rgba(240,224,200,0.75)' : '#6a5848', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <MapPin size={12} color={isClusterRail ? '#c9b8a0' : '#6a5848'} style={{ flexShrink: 0 }} /> {location}
                         </div>
 
                         {/* Footer: Creator (or cluster card rail) */}
                         {type === 'cluster' ? (
-                            clusterItems && clusterItems.length > 0 && onSelectItem ? (
-                                <div style={{ borderTop: '1px solid #f0e0c8', paddingTop: '8px' }}>
-                                    <ClusterCardRail items={clusterItems} onSelect={onSelectItem} />
+                            isClusterRail ? (
+                                <div style={{ borderTop: '1px solid #2a2420', paddingTop: '8px' }}>
+                                    <ClusterCardRail items={clusterItems!} onSelect={onSelectItem!} />
                                 </div>
                             ) : (
                                 <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px', fontStyle: 'italic' }}>
