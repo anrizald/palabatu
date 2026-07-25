@@ -17,6 +17,11 @@ import FallbackImg from '../components/FallbackImg.js'
 import { circleButtonStyle } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
+// Padded bounding box around Indonesia (Sabang to Merauke) — keeps panning within the country.
+const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
+    [-14.5, 89.5],
+    [9.5, 146.5],
+]
 
 type SearchResult = {
     place_id: number
@@ -341,7 +346,16 @@ export default function MapPage() {
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             {toast && <Toast {...toast} />}
-            <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} zoomControl={false} style={{ height: '100%', width: '100%' }}>
+            <MapContainer
+                center={center}
+                zoom={5}
+                minZoom={5}
+                maxZoom={18}
+                zoomControl={false}
+                maxBounds={INDONESIA_BOUNDS}
+                maxBoundsViscosity={1.0}
+                style={{ height: '100%', width: '100%' }}
+            >
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"

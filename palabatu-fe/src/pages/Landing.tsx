@@ -179,7 +179,8 @@ export default function Landing() {
         /* --- hero --- */
         .hero {
             position: relative;
-            min-height: 82vh;
+            min-height: 100vh;
+            min-height: 100dvh;
             width: 100%;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -208,7 +209,7 @@ export default function Landing() {
         .hero-stats b { color: #f0e0c8; font-weight: 600; }
         .hero-stats .dot { width: 3px; height: 3px; border-radius: 50%; background: #2a2420; }
 
-        .scroll-cue { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
+        .scroll-cue { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
         .scroll-cue svg { width: 18px; height: 18px; animation: cue-bounce 2.2s ease-in-out infinite; }
         @keyframes cue-bounce {
             0%, 100% { transform: translateY(0); opacity: 0.5; }
