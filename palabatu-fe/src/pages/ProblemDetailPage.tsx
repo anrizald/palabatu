@@ -488,6 +488,7 @@ export default function ProblemDetailPage() {
                     )}
 
                     {/* Comments / Beta */}
+                    {!isEditing && (
                     <div className="bg-panel border border-border rounded-2xl p-5">
                         <h3 className="font-serif text-lg font-bold text-text mb-4">Beta & Comments</h3>
 
@@ -552,6 +553,7 @@ export default function ProblemDetailPage() {
                             )}
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </>

@@ -329,6 +329,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     )}
 
                     {/* Comments / Beta Section */}
+                    {!isEditing && (
                     <div className="mt-8 border-t border-border pt-6">
                         <h3 className="font-serif text-lg text-text mb-4">Beta & Comments</h3>
 
@@ -394,6 +395,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                             )}
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </div>
