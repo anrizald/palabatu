@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+
+@import "tailwindcss";
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities; */
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  height: 100%;
+  width: 100%;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Shared dark palette used across the app's auth/profile-style pages
+   (Login, Signup, Header, Profile, ...). Most of those still hand-roll this
+   same palette as inline styles; these tokens exist so new/rewritten pages
+   can reference it via Tailwind utilities (bg-ink, text-accent, etc.)
+   instead of re-declaring the hex values. */
+@theme {
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', sans-serif;
+
+  --color-ink: #0f0d0b;
+  --color-panel: #141210;
+  --color-surface: #1a1612;
+  --color-border: #2a2420;
+
+  --color-accent: #c87a30;
+  --color-accent-dark: #8b4a18;
+  --color-on-accent: #fef3e6;
+
+  --color-text: #f0e0c8;
+  --color-text-secondary: #d8c8b8;
+  --color-text-muted: #8a7060;
+  --color-text-dim: #6a5848;
+  --color-text-faint: #4a3c30;
+
+  --color-council: #c87a30;
+  --color-associate: #5dbb6a;
+  --color-associate-dark: #3a8a45;
+
+  --color-danger: #e07060;
+}
+
+
+/* These are plain (unlayered) rules, which in CSS cascade-layers terms
+   unconditionally beat Tailwind's own layered utility classes regardless of
+   specificity — so they're wrapped in @layer base to sit alongside
+   Tailwind's own base/reset layer instead of silently overriding utilities
+   like bg-transparent or rounded-* on the same element. */
+@layer base {
+  a {
+    font-weight: 500;
+    color: #646cff;
+    text-decoration: inherit;
+  }
+
+  a:hover {
+    color: #535bf2;
+  }
+
+  body {
+    margin: 0;
+    display: flex;
+    place-items: center;
+    /* min-width: 320px; */
+    /* min-height: 100vh; */
+  }
+
+  h1 {
+    font-size: 3.2em;
+    line-height: 1.1;
+  }
+
+  button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background-color: #1a1a1a;
+    cursor: pointer;
+    transition: border-color 0.25s;
+  }
+
+  button:hover {
+    border-color: #646cff;
+  }
+
+  button:focus,
+  button:focus-visible {
+    outline: 4px auto -webkit-focus-ring-color;
+  }
+}
+
+/* Leaflet's own CSS gives internal panes/controls z-index up to 1000 but
+   never sets a z-index on .leaflet-container, so it never gets its own
+   stacking context — those values leak into whatever stacking context the
+   map sits in and can climb over unrelated fixed-position UI (e.g. the
+   mobile sidebar drawer). Isolate it so the map's stacking stays local. */
+.leaflet-container {
+  isolation: isolate;
+}
+
+.pinpoint-marker-icon {
+  background: transparent;
+  border: none;
+}
+
+.pinpoint-marker-bounce {
+  display: block;
+  transform-origin: bottom center;
+  animation: pinpoint-bounce 0.8s ease-in-out infinite;
+}
+
+@keyframes pinpoint-bounce {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1);
+  }
+  50% {
+    transform: scaleY(0.85) scaleX(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pinpoint-marker-bounce {
+    animation: none;
+  }
+}
+
+/* Individual-pin popups keep Leaflet's default white chrome (their text is
+   dark, styled for that background). The cluster popup instead hosts the
+   dark photo-card rail, so its wrapper/tip/close-button need the app's dark
+   panel theme or the rail would sit on a clashing plain-white box. */
+.cluster-popup .leaflet-popup-content-wrapper {
+  background: var(--color-panel);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.cluster-popup .leaflet-popup-tip {
+  background: var(--color-panel);
+  box-shadow: none;
+}
+
+.cluster-popup .leaflet-popup-close-button {
+  color: var(--color-text-muted);
+}
+
+.cluster-popup .leaflet-popup-close-button:hover {
+  color: var(--color-text);
+}
+
+.locate-sandglass-spin {
+  animation: sandglass-flip 1.6s ease-in-out infinite;
+}
+
+@keyframes sandglass-flip {
+  0%, 15% {
+    transform: rotate(0deg);
+  }
+  50%, 65% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-sandglass-spin {
+    animation: none;
+  }
+}
+
+@layer base {
+  @media (prefers-color-scheme: light) {
+    :root {
+      color: #213547;
+      background-color: #ffffff;
+    }
+
+    a:hover {
+      color: #747bff;
+    }
+
+    button {
+      background-color: #f9f9f9;
+    }
+  }
+}

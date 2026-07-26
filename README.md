@@ -1,195 +1,117 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/github_username/palabatu">
-    <img src="public/favicon_transparent.png" alt="Logo" width="80" height="80">
+  <a href="https://github.com/anrizald/palabatu">
+    <img src="palabatu-fe/public/favicon_transparent.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Palabatu</h3>
   <p align="center">
-    A community web app for Indonesian bouldering enthusiasts.
+    A community web app for Indonesian bouldering enthusiasts — interactive spot map, climber profiles, route/problem listings.
     <br />
-    <a href="https://github.com/github_username/palabatu"><strong>Explore the docs »</strong></a>
+    <strong>Status: work in progress, not yet deployed.</strong> <code>palabatu.id</code> is the planned production domain; nothing is hosted there yet.
     <br />
     <br />
-    <a href="https://palabatu.id">View Live</a>
-    &middot;
-    <a href="https://github.com/github_username/palabatu/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
-    &middot;
-    <a href="https://github.com/github_username/palabatu/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/anrizald/palabatu/issues">Report Bug / Request Feature</a>
   </p>
 </div>
 
-Working in Progress
-<!--
-TABLE OF CONTENTS
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
-<div>
+## About
 
+Palabatu is a web-first community platform for the Indonesian bouldering scene: discover spots on an interactive map, log sends, comment on problems, and maintain a climber profile.
 
-ABOUT THE PROJECT
-## About The Project
+Two independent projects live in this repo, each with its own dependency manager — install and run each separately:
 
-[![Palabatu Screenshot][product-screenshot]](https://palabatu.id)
+- **`palabatu-fe/`** — React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Map view built on React Leaflet with marker clustering. Installable as a PWA; mobile is a primary target, not an afterthought.
+- **`palabatu-be/`** — Go (Gin + `pgx/v5` + PostgreSQL). A rewrite of an earlier Node/Express backend, which has been fully retired and removed from this repo.
 
-Palabatu is a web-first community platform for the Indonesian bouldering scene. Discover bouldering spots on an interactive map, create your climber profile, and connect with the local community — all in one place.
+See [CLAUDE.md](CLAUDE.md) for the full architecture breakdown and [ROADMAP.md](ROADMAP.md) for what's shipped vs. planned.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+### Built with
 
+- React 19, TypeScript, Vite 7, Tailwind CSS 4
+- React Leaflet (interactive map, marker clustering)
+- Go, Gin, `pgx/v5`, PostgreSQL 18
+- JWT auth (`golang-jwt/jwt/v5`), Cloudinary (image uploads), Prometheus `client_golang` (HTTP metrics)
 
-
-### Built With
-
-* [![React][React.js]][React-url]
-* [![Vite][Vite]][Vite-url]
-* [![TypeScript][TypeScript]][TypeScript-url]
-* [![Node.js][Node.js]][Node-url]
-* [![Express][Express]][Express-url]
-* [![PostgreSQL][PostgreSQL]][PostgreSQL-url]
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-GETTING STARTED
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-* Node.js v18+
-* PostgreSQL
-
-* npm
-```sh
-  npm install npm@latest -g
-```
+- Node.js 20+ and npm
+- Go 1.26+
+- Docker (spins up local PostgreSQL — see step 4) or your own local PostgreSQL 18 install
 
 ### Installation
 
 1. Clone the repo
-```sh
-   git clone https://github.com/github_username/palabatu.git
-```
+   ```sh
+   git clone https://github.com/anrizald/palabatu.git
+   ```
 2. Install frontend dependencies
-```sh
-   cd client && npm install
-```
+   ```sh
+   cd palabatu-fe && npm install
+   ```
 3. Install backend dependencies
-```sh
-   cd ../server && npm install
-```
-4. Create `.env` in `/server`
-```env
-   PORT=5000
-   DATABASE_URL=postgresql://user:password@localhost:5432/palabatu
-   JWT_SECRET=your_jwt_secret
-```
-5. Create `.env` in `/client`
-```env
-   VITE_API_URL=http://localhost:5000
-```
+   ```sh
+   cd ../palabatu-be && go mod download
+   ```
+4. Start PostgreSQL and apply the schema (the `migrate` service in `docker-compose.yml` runs everything in `migrations/`, then exits)
+   ```sh
+   docker compose up -d
+   ```
+5. Create `palabatu-be/.env` from the example — the default `DATABASE_URL` already matches the docker-compose credentials; comments in the file explain where to get a JWT secret and free-tier Resend/Cloudinary credentials
+   ```sh
+   cp palabatu-be/environments/.env.example palabatu-be/.env
+   ```
+6. Create `palabatu-fe/.env`
+   ```env
+   VITE_API_URL=http://localhost:3001
+   ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-USAGE
 ## Usage
 
 ```sh
-# Start backend
-cd server && npm run dev
+# Backend
+cd palabatu-be && go run ./cmd/api      # http://localhost:3001
 
-# Start frontend (new terminal)
-cd client && npm run dev
+# Frontend (new terminal)
+cd palabatu-fe && npm run dev           # http://localhost:5173
 ```
 
-Visit `http://localhost:5173` to open the app locally.
-Visit `http://localhost:5173/map` for the interactive bouldering map.
+Vite proxies `/api` and `/auth` to the backend in dev, so `http://localhost:5173` is the only URL you need to open. The interactive map lives at `/map`.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+## Testing & CI
 
+- `npx playwright test` — end-to-end suite in `tests/` (browser binaries are already installed; the dev server auto-starts via `playwright.config.ts`)
+- `cd palabatu-fe && npm run lint` — ESLint
+- `cd palabatu-be && go vet ./...` — Go static checks
+- No unit test suite yet on either side — no Vitest config, no `_test.go` files
+- `.github/workflows/ci.yml` runs `go vet`/`go build` and `npm run lint`/`npm run build` on every PR and on push to `dev`
 
+## Database
 
-ROADMAP
+Schema lives in `migrations/` as numbered `golang-migrate` pairs. Day-to-day, use `scripts/db.ps1` instead of the raw CLI — it reads `DATABASE_URL` from `palabatu-be/.env` and refuses to run against a `neon.tech` host:
+
+```powershell
+.\scripts\db.ps1 up
+.\scripts\db.ps1 down 1
+.\scripts\db.ps1 version
+```
+
+See [CLAUDE.md](CLAUDE.md) for the full rundown, including the raw-CLI form and the production-safety rules.
+
 ## Roadmap
 
-- [x] User authentication (JWT + bcrypt)
-- [x] Profile page (username, photo, title, tags)
-- [x] Interactive bouldering map (React Leaflet)
-- [x] In-app notifications
-- [ ] Spot submission by community
-- [ ] Android PWA support
-- [ ] Social features (follows, comments)
+Auth, profiles, the interactive map, problem/spot CRUD, comments, send tracking, topo annotation, and in-app notifications are all live in dev. What's left before the first production deploy — and everything planned after it — is tracked in [ROADMAP.md](ROADMAP.md) rather than duplicated here, so it doesn't go stale.
 
-See the [open issues](https://github.com/github_username/palabatu/issues) for a full list of proposed features and known issues.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-CONTRIBUTING
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Solo/small-team project, not yet accepting outside contributions while pre-launch. Branch convention in use: `feat/`, `fix/`, `refactor/`, `revamp/`, `ui/` off `main`; CI (`go vet`, `go build`, ESLint, frontend build) runs on every PR.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-LICENSE
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+No license has been chosen yet — all rights reserved by default until one is added.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-CONTACT
 ## Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email.com
-
-Project Link: [https://github.com/github_username/palabatu](https://github.com/github_username/palabatu)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* [React Leaflet](https://react-leaflet.js.org/)
-* [shields.io](https://shields.io)
-* [Best README Template](https://github.com/othneildrew/Best-README-Template)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+[@anrizald](https://github.com/anrizald) — [github.com/anrizald/palabatu](https://github.com/anrizald/palabatu)
