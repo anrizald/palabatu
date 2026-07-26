@@ -24,13 +24,8 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/reports/:id/resolve", middleware.RequireAuth, handleResolveReport)
 }
 
-func currentUserID(claims map[string]interface{}) string {
-	id, _ := claims["id"].(string)
-	return id
-}
-
 func handleReportComment(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {
@@ -46,7 +41,7 @@ func handleReportComment(c *gin.Context) {
 }
 
 func handleReportImage(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {
@@ -80,7 +75,7 @@ func writeReportResult(c *gin.Context, rep *Report, err error) {
 }
 
 func handleListReports(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 
 	reports, err := ListPending(c.Request.Context(), userID)
 	switch {
@@ -94,7 +89,7 @@ func handleListReports(c *gin.Context) {
 }
 
 func handleResolveReport(c *gin.Context) {
-	userID := currentUserID(middleware.UserFromContext(c))
+	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {

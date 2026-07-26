@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, X } from 'lucide-react';
+import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, X } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
+import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 
 type SidebarProps = {
     isOpen: boolean;
@@ -13,15 +14,28 @@ type SidebarProps = {
 export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarProps) {
     const { user, handleLogout } = useAuth();
     const location = useLocation();
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const isMapActive = location.pathname === '/map';
     const isDirectoryActive = location.pathname === '/directory';
-    const isProfileActive = location.pathname.startsWith('/profile');
+    const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
+    const isNotificationsActive = location.pathname === '/notifications';
 
     const onLogoutClick = () => {
         onClose();
         handleLogout();
     };
+
+    useEffect(() => {
+        if (!user) {
+            setUnreadCount(0);
+            return;
+        }
+        const refresh = () => getUnreadCount(user.id).then(setUnreadCount);
+        refresh();
+        window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+        return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
+    }, [user, isOpen]);
 
     useEffect(() => {
         document.body.style.overflow = isOpen ? 'hidden' : '';
@@ -85,6 +99,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     transition: color 0.2s, background 0.2s;
                 }
                 .sidebar-close:hover { color: #f0e0c8; background: rgba(240,224,200,0.08); }
+                .sidebar-close svg { flex-shrink: 0; }
 
                 .sidebar-nav {
                     display: flex;
@@ -114,6 +129,22 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     border-left-color: #c87a30;
                 }
                 .sidebar-item.active svg { color: #c87a30; }
+                .sidebar-badge {
+                    margin-left: auto;
+                    min-width: 18px;
+                    height: 18px;
+                    padding: 0 5px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                    background: #c87a30;
+                    color: #0f0d0b;
+                    font-size: 11px;
+                    font-weight: 700;
+                    line-height: 1;
+                    flex-shrink: 0;
+                }
 
                 .sidebar-footer {
                     margin-top: auto;
@@ -148,7 +179,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     transition: background 0.2s, color 0.2s;
                     text-align: left;
                 }
-                .sidebar-logout-btn svg { color: #8a7060; transition: color 0.2s; }
+                .sidebar-logout-btn svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
                 .sidebar-logout-btn:hover { background: rgba(224,112,96,0.08); color: #e07060; }
                 .sidebar-logout-btn:hover svg { color: #e07060; }
             `}</style>
@@ -198,6 +229,14 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                                         <Flag size={18} /> Reports
                                     </Link>
                                 )}
+                                {user && (
+                                    <Link to="/notifications" className={`sidebar-item ${isNotificationsActive ? 'active' : ''}`} onClick={onClose}>
+                                        <Bell size={18} /> Notifications
+                                        {unreadCount > 0 && (
+                                            <span className="sidebar-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                        )}
+                                    </Link>
+                                )}
                             </nav>
 
                             <div className="sidebar-footer">
@@ -212,7 +251,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                                     </>
                                 ) : (
                                     <>
-                                        <Link to={`/profile/${user.id}`} className={`sidebar-item ${isProfileActive ? 'active' : ''}`} onClick={onClose}>
+                                        <Link to={`/profile/${user.slug}`} className={`sidebar-item ${isProfileActive ? 'active' : ''}`} onClick={onClose}>
                                             <User size={18} /> Profile
                                         </Link>
                                         <button onClick={onLogoutClick} className="sidebar-logout-btn">

@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Sidebar from './Sidebar.js';
+import NotificationBell from './NotificationBell.js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
@@ -17,7 +18,7 @@ export default function Header() {
 
     const isMapActive = location.pathname === '/map';
     const isDirectoryActive = location.pathname === '/directory';
-    const isProfileActive = location.pathname.startsWith('/profile');
+    const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isAdmin = userTitles.includes('Council') || userTitles.includes('Associate');
 
     useEffect(() => {
@@ -151,7 +152,8 @@ export default function Header() {
                         ) : (
                             <>
                                 {isAdmin && <Link to="/admin/reports" className="nav-link">Reports</Link>}
-                                <Link to={`/profile/${user.id}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
+                                <NotificationBell />
+                                <Link to={`/profile/${user.slug}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <button onClick={handleLogout} className="nav-logout">Logout</button>
                             </>
                         )}
@@ -170,7 +172,7 @@ export default function Header() {
                                 exit={{ rotate: 90, opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                             >
-                                <X size={22} />
+                                <X size={22} style={{ flexShrink: 0 }} />
                             </motion.span>
                         ) : (
                             <motion.span
@@ -181,7 +183,7 @@ export default function Header() {
                                 exit={{ rotate: -90, opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                             >
-                                <Menu size={22} />
+                                <Menu size={22} style={{ flexShrink: 0 }} />
                             </motion.span>
                         )}
                     </AnimatePresence>

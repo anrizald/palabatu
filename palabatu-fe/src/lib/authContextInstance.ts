@@ -5,6 +5,7 @@ export type User = {
     id: string;
     email: string;
     username: string;
+    slug: string;
 } | null;
 
 export type AuthContextType = {
@@ -14,7 +15,7 @@ export type AuthContextType = {
     setToast: (toast: ToastProps | null) => void;
     showToast: (message: string, type?: "success" | "error") => void;
     handleLogin: (email: string, password: string) => Promise<void>;
-    handleSignup: (email: string, password: string) => Promise<void>;
+    handleSignup: (email: string, password: string, username: string, termsAccepted: boolean) => Promise<void>;
     handleLogout: () => void;
 };
 

@@ -5,12 +5,16 @@ package social
 import (
 	"context"
 	"errors"
+	"log"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/notification"
+	"palabatu-be/internal/problems"
 )
 
 func HasSent(ctx context.Context, problemID, userID string) (bool, error) {
@@ -35,7 +39,29 @@ func ToggleSend(ctx context.Context, problemID, userID string) (action string, e
 	if err := createSend(ctx, problemID, userID); err != nil {
 		return "", err
 	}
+	notifySend(ctx, problemID, userID)
 	return "added", nil
+}
+
+// notifySend is best-effort, mirroring cloudinary.DestroyByURL's precedent
+// elsewhere in this codebase: a failure to look up the problem/actor or
+// write the notification row must never fail the send itself.
+func notifySend(ctx context.Context, problemID, userID string) {
+	p, err := problems.GetProblem(ctx, problemID)
+	if err != nil {
+		return
+	}
+	actor, err := auth.GetProfile(ctx, userID)
+	if err != nil {
+		return
+	}
+	username := "Someone"
+	if actor.Username != nil {
+		username = *actor.Username
+	}
+	if err := notification.NotifySend(ctx, p.CreatedBy, userID, username, problemID, p.Name); err != nil {
+		log.Printf("failed to create send notification: %v", err)
+	}
 }
 
 func ListComments(ctx context.Context, problemID string) ([]Comment, error) {
@@ -53,7 +79,49 @@ func CreateComment(ctx context.Context, problemID, userID, content string) (*Com
 	if len(content) > maxCommentLength {
 		return nil, ErrCommentTooLong
 	}
-	return createComment(ctx, problemID, userID, content)
+
+	comment, err := createComment(ctx, problemID, userID, content)
+	if err != nil {
+		return nil, err
+	}
+
+	if p, err := problems.GetProblem(ctx, problemID); err == nil {
+		if err := notification.NotifyComment(ctx, p.CreatedBy, userID, comment.Username, problemID, p.Name); err != nil {
+			log.Printf("failed to create comment notification: %v", err)
+		}
+		notifyMentions(ctx, problemID, userID, comment.Username, p.Name, content)
+	}
+
+	return comment, nil
+}
+
+// mentionPattern matches "@username" tokens in comment text. Dots are
+// allowed mid-token (real usernames in this app use them, e.g. "bagas.k")
+// but not trailing, so "@bagas.k." at the end of a sentence doesn't pull
+// the sentence-ending period into the username.
+var mentionPattern = regexp.MustCompile(`@([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)`)
+
+// notifyMentions is best-effort, same rationale as notifySend: a lookup or
+// notification-write failure must never fail the comment itself. Each
+// distinct @username in content is resolved and notified at most once,
+// skipping the comment's own author.
+func notifyMentions(ctx context.Context, problemID, authorID, authorUsername, problemName, content string) {
+	notified := map[string]bool{}
+	for _, match := range mentionPattern.FindAllStringSubmatch(content, -1) {
+		username := strings.ToLower(match[1])
+		if notified[username] {
+			continue
+		}
+		notified[username] = true
+
+		mentionedID, err := auth.GetUserIDByUsername(ctx, match[1])
+		if err != nil || mentionedID == authorID {
+			continue
+		}
+		if err := notification.NotifyMention(ctx, mentionedID, authorID, authorUsername, problemID, problemName); err != nil {
+			log.Printf("failed to create mention notification: %v", err)
+		}
+	}
 }
 
 var validReactionTypes = map[string]bool{"like": true, "fire": true, "heart": true}
@@ -81,7 +149,25 @@ func ToggleReaction(ctx context.Context, profileID, userID, reactionType string)
 	if err := createReaction(ctx, profileID, userID, reactionType); err != nil {
 		return "", err
 	}
+	notifyReaction(ctx, profileID, userID, reactionType)
 	return "added", nil
+}
+
+// notifyReaction is best-effort, same rationale as notifySend. profileID is
+// the reacted-to profile's own id (profiles are 1:1 with users), so it
+// doubles directly as the recipient — no separate owner lookup needed.
+func notifyReaction(ctx context.Context, profileID, userID, reactionType string) {
+	actor, err := auth.GetProfile(ctx, userID)
+	if err != nil {
+		return
+	}
+	username := "Someone"
+	if actor.Username != nil {
+		username = *actor.Username
+	}
+	if err := notification.NotifyReaction(ctx, profileID, userID, username, reactionType); err != nil {
+		log.Printf("failed to create reaction notification: %v", err)
+	}
 }
 
 func GetReactionCounts(ctx context.Context, profileID string) (ReactionCounts, error) {

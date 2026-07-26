@@ -75,10 +75,11 @@ func listPendingReports(ctx context.Context) ([]Report, error) {
 }
 
 // getReportTarget backs Resolve's authorization/dispatch decision — which
-// content to remove and whether the report is still actionable.
-func getReportTarget(ctx context.Context, id string) (targetType string, commentID, imageURL *string, problemID, status string, err error) {
-	err = db.Pool.QueryRow(ctx, `SELECT target_type, comment_id, image_url, problem_id, status FROM reports WHERE id = $1`, id).
-		Scan(&targetType, &commentID, &imageURL, &problemID, &status)
+// content to remove, whether the report is still actionable, and (via
+// reporterID) who to notify once it's resolved.
+func getReportTarget(ctx context.Context, id string) (targetType string, commentID, imageURL *string, problemID, reporterID, status string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT target_type, comment_id, image_url, problem_id, reporter_id, status FROM reports WHERE id = $1`, id).
+		Scan(&targetType, &commentID, &imageURL, &problemID, &reporterID, &status)
 	return
 }
 

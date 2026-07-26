@@ -10,3 +10,14 @@ export const GRADE_SCALES = {
 } as const;
 
 export type ProblemType = keyof typeof GRADE_SCALES;
+
+export const circleButtonStyle = {
+    background: '#141210',
+    border: '1px solid #c87a30',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+    transition: 'all 0.2s',
+} as const;

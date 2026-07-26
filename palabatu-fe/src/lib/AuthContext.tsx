@@ -44,11 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleSignup = async (email: string, password: string) => {
+    const handleSignup = async (email: string, password: string, username: string, termsAccepted: boolean) => {
         setIsLoading(true);
         try {
-            const username = email.split('@')[0];
-            const data = await api.post('/auth/signup', { email, password, username });
+            const data = await api.post('/auth/signup', { email, password, username, terms_accepted: termsAccepted });
             if (data.error) {
                 showToast(data.error, 'error');
             } else {

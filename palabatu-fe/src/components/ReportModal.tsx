@@ -17,50 +17,29 @@ export default function ReportModal({ target, onClose, onSubmit, isSubmitting = 
     return (
         <div
             onClick={onClose}
-            style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(10, 9, 8, 0.75)', backdropFilter: 'blur(4px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: 10001, padding: '16px'
-            }}
+            className="fixed inset-0 bg-ink/75 backdrop-blur-sm flex items-center justify-center z-[10001] p-4"
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                    background: '#141210', border: '1px solid #2a2420', borderRadius: '20px',
-                    width: '100%', maxWidth: '420px', maxHeight: '90vh', overflowY: 'auto',
-                    fontFamily: "'DM Sans', sans-serif", color: '#f0e0c8',
-                    display: 'flex', flexDirection: 'column'
-                }}
+                className="bg-panel border border-border rounded-[20px] w-full max-w-[420px] max-h-[90vh] overflow-y-auto font-sans text-text flex flex-col"
             >
-                <div style={{
-                    padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    borderBottom: '1px solid #2a2420'
-                }}>
-                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', margin: 0 }}>
+                <div className="px-5 py-4 flex justify-between items-center border-b border-border">
+                    <h3 className="font-serif text-lg m-0">
                         Report {target.type === 'comment' ? 'Comment' : 'Image'}
                     </h3>
-                    <button onClick={onClose} style={{
-                        background: 'none', border: 'none', color: '#8a7060', fontSize: '22px', cursor: 'pointer', lineHeight: 1
-                    }}>&times;</button>
+                    <button onClick={onClose} className="bg-transparent border-0 text-text-muted text-[22px] cursor-pointer leading-none">&times;</button>
                 </div>
 
-                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="px-5 py-4 flex flex-col gap-3.5">
                     {target.type === 'comment' ? (
-                        <div style={{
-                            fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)',
-                            padding: '12px', borderRadius: '12px', border: '1px solid #2a2420', lineHeight: 1.4
-                        }}>
+                        <div className="text-[13px] text-text-secondary bg-panel/50 p-3 rounded-xl border border-border leading-[1.4]">
                             {target.content}
                         </div>
                     ) : (
                         <img
                             src={target.url}
                             alt="Reported content"
-                            style={{
-                                width: '100%', maxHeight: '200px', objectFit: 'cover',
-                                borderRadius: '12px', border: '1px solid #2a2420'
-                            }}
+                            className="w-full max-h-[200px] object-cover rounded-xl border border-border"
                         />
                     )}
 
@@ -69,34 +48,20 @@ export default function ReportModal({ target, onClose, onSubmit, isSubmitting = 
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Why are you reporting this? (optional)"
                         rows={3}
-                        style={{
-                            width: '100%', resize: 'vertical', background: '#1a1612',
-                            border: '1px solid #2a2420', borderRadius: '12px', padding: '12px',
-                            color: '#f0e0c8', outline: 'none', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
-                            boxSizing: 'border-box'
-                        }}
+                        className="w-full resize-y bg-surface border border-border rounded-xl p-3 text-text outline-none font-sans text-[13px] box-border"
                     />
 
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div className="flex gap-2.5 flex-wrap">
                         <button
                             onClick={onClose}
-                            style={{
-                                flex: '1 1 120px', padding: '10px', background: 'transparent',
-                                border: '1px solid #2a2420', borderRadius: '10px', color: '#8a7060',
-                                fontSize: '13px', cursor: 'pointer'
-                            }}
+                            className="flex-[1_1_120px] p-2.5 bg-transparent border border-border rounded-[10px] text-text-muted text-[13px] cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={() => onSubmit(reason.trim())}
                             disabled={isSubmitting}
-                            style={{
-                                flex: '1 1 120px', padding: '10px', background: 'rgba(220, 53, 69, 0.15)',
-                                border: '1px solid rgba(220, 53, 69, 0.4)', borderRadius: '10px', color: '#dc3545',
-                                fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                                opacity: isSubmitting ? 0.6 : 1
-                            }}
+                            className={`flex-[1_1_120px] p-2.5 bg-danger/15 border border-danger/40 rounded-[10px] text-danger text-[13px] font-bold cursor-pointer ${isSubmitting ? 'opacity-60' : 'opacity-100'}`}
                         >
                             {isSubmitting ? 'Reporting...' : 'Submit Report'}
                         </button>

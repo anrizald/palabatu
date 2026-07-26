@@ -6,7 +6,10 @@ import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
 import ReportModal, { type ReportTarget } from './ReportModal.js';
+import TopoImage from './topo-annotations/TopoImage.js';
+import type { Shape } from '../types/annotation.js';
 import type { ProblemRow } from '../types/problem.js';
+import { MapPin, Flame } from 'lucide-react';
 
 type ProblemDetailsProps = {
     problem: ProblemRow;
@@ -25,6 +28,7 @@ type Comment = {
     username: string;
     created_at: string;
     user_id: string;
+    user_slug: string;
 };
 
 export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate, isPicking = false, setIsPicking, pickedCoords }: ProblemDetailsProps) {
@@ -51,6 +55,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [annotationsByUrl, setAnnotationsByUrl] = useState<Record<string, Shape[]>>({});
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
     const [toast, setToast] = useState<ToastProps | null>(null);
@@ -87,6 +92,14 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         if (!pickedCoords) return;
         setEditForm(prev => ({ ...prev, lat: pickedCoords.lat, lng: pickedCoords.lng }));
     }, [pickedCoords]);
+
+    useEffect(() => {
+        api.get(`/api/problems/${problem.id}/annotations`).then(rows => {
+            if (Array.isArray(rows)) {
+                setAnnotationsByUrl(Object.fromEntries(rows.map((r: { image_url: string; data: Shape[] }) => [r.image_url, r.data])));
+            }
+        }).catch((e: unknown) => console.error('Failed to fetch annotations', e));
+    }, [problem.id]);
 
     const handleToggleSend = async () => {
         setIsTogglingSend(true);
@@ -213,35 +226,17 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
 
     if (isPicking) {
         return (
-            <div style={{
-                position: 'fixed', bottom: '32px', left: '32px',
-                background: 'rgba(20,18,16,0.97)', border: '1px solid #c87a30',
-                borderRadius: '16px', padding: '16px 20px',
-                zIndex: 10000, fontFamily: "'DM Sans', sans-serif",
-                boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
-                display: 'flex', flexDirection: 'column', gap: '10px',
-                minWidth: '220px'
-            }}>
-                <p style={{ fontSize: '13px', color: '#f0e0c8', fontWeight: 500 }}>
-                    📍 Click on the map to set the new location
+            <div className="fixed bottom-8 left-8 bg-panel/[0.97] border border-accent rounded-2xl px-5 py-4 z-[10000] font-sans shadow-[0_4px_24px_rgba(0,0,0,0.5)] flex flex-col gap-2.5 min-w-[220px]">
+                <p className="text-[13px] text-text font-medium flex items-center gap-1.5">
+                    <MapPin size={14} className="shrink-0" /> Click on the map to set the new location
                 </p>
-                <button onClick={() => setIsPicking?.(false)} style={{
-                    padding: '7px 14px', background: 'transparent',
-                    border: '1px solid #2a2420', borderRadius: '8px',
-                    color: '#6a5848', fontFamily: "'DM Sans', sans-serif",
-                    fontSize: '12px', cursor: 'pointer'
-                }}>Cancel</button>
+                <button onClick={() => setIsPicking?.(false)} className="px-3.5 py-[7px] bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">Cancel</button>
             </div>
         );
     }
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(15, 13, 11, 0.85)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-            padding: '20px 0 0 0'
-        }}>
+        <div className="fixed inset-0 bg-ink/85 backdrop-blur-sm flex items-center justify-center z-[9999] pt-5">
             {toast && <Toast {...toast} />}
             {reportTarget && (
                 <ReportModal
@@ -251,94 +246,67 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     isSubmitting={isSubmittingReport}
                 />
             )}
-            <div style={{
-                background: '#141210', borderTop: '1px solid #2a2420',
-                borderRadius: '24px',
-                border: '1px solid #2a2420',
-                borderLeft: '1px solid #2a2420', borderRight: '1px solid #2a2420',
-                width: '100%', maxWidth: '500px', maxHeight: '90vh', height: 'auto',
-                display: 'flex', flexDirection: 'column',
-                fontFamily: "'DM Sans', sans-serif", color: '#f0e0c8', overflow: 'hidden'
-            }}>
-                <div style={{ padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2a2420' }}>
-                    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', margin: 0 }}>{problem.name}</h2>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <Link to={`/problems/${problem.id}`} style={{ color: '#c87a30', fontSize: '11px', fontWeight: 'bold', textDecoration: 'none' }}>
-                            Full page ↗
+            <div className="bg-panel border border-border rounded-3xl w-full max-w-[500px] max-h-[90vh] h-auto flex flex-col font-sans text-text overflow-hidden">
+                <div className="px-5 py-2 flex justify-between items-center border-b border-border">
+                    <h2 className="font-serif text-2xl m-0">{problem.name}</h2>
+                    <div className="flex items-center gap-3.5">
+                        <Link to={`/problems/${problem.id}`} className="text-accent text-[11px] font-bold no-underline">
+                            Full page &#8599;
                         </Link>
-                        <button onClick={onClose} style={{
-                            background: 'none', border: 'none', color: '#8a7060', fontSize: '24px', cursor: 'pointer',
-                            lineHeight: 1
-                        }}>&times;</button>
+                        <button onClick={onClose} className="bg-transparent border-0 text-text-muted text-2xl cursor-pointer leading-none">&times;</button>
                     </div>
                 </div>
 
-                <div style={{ overflowY: 'auto', flex: 1, padding: '0 20px 20px' }}>
+                <div className="overflow-y-auto flex-1 px-5 pb-5">
 
                     {problem.image_urls && problem.image_urls.length > 0 && (
-                        <div style={{ margin: '20px 0' }}>
+                        <div className="my-5">
                             <HorizontalScrollCarousel itemCount={problem.image_urls.length}>
                                 {problem.image_urls.map((url: string, i: number) => (
-                                    <div key={i} style={{ position: 'relative', scrollSnapAlign: 'center', flexShrink: 0 }}>
-                                        <img src={url} alt="Topo" style={{
-                                            height: '300px', width: '80vw', maxWidth: '400px', objectFit: 'cover',
-                                            borderRadius: '16px', display: 'block'
-                                        }} />
-                                        {user && (
-                                            <button
-                                                onClick={() => setReportTarget({ type: 'image', url })}
-                                                title="Report image"
-                                                style={{
-                                                    position: 'absolute', top: '8px', right: '8px',
-                                                    background: 'rgba(20,18,16,0.75)', backdropFilter: 'blur(6px)',
-                                                    border: '1px solid #2a2420', color: '#f0e0c8',
-                                                    width: '28px', height: '28px', borderRadius: '50%',
-                                                    cursor: 'pointer', fontSize: '13px',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                }}>
-                                                ⚑
-                                            </button>
-                                        )}
+                                    <div key={i} className="shrink-0" style={{ scrollSnapAlign: 'center' }}>
+                                        <TopoImage
+                                            problemId={String(problem.id)}
+                                            url={url}
+                                            shapes={annotationsByUrl[url] ?? []}
+                                            canEdit={!!canEdit}
+                                            canReport={!!user}
+                                            onReport={() => setReportTarget({ type: 'image', url })}
+                                            onSaved={(shapes) => setAnnotationsByUrl(prev => ({ ...prev, [url]: shapes }))}
+                                            className="h-[300px] w-[80vw] max-w-[400px] rounded-2xl"
+                                        />
                                     </div>
                                 ))}
                             </HorizontalScrollCarousel>
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+                    <div className="flex justify-between items-center mt-5">
                         <div>
-                            <span style={{ background: 'rgba(200,122,48,0.15)', color: '#c87a30', padding: '6px 14px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold', marginRight: '10px' }}>
+                            <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-sm font-bold mr-2.5">
                                 {problem.grade}
                             </span>
-                            <span style={{ fontSize: '13px', color: '#8a7060' }}>📍 {problem.location_name}</span>
+                            <span className="inline-flex items-center gap-1 text-[13px] text-text-muted">
+                                <MapPin size={12} className="shrink-0" /> {problem.location_name}
+                            </span>
                         </div>
 
                         <button
                             onClick={handleToggleSend}
                             disabled={isTogglingSend}
-                            style={{
-                                background: hasSent ? 'rgba(93,187,106,0.15)' : '#c87a30',
-                                color: hasSent ? '#5dbb6a' : '#fff',
-                                border: hasSent ? '1px solid #5dbb6a' : 'none',
-                                padding: '10px 16px',
-                                borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '6px',
-                                transition: 'all 0.2s',
-                                opacity: isTogglingSend ? 0.6 : 1
-                            }}>
-                            {hasSent ? '✅ Sent!' : 'Log Send'}
+                            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold transition-colors ${hasSent ? 'bg-associate/15 border border-associate text-associate' : 'bg-accent text-on-accent border border-transparent'} ${isTogglingSend ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
                         </button>
                     </div>
-                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#6a5848' }}>
-                        Added by <Link to={`/profile/${problem.created_by}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>{problem.creator_name || 'unknown'}</Link>
-                        {' '}•🔥 {sendCount} {sendCount === 1 ? 'Send' : 'Sends'}
+                    <div className="mt-3 text-xs text-text-dim flex items-center gap-1">
+                        Added by <Link to={`/profile/${problem.creator_slug}`} className="text-accent no-underline font-bold">{problem.creator_name || 'unknown'}</Link>
+                        <span>• <Flame size={11} className="inline shrink-0" /> {sendCount} {sendCount === 1 ? 'Send' : 'Sends'}</span>
                     </div>
 
                     {/* Edit/Delete if Owner */}
                     {canEdit && (
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-                            <button onClick={() => setIsEditing(true)} style={{ flex: 1, padding: '8px', background: 'rgba(200,122,48,0.1)', border: '1px solid #c87a3040', color: '#c87a30', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Edit Details</button>
-                            <button onClick={handleDelete} disabled={isProcessing} style={{ flex: 1, padding: '8px', background: 'rgba(220, 53, 69, 0.1)', border: '1px solid rgba(220, 53, 69, 0.4)', color: '#dc3545', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
+                        <div className="flex gap-3 mt-5">
+                            <button onClick={() => setIsEditing(true)} className="flex-1 p-2 bg-accent/10 border border-accent/25 text-accent rounded-lg cursor-pointer text-xs">Edit Details</button>
+                            <button onClick={handleDelete} disabled={isProcessing} className="flex-1 p-2 bg-danger/10 border border-danger/40 text-danger rounded-lg cursor-pointer text-xs">Delete</button>
                         </div>
                     )}
 
@@ -360,60 +328,53 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                         />
                     )}
 
-                    {/* 4. Comments / Beta Section (Placeholder UI) */}
-                    <div style={{ marginTop: '32px', borderTop: '1px solid #2a2420', paddingTop: '24px' }}>
-                        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: '#f0e0c8', marginBottom: '16px' }}>Beta & Comments</h3>
+                    {/* Comments / Beta Section */}
+                    {!isEditing && (
+                    <div className="mt-8 border-t border-border pt-6">
+                        <h3 className="font-serif text-lg text-text mb-4">Beta & Comments</h3>
 
                         {/* Input Area */}
                         {user ? (
-                            < div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                            <div className="flex gap-2.5 mb-5">
                                 <input
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
                                     placeholder="Share your beta..."
-                                    style={{ flex: 1, background: '#1a1612', border: '1px solid #2a2420', padding: '12px', borderRadius: '12px', color: '#fff', outline: 'none' }}
+                                    className="flex-1 bg-surface border border-border focus:border-accent rounded-xl px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
                                 />
                                 <button
                                     onClick={handlePostComment}
                                     disabled={isPostingComment || !newComment.trim()}
-                                    style={{
-                                        background: '#2a2420', color: '#c87a30', border: 'none',
-                                        padding: '0 16px', borderRadius: '12px', fontWeight: 'bold',
-                                        cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                                        opacity: isPostingComment || !newComment.trim() ? 0.5 : 1
-                                    }}>
+                                    className="bg-surface text-accent px-4 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                                     {isPostingComment ? '...' : 'Post'}
                                 </button>
                             </div>
                         ) : (
-                            <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>Log in to comment!</div>
+                            <div className="text-sm text-text-dim italic mb-5">Log in to comment!</div>
                         )}
 
                         {/* Comments */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div className="flex flex-col gap-4">
                             {comments.length === 0 ? (
-                                <div style={{ fontSize: '13px', color: '#6a5848', fontStyle: 'italic' }}>No beta yet. Be the first!</div>
+                                <div className="text-sm text-text-dim italic">No beta yet. Be the first!</div>
                             ) : (
                                 comments.map(comment => {
                                     const canDeleteComment = user && (user.id === comment.user_id || isCouncil);
                                     return (
-                                        <div key={comment.id} style={{ fontSize: '13px', color: '#d8c8b8', background: 'rgba(20,18,16,0.5)', padding: '12px', borderRadius: '12px', border: '1px solid #2a2420' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <Link to={`/profile/${comment.user_id}`} style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 'bold' }}>
+                                        <div key={comment.id} className="text-sm text-text-secondary bg-ink/50 p-3 rounded-xl border border-border">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <Link to={`/profile/${comment.user_slug}`} className="text-accent font-bold no-underline hover:underline">
                                                     {comment.username}
                                                 </Link>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ color: '#6a5848', fontSize: '11px' }}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-text-dim text-[11px]">
                                                         {new Date(comment.created_at).toLocaleDateString()}
                                                     </span>
                                                     {user && user.id !== comment.user_id && (
                                                         <button
                                                             onClick={() => setReportTarget({ type: 'comment', id: comment.id, content: comment.content })}
-                                                            style={{
-                                                                background: 'none', border: 'none', color: '#8a7060',
-                                                                fontSize: '11px', cursor: 'pointer', padding: 0
-                                                            }}>
+                                                            className="bg-transparent border-0 text-text-muted text-[11px] cursor-pointer p-0">
                                                             Report
                                                         </button>
                                                     )}
@@ -421,25 +382,22 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                                                         <button
                                                             onClick={() => handleDeleteComment(comment.id)}
                                                             disabled={deletingCommentId === comment.id}
-                                                            style={{
-                                                                background: 'none', border: 'none', color: '#dc3545',
-                                                                fontSize: '11px', cursor: 'pointer', padding: 0,
-                                                                opacity: deletingCommentId === comment.id ? 0.5 : 1
-                                                            }}>
+                                                            className="bg-transparent border-0 text-danger text-[11px] cursor-pointer p-0 disabled:opacity-50">
                                                             Delete
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div style={{ lineHeight: '1.4' }}>{comment.content}</div>
+                                            <div className="leading-relaxed">{comment.content}</div>
                                         </div>
                                     );
                                 })
                             )}
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
-        </div >
+        </div>
     )
 }

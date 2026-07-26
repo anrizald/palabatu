@@ -59,7 +59,7 @@ export default function VerifyEmail() {
                     )}
                     {status === 'error' && (
                         <>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><CircleX size={36} color="#e07060" /></div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><CircleX size={36} color="#e07060" style={{ flexShrink: 0 }} /></div>
                             <h2 style={{
                                 fontFamily: "'Playfair Display', serif",
                                 fontSize: '24px', fontWeight: 900,

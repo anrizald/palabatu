@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Palabatu — a community web app for Indonesian bouldering enthusiasts (interactive spot map, climber profiles, route/problem listings). Live at https://palabatu.id. Status: work in progress.
+Palabatu — a community web app for Indonesian bouldering enthusiasts (interactive spot map, climber profiles, route/problem listings). Status: work in progress, not yet deployed. https://palabatu.id is the planned production domain (referenced in CORS config, OG tags, etc.) but nothing is hosted there yet — no hosting/deploy setup exists in this repo.
 
 ## Repo layout: two independent projects
 
 The frontend (`palabatu-fe/`) and the backend (`palabatu-be/`) are **separate projects** — separate dependency managers and no shared config. Install and run each independently.
 
-`palabatu-be/` is a Go rewrite of what was originally a Node/Express backend. The Node backend has been fully retired and removed from this repo — `palabatu-be/` (Go) is now the only backend and the one that serves https://palabatu.id.
+`palabatu-be/` is a Go rewrite of what was originally a Node/Express backend. The Node backend has been fully retired and removed from this repo — `palabatu-be/` (Go) is now the only backend and is the one that will serve https://palabatu.id once deployed.
 
 ## Commands
 
@@ -32,9 +32,20 @@ go build ./cmd/api # compiles a binary
 go vet ./...
 ```
 
-There is no test suite configured in either project (no test script/runner in the frontend, no `_test.go` files yet in the backend). Don't assume Vitest/`go test` coverage exists — check before referencing test commands.
+There is no test suite configured in either project (no test script/runner in the frontend, no `_test.go` files yet in the backend) — see below for the separate root-level Playwright e2e suite. Don't assume Vitest/`go test` coverage exists — check before referencing test commands.
 
 Both `palabatu-fe/` and `palabatu-be/` must run simultaneously for the app to work end to end. Vite proxies `/api` and `/auth` to `http://localhost:3001` in dev ([palabatu-fe/vite.config.ts](palabatu-fe/vite.config.ts)), and `palabatu-fe/src/lib/api.ts` falls back to `VITE_API_URL` or `http://localhost:3001` otherwise.
+
+## Browser automation & E2E testing
+
+Playwright is already installed (`@playwright/test` dev dependency) and the browser
+binaries are already downloaded. Do NOT run `npm install playwright`,
+`npx playwright install`, or install chrome-cli — the tooling is in place.
+
+- Run tests: `npx playwright test`  (add `--headed` to watch, `--debug` for inspector)
+- Screenshot a page: `npx playwright screenshot http://localhost:5173 out.png`
+- The Vite dev server auto-starts via the `webServer` block in playwright.config.ts.
+- Tests live in `tests/`; base URL is http://localhost:5173.
 
 ## Database migrations (`migrations/`)
 
@@ -96,11 +107,17 @@ palabatu-be/
 │   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
 │   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
-│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization
-│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar
+│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization,
+│   │   │                    # topo photo annotation (drawn route lines/holds)
+│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar, /problems/:id/annotations
 │   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
 │   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
 │   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditProblem
+│   │   ├── annotation.go / annotation_repository.go / annotation_handler.go
+│   │   │                    # ListAnnotations/SaveAnnotation for `topo_annotations` (one vector-shape overlay per
+│   │   │                    # problem image, keyed by (problem_id, image_url) since images have no per-row id — same
+│   │   │                    # precedent as `report`'s image reports); reuses authorizeProblemEdit/getProblemOwnerAndImages
+│   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
 │   │   ├── repository.go    # `problems` table queries
 │   │   └── errors.go        # ErrNotFound, ErrForbidden
 │   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
@@ -117,7 +134,8 @@ palabatu-be/
 - Prometheus: `internal/metrics.Middleware` (registered via `r.Use`) records `http_requests_total` and `http_request_duration_seconds`, labeled by method, matched route pattern (`c.FullPath()`, e.g. `/problems/:id` — not the raw path, to keep cardinality bounded), and status. `GET /metrics` serves `promhttp.Handler()` (wrapped via `gin.WrapH`) for a Prometheus server to scrape. No business/domain metrics yet, just HTTP-layer instrumentation.
 - `auth.User.Password` and `.IsVerified` are tagged `json:"-"` so the struct can be serialized directly as an API response (used by `/session` and `/signin`) without ever leaking the password hash.
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing `palabatu-fe`'s `AuthContext.tsx` expects (it displays `data.error` directly in a toast) — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
-- `auth.Signup` treats *any* `createUser` failure as "email already exists" (400) — a deliberately preserved quirk (its catch-all doesn't distinguish a unique-constraint violation from other DB errors), not a bug.
+- `auth.Signup` requires `email`, `username`, and `password` to be non-empty and `terms_accepted` to be `true` (`ErrMissingFields`/`ErrTermsNotAccepted`), then creates the `users` row and its `profiles` row together in one DB transaction (`insertUserAndProfile` in `repository.go`) — a profile exists from the moment of signup rather than being created lazily on first edit (see `GetProfile`'s doc comment for the pre-existing-account fallback this replaced). `createUser` distinguishes the `users_email_key` and `users_username_key` constraint violations, returning `ErrEmailExists`/`ErrUsernameExists` respectively, so a username collision no longer gets misreported as "email already exists" — that conflation was tolerable back when username was silently derived from the email's local part, but stopped being tenable once `palabatu-fe`'s signup form made username a real, user-typed, user-facing field. If the verification email fails to send, the whole signup (user + profile) is rolled back via `deleteUser`, relying on `profiles_id_fkey`'s `ON DELETE CASCADE` (migrations/0003) to take the profile row with it.
+- `users.terms_accepted_at` (migrations/0009) records ToS/privacy-policy consent at signup — relevant given Indonesia's UU PDP personal-data-protection law. Nullable at the DB level (existing pre-migration accounts have no value and were never asked); enforcement that new signups must accept happens in `auth.Signup`, not via a NOT NULL constraint.
 - `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `problems.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `auth.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `auth.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
@@ -125,6 +143,8 @@ palabatu-be/
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
+- Topo photo annotation (drawing route lines/holds on a problem's photo): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx`. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
+- **lucide-react icons inside a `display:flex`/`inline-flex` parent can render at 0 width** (confirmed repeatedly live via `getComputedStyle` — height resolves correctly but width resolves to `0px` — despite correct SVG markup, `currentColor`, and computed `color`) — a real, reproducible rendering bug in this app's environment, not a hypothetical. Any icon that is a child of a flex-display element (inline `style={{display:'flex'}}`, Tailwind `flex`/`inline-flex` classes, or a CSS class rule) needs an explicit `flexShrink:0` (inline) / `shrink-0` (Tailwind) / `flex-shrink: 0` (CSS rule) on the icon itself. `tsc`/`eslint` passing is never sufficient evidence a new icon-in-a-flex-button actually renders — visually verify (screenshot or live) any new one.
 
 ## Known WIP rough edges
 

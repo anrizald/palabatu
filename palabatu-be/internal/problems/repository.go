@@ -11,16 +11,18 @@ import (
 // ProblemListItem is the shape returned by GET /problems, matching the
 // aliases in palabatu-be/routes/api.ts's SELECT.
 type ProblemListItem struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Grade        *string  `json:"grade"`
-	LocationName *string  `json:"location_name"`
-	Latitude     *float64 `json:"latitude"`
-	Longitude    *float64 `json:"longitude"`
-	CreatedBy    *string  `json:"created_by"`
-	ImageURLs    []string `json:"image_urls"`
-	CreatorName  *string  `json:"creator_name"`
-	SendCount    int      `json:"send_count"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Grade        *string   `json:"grade"`
+	LocationName *string   `json:"location_name"`
+	Latitude     *float64  `json:"latitude"`
+	Longitude    *float64  `json:"longitude"`
+	CreatedBy    *string   `json:"created_by"`
+	ImageURLs    []string  `json:"image_urls"`
+	CreatorName  *string   `json:"creator_name"`
+	CreatorSlug  *string   `json:"creator_slug"`
+	SendCount    int       `json:"send_count"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ProblemSummary is the shape returned by POST /problems's RETURNING clause.
@@ -59,6 +61,7 @@ type ProblemDetail struct {
 	CreatedBy    *string   `json:"created_by"`
 	ImageURLs    []string  `json:"image_urls"`
 	CreatorName  *string   `json:"creator_name"`
+	CreatorSlug  *string   `json:"creator_slug"`
 	SendCount    int       `json:"send_count"`
 	CreatedAt    time.Time `json:"created_at"`
 }
@@ -75,9 +78,12 @@ func listProblems(ctx context.Context) ([]ProblemListItem, error) {
 			p.created_by,
 			p.image_urls,
 			pr.username AS creator_name,
-			COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count
+			u.slug AS creator_slug,
+			COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count,
+			p.created_at
 		FROM problems p
 		LEFT JOIN profiles pr ON p.created_by = pr.id
+		LEFT JOIN users u ON p.created_by = u.id
 	`)
 	if err != nil {
 		return nil, err
@@ -89,7 +95,7 @@ func listProblems(ctx context.Context) ([]ProblemListItem, error) {
 		var p ProblemListItem
 		if err := rows.Scan(
 			&p.ID, &p.Name, &p.Grade, &p.LocationName, &p.Latitude, &p.Longitude,
-			&p.CreatedBy, &p.ImageURLs, &p.CreatorName, &p.SendCount,
+			&p.CreatedBy, &p.ImageURLs, &p.CreatorName, &p.CreatorSlug, &p.SendCount, &p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -111,14 +117,16 @@ func getProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 			p.created_by,
 			p.image_urls,
 			pr.username AS creator_name,
+			u.slug AS creator_slug,
 			p.created_at,
 			COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count
 		FROM problems p
 		LEFT JOIN profiles pr ON p.created_by = pr.id
+		LEFT JOIN users u ON p.created_by = u.id
 		WHERE p.id = $1
 	`, id).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.LocationName, &p.Latitude, &p.Longitude,
-		&p.CreatedBy, &p.ImageURLs, &p.CreatorName, &p.CreatedAt, &p.SendCount,
+		&p.CreatedBy, &p.ImageURLs, &p.CreatorName, &p.CreatorSlug, &p.CreatedAt, &p.SendCount,
 	)
 	if err != nil {
 		return nil, err

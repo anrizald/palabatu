@@ -1,16 +1,18 @@
 import 'leaflet/dist/leaflet.css';
 import { api } from '../lib/api.js';
-import Header from '../components/Header.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 import HorizontalScrollCarousel from '../components/HorizontalScrollCarousel.js';
 import ProblemEditForm from '../components/ProblemEditForm.js';
 import PinpointMarker from '../components/PinpointMarker.js';
 import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
+import TopoImage from '../components/topo-annotations/TopoImage.js';
+import type { Shape } from '../types/annotation.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
 import { MapPin, Calendar, Share2, ArrowLeft, Flame, Map as MapIcon } from 'lucide-react';
+import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
 
 type ProblemDetail = {
     id: string;
@@ -22,6 +24,7 @@ type ProblemDetail = {
     created_by: string | null;
     image_urls: string[];
     creator_name: string | null;
+    creator_slug: string | null;
     send_count: number;
     created_at: string;
 };
@@ -39,6 +42,7 @@ type Comment = {
     username: string;
     created_at: string;
     user_id: string;
+    user_slug: string;
 };
 
 function formatDate(iso: string) {
@@ -79,6 +83,7 @@ export default function ProblemDetailPage() {
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [annotationsByUrl, setAnnotationsByUrl] = useState<Record<string, Shape[]>>({});
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
@@ -116,6 +121,12 @@ export default function ProblemDetailPage() {
 
         api.get(`/api/problems/${id}/comments`).then(data => {
             if (data && !data.error) setComments(data);
+        });
+
+        api.get(`/api/problems/${id}/annotations`).then(rows => {
+            if (Array.isArray(rows)) {
+                setAnnotationsByUrl(Object.fromEntries(rows.map((r: { image_url: string; data: Shape[] }) => [r.image_url, r.data])));
+            }
         });
     }, [id]);
 
@@ -277,29 +288,27 @@ export default function ProblemDetailPage() {
 
     const joinDate = useMemo(() => problem ? formatDate(problem.created_at) : null, [problem]);
 
+    const markerPosition = useMemo<[number, number] | null>(() => {
+        if (problem?.latitude == null || problem?.longitude == null) return null;
+        return [editForm.lat || problem.latitude, editForm.lng || problem.longitude];
+    }, [editForm.lat, editForm.lng, problem?.latitude, problem?.longitude]);
+
     if (isLoading) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex items-center justify-center">
-                <div className="text-text-muted font-serif tracking-wider">Loading problem...</div>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="text-text-muted font-serif tracking-wider">Loading problem...</div>
+        </div>
     );
 
     if (loadError || !problem) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="font-serif text-2xl font-black text-text">Problem not found</div>
-                <div className="text-sm text-text-dim">{loadError}</div>
-                <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="font-serif text-2xl font-black text-text">Problem not found</div>
+            <div className="text-sm text-text-dim">{loadError}</div>
+            <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
+        </div>
     );
 
     return (
         <>
-            <Header />
             {toast && <Toast {...toast} />}
             {reportTarget && (
                 <ReportModal
@@ -313,7 +322,7 @@ export default function ProblemDetailPage() {
             <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
                 <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                     <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit">
-                        <ArrowLeft size={14} /> Back to Directory
+                        <ArrowLeft size={14} className="shrink-0" /> Back to Directory
                     </Link>
 
                     {/* Hero */}
@@ -321,17 +330,17 @@ export default function ProblemDetailPage() {
                         {problem.image_urls && problem.image_urls.length > 0 && (
                             <HorizontalScrollCarousel itemCount={problem.image_urls.length} outerMarginX={0} paddingX={0}>
                                 {problem.image_urls.map((url, i) => (
-                                    <div key={i} className="relative shrink-0" style={{ scrollSnapAlign: 'center' }}>
-                                        <img src={url} alt="Topo" className="h-[320px] w-full max-w-[820px] object-cover" />
-                                        {user && (
-                                            <button
-                                                onClick={() => setReportTarget({ type: 'image', url })}
-                                                title="Report image"
-                                                className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-full bg-ink/75 border border-border text-text backdrop-blur-sm cursor-pointer"
-                                            >
-                                                ⚑
-                                            </button>
-                                        )}
+                                    <div key={i} className="shrink-0" style={{ scrollSnapAlign: 'center' }}>
+                                        <TopoImage
+                                            problemId={problem.id}
+                                            url={url}
+                                            shapes={annotationsByUrl[url] ?? []}
+                                            canEdit={canEdit}
+                                            canReport={!!user}
+                                            onReport={() => setReportTarget({ type: 'image', url })}
+                                            onSaved={(shapes) => setAnnotationsByUrl(prev => ({ ...prev, [url]: shapes }))}
+                                            className="h-[320px] w-full max-w-[820px]"
+                                        />
                                     </div>
                                 ))}
                             </HorizontalScrollCarousel>
@@ -346,11 +355,11 @@ export default function ProblemDetailPage() {
                                             {problem.grade || 'Ungraded'}
                                         </span>
                                         <span className="flex items-center gap-1 text-xs text-text-dim">
-                                            <MapPin size={12} /> {problem.location_name || 'Location not set'}
+                                            <MapPin size={12} className="shrink-0" /> {problem.location_name || 'Location not set'}
                                         </span>
                                         {joinDate && (
                                             <span className="flex items-center gap-1 text-xs text-text-dim">
-                                                <Calendar size={12} /> {joinDate}
+                                                <Calendar size={12} className="shrink-0" /> {joinDate}
                                             </span>
                                         )}
                                     </div>
@@ -366,7 +375,7 @@ export default function ProblemDetailPage() {
 
                             <div className="text-xs text-text-dim">
                                 Added by{' '}
-                                <Link to={`/profile/${problem.created_by}`} className="text-accent font-bold no-underline hover:underline">
+                                <Link to={`/profile/${problem.creator_slug}`} className="text-accent font-bold no-underline hover:underline">
                                     {problem.creator_name || 'unknown'}
                                 </Link>
                             </div>
@@ -380,7 +389,7 @@ export default function ProblemDetailPage() {
                                         ${hasSent ? 'bg-associate/15 border border-associate text-associate' : 'bg-accent text-on-accent border border-transparent'}
                                         ${isTogglingSend || !user ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                    <Flame size={14} /> {hasSent ? 'Sent!' : 'Log Send'}
+                                    <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
                                 </button>
                                 <span className="text-xs text-text-dim">{sendCount} {sendCount === 1 ? 'send' : 'sends'}</span>
 
@@ -388,7 +397,7 @@ export default function ProblemDetailPage() {
                                     onClick={() => navigate(`/map?lat=${problem.latitude}&lng=${problem.longitude}`)}
                                     className="ml-auto inline-flex items-center gap-1.5 bg-transparent border border-border hover:border-accent text-text-muted hover:text-accent px-3.5 py-2 rounded-xl text-xs transition-colors cursor-pointer"
                                 >
-                                    <MapIcon size={13} /> Open in Map
+                                    <MapIcon size={13} className="shrink-0" /> Open in Map
                                 </button>
                             </div>
 
@@ -419,7 +428,7 @@ export default function ProblemDetailPage() {
                     </div>
 
                     {/* Mini map */}
-                    {problem.latitude != null && problem.longitude != null && (
+                    {markerPosition && (
                         <div className="bg-panel border border-border rounded-2xl overflow-hidden">
                             {isPickingLocation && (
                                 <div className="px-4 py-2 bg-accent/10 border-b border-accent/25 text-xs text-accent">
@@ -428,20 +437,26 @@ export default function ProblemDetailPage() {
                             )}
                             <div className="h-[220px]">
                                 <MapContainer
-                                    center={[editForm.lat || problem.latitude, editForm.lng || problem.longitude]}
+                                    center={markerPosition}
                                     zoom={13}
                                     style={{ height: '100%', width: '100%' }}
                                     zoomControl={false}
-                                    dragging={isPickingLocation}
-                                    scrollWheelZoom={false}
-                                    doubleClickZoom={false}
-                                    touchZoom={isPickingLocation}
+                                    dragging={true}
+                                    scrollWheelZoom={true}
+                                    doubleClickZoom={true}
+                                    touchZoom={true}
                                 >
                                     <TileLayer
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                     />
-                                    <PinpointMarker position={[editForm.lat || problem.latitude, editForm.lng || problem.longitude]} />
+                                    <PinpointMarker position={markerPosition} />
+                                    <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000 }}>
+                                        <ZoomControlButtons />
+                                    </div>
+                                    <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000 }}>
+                                        <RecenterButton position={markerPosition} />
+                                    </div>
                                     {isPickingLocation && (
                                         <ClickToPick onPick={(lat, lng) => {
                                             setEditForm(prev => ({ ...prev, lat, lng }));
@@ -473,6 +488,7 @@ export default function ProblemDetailPage() {
                     )}
 
                     {/* Comments / Beta */}
+                    {!isEditing && (
                     <div className="bg-panel border border-border rounded-2xl p-5">
                         <h3 className="font-serif text-lg font-bold text-text mb-4">Beta & Comments</h3>
 
@@ -506,7 +522,7 @@ export default function ProblemDetailPage() {
                                     return (
                                         <div key={comment.id} className="text-sm text-text-secondary bg-ink/50 p-3 rounded-xl border border-border">
                                             <div className="flex justify-between items-center mb-1">
-                                                <Link to={`/profile/${comment.user_id}`} className="text-accent font-bold no-underline hover:underline">
+                                                <Link to={`/profile/${comment.user_slug}`} className="text-accent font-bold no-underline hover:underline">
                                                     {comment.username}
                                                 </Link>
                                                 <div className="flex items-center gap-2">
@@ -537,6 +553,7 @@ export default function ProblemDetailPage() {
                             )}
                         </div>
                     </div>
+                    )}
                 </div>
             </div>
         </>

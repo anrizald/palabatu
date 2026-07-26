@@ -11,6 +11,13 @@ import (
 
 const userContextKey = "user"
 
+// AuthUser is the authenticated caller, extracted once from JWT claims by
+// RequireAuth. Handlers read it via UserFromContext instead of pulling
+// "id" out of a raw claims map by hand.
+type AuthUser struct {
+	ID string
+}
+
 func RequireAuth(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	parts := strings.SplitN(authHeader, " ", 2)
@@ -29,14 +36,14 @@ func RequireAuth(c *gin.Context) {
 		return
 	}
 
-	c.Set(userContextKey, claims)
+	id, _ := claims["id"].(string)
+	c.Set(userContextKey, AuthUser{ID: id})
 	c.Next()
 }
 
-// UserFromContext returns the decoded JWT claims attached by RequireAuth,
-// mirroring how (req as any).user is read in the Node backend's routes.
-func UserFromContext(c *gin.Context) jwt.MapClaims {
-	claims, _ := c.Get(userContextKey)
-	mapClaims, _ := claims.(jwt.MapClaims)
-	return mapClaims
+// UserFromContext returns the authenticated user attached by RequireAuth.
+func UserFromContext(c *gin.Context) AuthUser {
+	user, _ := c.Get(userContextKey)
+	authUser, _ := user.(AuthUser)
+	return authUser
 }

@@ -17,6 +17,8 @@ export type ProblemRow = {
     grade: string
     creator_name: string
     created_by: string
+    creator_slug: string
     image_urls?: string[]
     send_count?: number
+    created_at?: string
 }

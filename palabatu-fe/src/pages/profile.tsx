@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
-import Header from '../components/Header.js'
 import Toast from '../components/Toast.js'
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
@@ -77,7 +76,7 @@ const formatRelativeDate = (iso: string) => {
 };
 
 export default function Profile() {
-    const { id } = useParams<{ id: string }>();
+    const { slug } = useParams<{ slug: string }>();
     const { user, handleLogout, toast, showToast } = useAuth();
 
     const [profile, setProfile] = useState<Profile>({
@@ -116,15 +115,15 @@ export default function Profile() {
 
     const [showAdvanced, setShowAdvanced] = useState(false);
 
-    const isOwner = !!(user && user.id === id);
+    const isOwner = !!(user && user.slug === slug);
     const isSelfAdmin = isOwner && (profile.title.includes('Council') || profile.title.includes('Associate'));
 
     useEffect(() => {
-        if (!id) return;
+        if (!slug) return;
         setIsLoading(true);
         setLoadError(null);
 
-        api.get(`/api/profiles/${id}`).then(data => {
+        api.get(`/api/profiles/${slug}`).then(data => {
             if (data && !data.error) {
                 setProfile({
                     username: data.username || '',
@@ -146,26 +145,26 @@ export default function Profile() {
             setIsLoading(false);
         });
 
-        api.get(`/api/profiles/${id}/stats`).then(data => {
+        api.get(`/api/profiles/${slug}/stats`).then(data => {
             if (data && !data.error) setStats(data);
         });
 
-        api.get(`/api/profiles/${id}/activity`).then(data => {
+        api.get(`/api/profiles/${slug}/activity`).then(data => {
             if (data && !data.error) setActivity(data);
         });
 
-        api.get(`/api/profiles/${id}/reactions`).then(data => {
+        api.get(`/api/profiles/${slug}/reactions`).then(data => {
             if (data && !data.error) setReactionCounts(data);
         });
-    }, [id]);
+    }, [slug]);
 
     useEffect(() => {
-        if (!id || !user) return;
+        if (!slug || !user) return;
 
-        api.get(`/api/profiles/${id}/reactions/status`).then(data => {
+        api.get(`/api/profiles/${slug}/reactions/status`).then(data => {
             if (data && !data.error) setReactionStatus(data);
         });
-    }, [id, user]);
+    }, [slug, user]);
 
     const handleToggleReaction = async (type: ReactionType) => {
         if (!user) {
@@ -175,7 +174,7 @@ export default function Profile() {
         setReactingType(type);
 
         try {
-            const res = await api.post(`/api/profiles/${id}/reactions/${type}`, {});
+            const res = await api.post(`/api/profiles/${slug}/reactions/${type}`, {});
             if (res.error) {
                 showToast(res.error, 'error');
             } else {
@@ -276,23 +275,17 @@ export default function Profile() {
     };
 
     if (isLoading) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex items-center justify-center">
-                <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
+        </div>
     );
 
     if (loadError) return (
-        <>
-            <Header />
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="font-serif text-2xl font-black text-text">Profile not found</div>
-                <div className="text-sm text-text-dim">{loadError}</div>
-                <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
-            </div>
-        </>
+        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="font-serif text-2xl font-black text-text">Profile not found</div>
+            <div className="text-sm text-text-dim">{loadError}</div>
+            <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
+        </div>
     );
 
     const initials = profile.username ? profile.username.slice(0, 2).toUpperCase() : '??';
@@ -300,7 +293,6 @@ export default function Profile() {
 
     return (
         <>
-            <Header />
             {toast && <Toast {...toast} />}
 
             <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-10">
@@ -340,12 +332,12 @@ export default function Profile() {
                             <div className="flex flex-col items-center gap-1">
                                 {joinDate && (
                                     <div className="flex items-center gap-1.5 text-xs text-text-dim">
-                                        <Calendar size={12} /> {joinDate}
+                                        <Calendar size={12} className="shrink-0" /> {joinDate}
                                     </div>
                                 )}
                                 {profile.location && (
                                     <div className="flex items-center gap-1.5 text-xs text-text-dim">
-                                        <MapPin size={12} /> {profile.location}
+                                        <MapPin size={12} className="shrink-0" /> {profile.location}
                                     </div>
                                 )}
                             </div>
@@ -584,7 +576,7 @@ export default function Profile() {
                                 ${saved ? 'bg-gradient-to-br from-associate to-associate-dark shadow-[0_2px_12px_rgba(93,187,106,0.3)]' : 'bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)]'}
                                 ${isSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
-                            {isSaving ? 'Saving...' : saved ? <><Check size={16} /> Saved</> : 'Save Changes'}
+                            {isSaving ? 'Saving...' : saved ? <><Check size={16} className="shrink-0" /> Saved</> : 'Save Changes'}
                         </button>
 
                         {/* Account Security */}
@@ -595,7 +587,7 @@ export default function Profile() {
                                     className="w-full bg-transparent flex items-center justify-between px-5 py-4 text-left cursor-pointer"
                                 >
                                     <span className="font-serif text-base font-bold text-text">Advanced Settings</span>
-                                    <ChevronDown size={18} className={`text-text-dim transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                                    <ChevronDown size={18} className={`text-text-dim transition-transform shrink-0 ${showAdvanced ? 'rotate-180' : ''}`} />
                                 </button>
 
                                 {showAdvanced && (
@@ -642,7 +634,7 @@ export default function Profile() {
                                             onClick={() => setShowDeleteConfirm(true)}
                                             className="self-start bg-transparent inline-flex items-center gap-1.5 px-5 py-2 rounded-[10px] border border-danger/40 text-sm text-danger hover:bg-danger/10 transition-colors"
                                         >
-                                            <Trash2 size={14} /> Delete Account
+                                            <Trash2 size={14} className="shrink-0" /> Delete Account
                                         </button>
                                     ) : (
                                         <div className="flex flex-col gap-2">

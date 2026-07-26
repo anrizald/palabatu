@@ -38,12 +38,12 @@ export default function ForgotPassword() {
                 }}>
                     {sent ? (
                         <>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><MailCheck size={36} color="#c87a30" /></div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><MailCheck size={36} color="#c87a30" style={{ flexShrink: 0 }} /></div>
                             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 900, color: '#f0e0c8', marginBottom: '8px' }}>Check your email</h1>
                             <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '24px' }}>
                                 If that email is registered, a reset link is on its way.
                             </p>
-                            <a href="/login" style={{ color: '#c87a30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ArrowLeft size={14} /> Back to login</a>
+                            <a href="/login" style={{ color: '#c87a30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ArrowLeft size={14} style={{ flexShrink: 0 }} /> Back to login</a>
                         </>
                     ) : (
                         <>
@@ -78,7 +78,7 @@ export default function ForgotPassword() {
                                         boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
                                     }}
                                 >{isLoading ? 'Sending...' : 'Send Reset Link'}</button>
-                                <a href="/login" style={{ textAlign: 'center', color: '#4a3c30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}><ArrowLeft size={14} /> Back to login</a>
+                                <a href="/login" style={{ textAlign: 'center', color: '#4a3c30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}><ArrowLeft size={14} style={{ flexShrink: 0 }} /> Back to login</a>
                             </div>
                         </>
                     )}

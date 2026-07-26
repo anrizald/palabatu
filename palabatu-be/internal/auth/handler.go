@@ -29,6 +29,7 @@ func AuthRoutes(rg *gin.RouterGroup) {
 	rg.POST("/reset-password", limitCredentialEndpoints, handleResetPassword)
 	rg.PUT("/password", middleware.RequireAuth, limitCredentialEndpoints, handleChangePassword)
 	rg.DELETE("/account", middleware.RequireAuth, limitCredentialEndpoints, handleDeleteAccount)
+	rg.GET("/users/count", handleUserCount)
 }
 
 // minPasswordLength applies to change-password (and, going forward, any
@@ -48,23 +49,32 @@ func ProfileRoutes(rg *gin.RouterGroup) {
 
 func handleSignup(c *gin.Context) {
 	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-		Username string `json:"username"`
+		Email         string `json:"email"`
+		Password      string `json:"password"`
+		Username      string `json:"username"`
+		TermsAccepted bool   `json:"terms_accepted"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username)
+	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username, body.TermsAccepted)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, gin.H{"message": "Signup successful, check your email for verification"})
 	case errors.Is(err, ErrEmailSendFailed):
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
-	default:
+	case errors.Is(err, ErrMissingFields):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email, username, and password are required"})
+	case errors.Is(err, ErrTermsNotAccepted):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You must accept the Terms of Service and Privacy Policy"})
+	case errors.Is(err, ErrUsernameExists):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already taken"})
+	case errors.Is(err, ErrEmailExists):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
 	}
 }
 
@@ -92,8 +102,7 @@ func handleSignin(c *gin.Context) {
 }
 
 func handleSession(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	id, _ := claims["id"].(string)
+	id := middleware.UserFromContext(c).ID
 
 	user, err := Session(c.Request.Context(), id)
 	if err != nil {
@@ -102,6 +111,17 @@ func handleSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+// handleUserCount backs the landing page's climber-count stat. It's
+// unauthenticated, same trust level as GET /problems.
+func handleUserCount(c *gin.Context) {
+	count, err := CountUsers(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func handleVerifyEmail(c *gin.Context) {
@@ -195,8 +215,7 @@ func handleGetRecentActivity(c *gin.Context) {
 }
 
 func handleUpsertProfile(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	callerID, _ := claims["id"].(string)
+	callerID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
 	var body struct {
@@ -228,8 +247,7 @@ func handleUpsertProfile(c *gin.Context) {
 }
 
 func handleChangePassword(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	userID, _ := claims["id"].(string)
+	userID := middleware.UserFromContext(c).ID
 
 	var body struct {
 		CurrentPassword string `json:"current_password"`
@@ -256,8 +274,7 @@ func handleChangePassword(c *gin.Context) {
 }
 
 func handleDeleteAccount(c *gin.Context) {
-	claims := middleware.UserFromContext(c)
-	userID, _ := claims["id"].(string)
+	userID := middleware.UserFromContext(c).ID
 
 	var body struct {
 		Password string `json:"password"`

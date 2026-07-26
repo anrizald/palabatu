@@ -1,29 +1,27 @@
 import 'leaflet/dist/leaflet.css'
-import { Search, X, Plus, Minus } from 'lucide-react'
+import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
 import { api } from '../lib/api.js'
-import Header from '../components/Header.js'
 import { useAuth } from '../lib/useAuth.js'
+import { useIsMobile } from '../lib/useIsMobile.js'
 import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ProblemDetails from '../components/ProblemDetails.js'
+import ClusterCardRail from '../components/ClusterCardRail.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
+import { ZoomControlButtons } from '../components/MapControls.js'
+import FallbackImg from '../components/FallbackImg.js'
+import { circleButtonStyle } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
-
-const circleButtonStyle = {
-    background: '#141210',
-    border: '1px solid #c87a30',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-    transition: 'all 0.2s',
-} as const;
+// Padded bounding box around Indonesia (Sabang to Merauke) — keeps panning within the country.
+const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
+    [-14.5, 89.5],
+    [9.5, 146.5],
+]
 
 type SearchResult = {
     place_id: number
@@ -190,7 +188,7 @@ function LocationSearchBox() {
                         aria-label="Clear search"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
                     >
-                        <X size={14} color="#8a7060" />
+                        <X size={14} color="#8a7060" style={{ flexShrink: 0 }} />
                     </button>
                 )}
             </div>
@@ -211,42 +209,6 @@ function LocationSearchBox() {
     );
 }
 
-function ZoomControlButtons() {
-    const map = useMap();
-    const [zoom, setZoom] = useState(map.getZoom());
-
-    useMapEvents({
-        zoomend() { setZoom(map.getZoom()); },
-    });
-
-    const zoomActions = [
-        { key: 'in', onClick: () => map.zoomIn(), disabled: zoom >= map.getMaxZoom(), label: 'Zoom in', Icon: Plus },
-        { key: 'out', onClick: () => map.zoomOut(), disabled: zoom <= map.getMinZoom(), label: 'Zoom out', Icon: Minus },
-    ];
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {zoomActions.map(({ key, onClick, disabled, label, Icon }) => (
-                <button
-                    key={key}
-                    onClick={onClick}
-                    disabled={disabled}
-                    title={label}
-                    aria-label={label}
-                    style={{
-                        ...circleButtonStyle,
-                        width: '40px',
-                        height: '40px',
-                        cursor: disabled ? 'default' : 'pointer',
-                        opacity: disabled ? 0.4 : 1,
-                    }}
-                >
-                    <Icon size={18} color="#f0e0c8" />
-                </button>
-            ))}
-        </div>
-    );
-}
 function LocateMeButton() {
     const map = useMap();
     const [isLocating, setIsLocating] = useState(false);
@@ -290,21 +252,23 @@ function LocateMeButton() {
             }}
         >
             {isLocating ? (
-                <img
+                <FallbackImg
                     src="/assets/locate_me/sandglass-24.png"
                     srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
                     alt=""
                     width={24}
                     height={24}
                     className="locate-sandglass-spin"
+                    fallback={Hourglass}
                 />
             ) : (
-                <img
+                <FallbackImg
                     src="/assets/locate_me/crosshair-24.png"
                     srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
                     alt=""
                     width={24}
                     height={24}
+                    fallback={Crosshair}
                 />
             )}
         </button>
@@ -382,8 +346,16 @@ export default function MapPage() {
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
             {toast && <Toast {...toast} />}
-            <Header />
-            <MapContainer center={center} zoom={5} minZoom={3} maxZoom={18} zoomControl={false} style={{ height: '100%', width: '100%' }}>
+            <MapContainer
+                center={center}
+                zoom={5}
+                minZoom={5}
+                maxZoom={18}
+                zoomControl={false}
+                maxBounds={INDONESIA_BOUNDS}
+                maxBoundsViscosity={1.0}
+                style={{ height: '100%', width: '100%' }}
+            >
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -432,12 +404,13 @@ export default function MapPage() {
                             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
                             onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                         >
-                            <img
+                            <FallbackImg
                                 src="/assets/add_fab/boring-plus-56.png"
                                 srcSet="/assets/add_fab/boring-plus-56.png 1x, /assets/add_fab/boring-plus-112.png 2x, /assets/add_fab/boring-plus-168.png 3x"
                                 alt=""
                                 width={24}
                                 height={24}
+                                fallback={Plus}
                             />
                         </button>
                     )}
@@ -501,7 +474,9 @@ type Cluster = {
 
 function ProximityClusters({ problems, setSelectedProblem }: { problems: ProblemRow[]; setSelectedProblem: (problem: ProblemRow) => void }) {
     const map = useMap()
+    const isMobile = useIsMobile()
     const [tick, setTick] = useState(0)
+    const [mobileCluster, setMobileCluster] = useState<Cluster | null>(null)
 
     useMapEvents({
         moveend() { setTick(t => t + 1) },
@@ -555,6 +530,11 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
 
     const currentZoom = map?.getZoom?.() ?? 13
 
+    const focusItem = (item: ProblemRow) => {
+        map.flyTo([item.latitude, item.longitude], MAX_ZOOM, { duration: 1.2 })
+        setSelectedProblem(item)
+    }
+
     return (
         <>
             {clusters.map((c, idx) => {
@@ -569,7 +549,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                             location={item.location_name}
                             grade={item.grade}
                             creatorName={item.creator_name}
-                            creatorId={item.created_by}
+                            creatorSlug={item.creator_slug}
                             zoom={currentZoom}
                             onClickDetails={() => setSelectedProblem(item)}
                         />
@@ -583,9 +563,64 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                         location={c.items.slice(0, 3).map(i => i.name).join(', ')}
                         type="cluster"
                         zoom={currentZoom}
+                        clusterItems={c.items}
+                        onSelectItem={focusItem}
+                        {...(isMobile ? { onClusterTap: () => setMobileCluster(c) } : {})}
                     />
                 )
             })}
+            <MobileClusterSheet
+                cluster={mobileCluster}
+                onClose={() => setMobileCluster(null)}
+                onSelect={item => {
+                    setMobileCluster(null)
+                    focusItem(item)
+                }}
+            />
+        </>
+    )
+}
+
+function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: ProblemRow) => void }) {
+    if (!cluster) return null
+
+    return (
+        <>
+            <div
+                onClick={onClose}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(10,8,6,0.45)', zIndex: 1150 }}
+            />
+            <div
+                style={{
+                    position: 'fixed',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 1200,
+                    background: '#141210',
+                    borderTop: '1px solid #2a2420',
+                    borderTopLeftRadius: '16px',
+                    borderTopRightRadius: '16px',
+                    boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
+                    paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                        {cluster.items.length} locations here
+                    </span>
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
+                    >
+                        <X size={18} color="#8a7060" style={{ flexShrink: 0 }} />
+                    </button>
+                </div>
+                <div style={{ padding: '0 16px 4px' }}>
+                    <ClusterCardRail items={cluster.items} onSelect={onSelect} />
+                </div>
+            </div>
         </>
     )
 }
