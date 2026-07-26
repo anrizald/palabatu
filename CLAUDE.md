@@ -85,34 +85,50 @@ When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component st
 
 **Auth**: JWT-based, not Supabase (Supabase Auth UI packages are installed but the actual flow is custom JWT). `src/lib/AuthContext.tsx` provides `user`, `handleLogin`, `handleSignup`, `handleLogout`, and a toast helper; on mount it validates any stored token via `GET /auth/session`. Token is stored in `localStorage` under the key `token`.
 
-**API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly (not a `{ data, error }` envelope — some dead code in `App.tsx`'s unused `Home()` still destructures that shape; don't copy that pattern).
+**API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly — not a `{ data, error }` envelope.
 
 **Backend** (`palabatu-be/`, Go): uses `gin` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `gin-contrib/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads, `prometheus/client_golang` for metrics.
 
 ```
 palabatu-be/
-├── cmd/api/main.go          # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
+├── cmd/api/
+│   ├── main.go              # entrypoint: env load, DB connect, Cloudinary connect, router mount, listen
+│   └── static.go            # serves palabatu-fe/dist as an r.NoRoute SPA fallback ("shareable URLs"), plus
+│                             # server-rendered OG/Twitter preview HTML for known crawler bots hitting /problems/:id
+│                             # (html/template auto-escaping since problem Name/LocationName are user content)
 ├── internal/
 │   ├── db/db.go             # pgxpool.Pool singleton
 │   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL
 │   ├── metrics/metrics.go   # Prometheus HTTP request-count/duration middleware, exposed at GET /metrics
 │   ├── mailer/mailer.go     # SMTP sender (no emoji, see global style rule)
-│   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext
-│   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditProblem(userID, createdBy, titles).
+│   ├── middleware/
+│   │   ├── auth.go          # RequireAuth (JWT) gin middleware + UserFromContext
+│   │   └── ratelimit.go     # RateLimit(every, burst): in-memory per-IP token-bucket middleware; used on
+│   │                        # auth's credential endpoints (signup/signin/password/forgot/reset) and report's
+│   │                        # create-report endpoints
+│   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditOwned(userID, ownerID, titles).
 │   │                        # Takes already-fetched data as args — never reaches into another domain's repository,
-│   │                        # so problems/social/auth -> authz stays one-way with no import cycle possible.
+│   │                        # so problems/social/report/auth -> authz stays one-way with no import cycle possible.
+│   │                        # CanEditOwned is generic (not problem-specific): social reuses it for comment deletion.
 │   ├── auth/                # users, sessions, JWT issuance/verification, signup/signin, email verification,
-│   │   │                    # password reset, and profiles (profiles.title is an authz concern, so Profile lives here).
-│   │   ├── handler.go       # AuthRoutes(rg) mounted at /auth; ProfileRoutes(rg) mounted at /api (GET/PUT /profiles/:id)
-│   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
+│   │   │                    # password reset, account deletion, and profiles (profiles.title is an authz concern,
+│   │   │                    # so Profile — plus its stats/recent-activity endpoints — lives here).
+│   │   ├── handler.go       # AuthRoutes(rg) mounted at /auth; ProfileRoutes(rg) mounted at /api (GET/PUT
+│   │   │                    # /profiles/:id, GET /profiles/:id/stats, GET /profiles/:id/activity)
+│   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/
+│   │   │                    # UpsertProfile/GetProfileStats/GetRecentActivity (last 5 sends + last 5 added
+│   │   │                    # problems — a profile-page glance, not the full logbook described in ROADMAP.md)
 │   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
 │   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization,
-│   │   │                    # topo photo annotation (drawn route lines/holds)
+│   │   │                    # topo photo annotation (drawn route lines/holds), grade/location validation
 │   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar, /problems/:id/annotations
 │   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
+│   │   ├── validate.go      # validateGrade (token or "from-to" range, must match one of the known grade scales —
+│   │   │                    # mirrors palabatu-fe's GRADE_SCALES by hand, no shared config) and validateLatLng
+│   │   │                    # (padded Indonesia bounding box)
 │   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
-│   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditProblem
+│   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditOwned
 │   │   ├── annotation.go / annotation_repository.go / annotation_handler.go
 │   │   │                    # ListAnnotations/SaveAnnotation for `topo_annotations` (one vector-shape overlay per
 │   │   │                    # problem image, keyed by (problem_id, image_url) since images have no per-row id — same
@@ -120,14 +136,36 @@ palabatu-be/
 │   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
 │   │   ├── repository.go    # `problems` table queries
 │   │   └── errors.go        # ErrNotFound, ErrForbidden
-│   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
-│       ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
-│       ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
-│       ├── repository.go     # `sends` + `comments` table queries
-│       └── errors.go         # ErrEmptyComment
+│   ├── social/               # sends (ticks), comments (with @mention parsing), and profile reactions
+│   │   │                     # (like/fire/heart, migrations/0002) — three "engagement" tables under one domain.
+│   │   │                     # Fires an internal/notification call on every send/comment/mention/reaction.
+│   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments, reactions
+│   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment/DeleteComment/ToggleReaction/
+│   │   │                     # GetReactionCounts/GetReactionStatus; DeleteComment reuses authz.CanEditOwned so
+│   │   │                     # either the comment's own author or an admin can remove it
+│   │   ├── repository.go     # `sends` + `comments` + `profile_reactions` table queries
+│   │   └── errors.go         # ErrEmptyComment
+│   ├── report/                # moderation queue: users report a comment or a problem's topo image; admins
+│   │   │                      # (Council/Associate) dismiss or remove it. First package to call authz.IsAdmin
+│   │   │                      # directly rather than CanEditOwned, since resolving a report isn't "owned" by anyone.
+│   │   ├── handler.go         # Routes(rg) mounted at /api — POST /comments/:id/report, POST /problems/:id/images/report
+│   │   │                      # (both rate-limited), GET /reports, POST /reports/:id/resolve
+│   │   ├── service.go         # CreateCommentReport/CreateImageReport/ListPending/Resolve; on "remove" it deletes
+│   │   │                      # the underlying comment/image and notifies both the reporter and the content's owner
+│   │   ├── repository.go      # `reports` table queries
+│   │   └── errors.go          # ErrNotFound, ErrForbidden, ErrCannotReportOwnContent, ErrReasonTooLong, etc.
+│   └── notification/          # per-user notifications (comment, send, reaction, mention, problem edited/deleted,
+│       │                      # report resolved, content removed — 8 types). Leaf package like authz: callers
+│       │                      # (social, report) fetch owner/actor data themselves and pass it in.
+│       ├── handler.go         # Routes(rg) mounted at /api — GET /notifications, GET /notifications/unread-count,
+│       │                      # POST /notifications/:id/read, POST /notifications/read-all
+│       ├── service.go         # List/UnreadCount/MarkRead/MarkAllRead + one Notify* function per type, each a
+│       │                      # no-op when the actor would be notifying themselves
+│       ├── repository.go      # `notifications` table queries
+│       └── errors.go          # ErrNotFound
 ```
 
-- Domain package convention (executed 2026-07-09, replacing a `handler`/`service`/`repository`-by-technical-layer split — see git history before that commit if you need the old shape): each domain (`auth`, `problems`, `social`) is one package holding its own `handler.go`/`service.go`/`repository.go`. Within a domain, repository-tier functions are unexported (lowercase) since they're now pure implementation detail of that package; service-tier functions stay exported only where the handler in the same file needs them or another domain calls in (e.g. `auth.GetUserTitles`). Handlers should stay thin (request parsing + response writing); business rules belong in the service-tier functions; raw SQL belongs in the repository-tier functions. This is a modular monolith (one binary, one `pgxpool`, one deploy) — not separate network-separated services, which aren't warranted at current scale.
+- Domain package convention (executed 2026-07-09, replacing a `handler`/`service`/`repository`-by-technical-layer split — see git history before that commit if you need the old shape): each domain (`auth`, `problems`, `social`, `report`, `notification`) is one package holding its own `handler.go`/`service.go`/`repository.go`. Within a domain, repository-tier functions are unexported (lowercase) since they're now pure implementation detail of that package; service-tier functions stay exported only where the handler in the same file needs them or another domain calls in (e.g. `auth.GetUserTitles`). Handlers should stay thin (request parsing + response writing); business rules belong in the service-tier functions; raw SQL belongs in the repository-tier functions. This is a modular monolith (one binary, one `pgxpool`, one deploy) — not separate network-separated services, which aren't warranted at current scale.
 - The CORS allowlist in `cmd/api/main.go` intentionally omits a literal `"*"` origin entry — in `gin-contrib/cors`, `"*"` means "allow all origins," which would contradict the explicit-allowlist policy. Add new LAN IPs (used for testing on a phone during dev) directly to that list — don't switch to a wildcard-only policy.
 - `GET /session` is wrapped with `middleware.RequireAuth` (passed as an extra handler in the `rg.GET("/session", middleware.RequireAuth, handleSession)` chain) rather than duplicating JWT parsing inline — same secret, same verification, one code path.
 - `main.go` builds one `*gin.RouterGroup` per mount point (`r.Group("/auth")`, `r.Group("/api")`) and passes each to every domain's route-registration function that needs it — e.g. both `auth.ProfileRoutes` and `problems.Routes` and `social.Routes` all register onto the same `/api` group.
@@ -142,11 +180,10 @@ palabatu-be/
 - `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
-  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
+  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditOwned`).
 - Topo photo annotation (drawing route lines/holds on a problem's photo): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx`. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
 - **lucide-react icons inside a `display:flex`/`inline-flex` parent can render at 0 width** (confirmed repeatedly live via `getComputedStyle` — height resolves correctly but width resolves to `0px` — despite correct SVG markup, `currentColor`, and computed `color`) — a real, reproducible rendering bug in this app's environment, not a hypothetical. Any icon that is a child of a flex-display element (inline `style={{display:'flex'}}`, Tailwind `flex`/`inline-flex` classes, or a CSS class rule) needs an explicit `flexShrink:0` (inline) / `shrink-0` (Tailwind) / `flex-shrink: 0` (CSS rule) on the icon itself. `tsc`/`eslint` passing is never sufficient evidence a new icon-in-a-flex-button actually renders — visually verify (screenshot or live) any new one.
 
 ## Known WIP rough edges
 
-- `App.tsx` has an unused `Home()`/`About()` component pair left over from an earlier Supabase-based setup — not wired into any route.
 - `req.user`-equivalent context on the backend has no shared typed augmentation yet beyond `middleware.UserFromContext`.

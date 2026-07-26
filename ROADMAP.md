@@ -13,7 +13,7 @@ Everything on the original deployability punch list (validation, rate limiting, 
   - **Image storage/CDN (Cloudinary)** — confirm the production plan and limits; currently a dev account.
   - **App hosting** — where the Go binary (which also serves the built frontend, per the shareable-URL work) actually runs in production. Nothing chosen yet.
   - **DNS/domain** — palabatu.id itself isn't registered/pointed anywhere yet.
-- **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
+- **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. Map pinpoint + cluster, plus-button FAB, and the locate-me button (both states) have all shipped; the inline map-pin glyph was decided to stay Lucide's `MapPin` (no custom art needed there). See the icon asset plan for what's still open: profile reactions (still raw emoji in `profile.tsx`), boulder/rope toggle, send-counter icon, verify-email illustration.
 
 ## Phase 2 — Post-launch, near-term
 
@@ -22,7 +22,7 @@ Everything on the original deployability punch list (validation, rate limiting, 
 
 ## Phase 3 — Community features
 
-- **Logbook** — full personal ascent history: every problem sent, from first V0 to current project. Builds on the existing `sends` domain (`internal/social`), which today only powers the tick toggle and an aggregate count on profile stats — no endpoint lists *which* problems were sent. Needs a joined `sends` → `problems` query and a profile-page view.
+- **Logbook** — full personal ascent history: every problem sent, from first V0 to current project. `GET /profiles/:id/activity` (`auth.GetRecentActivity`) already does the `sends` → `problems` join and returns a profile's most recent sends, but it's hardcoded to the last 5 as a page glance, not a full history. Needs turning that into a paginated (or unbounded) endpoint plus its own logbook view, rather than building the join from scratch.
 - **Crew** — user-to-user following, an activity feed of who's active at your local spot, and a reputation/recognition signal ("build your name"). `internal/social` already anticipated this in scope. Needs a new `follows` table, follow/unfollow endpoints, and an activity view. "Build your name" may fold into the RBAC/badge work above rather than inventing a separate reputation system. Distinct from "follow a crag" (that follows a *location*; this follows *people*), though the two will likely ship around the same time since both extend the existing notification system.
 
 ## Phase 4 — Native mobile apps (iOS / Android)
