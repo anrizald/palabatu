@@ -10,3 +10,4 @@ export { default as NotFound } from './NotFound.js';
 export { default as ProblemDetailPage } from './ProblemDetailPage.js';
 export { default as AdminReports } from './AdminReports.js';
 export { default as Notifications } from './Notifications.js';
+export { default as ComingSoon } from './ComingSoon.js';
