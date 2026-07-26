@@ -17,6 +17,8 @@
 
 ## About
 
+![Palabatu landing page](palabatu-fe/public/readme-landing.png)
+
 Palabatu is a web-first community platform for the Indonesian bouldering scene: discover spots on an interactive map, log sends, comment on problems, and maintain a climber profile.
 
 Two independent projects live in this repo, each with its own dependency manager — install and run each separately:
