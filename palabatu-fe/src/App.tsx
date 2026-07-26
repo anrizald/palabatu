@@ -5,7 +5,7 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, Terms, Privacy } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications } from './pages/index.js'
 
 export default function App() {
   return (
@@ -27,8 +27,6 @@ export default function App() {
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/notifications" element={<Notifications />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

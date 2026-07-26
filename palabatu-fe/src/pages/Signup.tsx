@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import Toast from '../components/Toast.js';
+import LegalModal from '../components/LegalModal.js';
 import { useAuth } from '../lib/useAuth.js';
 
 const inputStyle = {
@@ -11,6 +12,11 @@ const inputStyle = {
 };
 
 const errorTextStyle = { fontSize: '12px', color: '#c85a5a', margin: '-6px 0 0' };
+
+const legalLinkStyle = {
+    background: 'none', border: 'none', padding: 0, margin: 0,
+    font: 'inherit', color: '#c87a30', cursor: 'pointer'
+};
 
 type FieldKey = 'email' | 'username' | 'password' | 'confirmPassword' | 'terms';
 
@@ -29,6 +35,7 @@ export default function Signup() {
     const [invalidField, setInvalidField] = useState<FieldKey | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
     const [shakeNonce, setShakeNonce] = useState(0);
+    const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
 
     const emailRef = useRef<HTMLInputElement>(null);
     const usernameRef = useRef<HTMLInputElement>(null);
@@ -215,9 +222,17 @@ export default function Signup() {
                             />
                             <span>
                                 I agree to the{' '}
-                                <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#c87a30' }}>Terms of Service</a>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLegalDoc('terms'); }}
+                                    style={legalLinkStyle}
+                                >Terms of Service</button>
                                 {' '}and{' '}
-                                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#c87a30' }}>Privacy Policy</a>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLegalDoc('privacy'); }}
+                                    style={legalLinkStyle}
+                                >Privacy Policy</button>
                             </span>
                         </label>
                         {invalidField === 'terms' && <p style={errorTextStyle}>{errorMessage}</p>}
@@ -243,6 +258,8 @@ export default function Signup() {
                     </div>
                 </div>
             </div>
+
+            {legalDoc && <LegalModal initialDoc={legalDoc} onClose={() => setLegalDoc(null)} />}
         </>
     );
 }
