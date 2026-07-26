@@ -6,9 +6,14 @@ This file tracks direction across sessions. Update it as items complete or scope
 
 ## Phase 1 — Pre-launch (blocking v1)
 
-Everything else on the original deployability punch list (validation, rate limiting, CI, shareable URLs, moderation queue, topo annotation, notifications) is done. One open item remains:
+Everything on the original deployability punch list (validation, rate limiting, CI, shareable URLs, moderation queue, topo annotation, notifications) is done. Two open items remain:
 
-- **Sensitive/approximate crag locations** — obscure exact GPS coordinates for spots with land-access or overcrowding concerns. Cheap to build; blocked on a policy decision (which spots, how approximate, opt-in vs. default).
+- **Deployment services** — decide and provision the production tier for every third-party service the app actually depends on, currently all wired up on dev/free-tier credentials only:
+  - **Email (Resend)** — on the free tier today, which can only send from the shared `onboarding@resend.dev` sandbox address to the account owner's own inbox. Needs a paid tier + a verified custom domain before signup/reset emails can reach real users.
+  - **Image storage/CDN (Cloudinary)** — confirm the production plan and limits; currently a dev account.
+  - **App hosting** — where the Go binary (which also serves the built frontend, per the shareable-URL work) actually runs in production. Nothing chosen yet.
+  - **DNS/domain** — palabatu.id itself isn't registered/pointed anywhere yet.
+- **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
 
 ## Phase 2 — Post-launch, near-term
 
@@ -28,4 +33,5 @@ Everything else on the original deployability punch list (validation, rate limit
 
 ## Deferred, no committed phase
 
+- **Sensitive/approximate crag locations** — obscure exact GPS coordinates for spots with land-access or overcrowding concerns. Cheap to build once decided, but the policy itself needs outside input the user doesn't have: an outdoor-bouldering-access perspective and/or legal advice (Indonesian land-access/liability norms), not just an internal call. Moved out of Phase 1 — not launch-blocking, revisit once that input exists.
 - Collaborative problem editing — letting non-creators add photos/beta to a problem they didn't create, without being an admin. Explicitly unresolved: additive-only vs. destructive edit, moderation needs, and whether this is really just "comments already do this." No implementation should start until the product shape is decided.
