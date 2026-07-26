@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { api } from '../lib/api.js';
 import FooterSection from '../components/Footer.js';
 
 const STORAGE_KEY = 'palabatu_waitlist_email';
@@ -10,6 +11,7 @@ function isValidEmail(value: string) {
 export default function ComingSoon() {
     const [email, setEmail] = useState('');
     const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [submittedEmail, setSubmittedEmail] = useState('');
 
@@ -21,18 +23,31 @@ export default function ComingSoon() {
         }
     }, []);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isValidEmail(email)) {
             setError('Enter a valid email address.');
             return;
         }
         setError('');
-        // No waitlist backend yet -- stored locally so a returning visitor sees the
-        // confirmation instead of the form again.
-        localStorage.setItem(STORAGE_KEY, email);
-        setSubmittedEmail(email);
-        setSubmitted(true);
+        setSubmitting(true);
+        try {
+            const data = await api.post('/api/waitlist', { email });
+            if (data.error) {
+                setError(data.error);
+                return;
+            }
+            // Remembered locally purely so a returning visitor in this same
+            // browser sees the confirmation instead of the form again --
+            // the source of truth is the waitlist_subscribers table.
+            localStorage.setItem(STORAGE_KEY, email);
+            setSubmittedEmail(email);
+            setSubmitted(true);
+        } catch {
+            setError('Something went wrong. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -162,7 +177,9 @@ export default function ComingSoon() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     aria-label="Email address"
                                 />
-                                <button type="submit" className="cs-btn">Join the waitlist</button>
+                                <button type="submit" className="cs-btn" disabled={submitting} style={{ opacity: submitting ? 0.6 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                                    {submitting ? 'Joining...' : 'Join the waitlist'}
+                                </button>
                             </form>
                             {error && <p className="cs-error">{error}</p>}
                         </>

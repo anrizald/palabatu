@@ -24,6 +24,7 @@ import (
 	"palabatu-be/internal/problems"
 	"palabatu-be/internal/report"
 	"palabatu-be/internal/social"
+	"palabatu-be/internal/waitlist"
 )
 
 // stripTrailingSlash makes "/foo" and "/foo/" match the same route, mirroring
@@ -79,6 +80,7 @@ func main() {
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)
+	waitlist.Routes(apiGroup)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {
