@@ -12,6 +12,12 @@ type CardItem = { problem: ProblemRow; badge: string; icon: 'pin' | 'flame' | 'c
 
 const CARD_LIMIT = 10;
 
+// placeholder support links — replace with real URLs
+const SAWERIA_URL = 'https://saweria.co/palabatu';
+const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/palabatu';
+const KOFI_URL = 'https://ko-fi.com/palabatu';
+const DISCORD_SUPPORT_URL = 'https://discord.gg/palabatu';
+
 function haversineKm(a: Geo, b: Geo) {
     const R = 6371;
     const dLat = (b.lat - a.lat) * Math.PI / 180;
@@ -116,6 +122,12 @@ export default function Landing() {
             }
         }
         fetchData();
+    }, []);
+
+    useEffect(() => {
+        if (window.location.hash === '#support') {
+            document.getElementById('support')?.scrollIntoView();
+        }
     }, []);
 
     const totalSends = useMemo(
@@ -324,6 +336,23 @@ export default function Landing() {
             .explore-head { flex-direction: column; align-items: flex-start; }
         }
 
+        /* --- support --- */
+        #support { scroll-margin-top: 76px; }
+        .support-links { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 16px; }
+        .support-link {
+            font-size: 14px; font-weight: 600; color: #c87a30;
+            text-decoration: none; font-family: 'DM Sans', sans-serif;
+        }
+        .support-link:hover { text-decoration: underline; }
+        .support-cta {
+            display: inline-block; margin-top: 16px;
+            padding: 10px 24px; border: 1px solid #c87a30; color: #c87a30;
+            border-radius: 9px; text-decoration: none;
+            font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+            transition: background 0.15s;
+        }
+        .support-cta:hover { background: rgba(200,122,48,0.1); }
+
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #2a2420; border-radius: 4px; }
@@ -487,6 +516,60 @@ export default function Landing() {
                                 Create your profile
                             </Link>
                         </p>
+                    </div>
+                </section>
+
+                {/* Support */}
+                <section className="section about" id="support">
+                    <div className="section-inner">
+                        <p className="eyebrow">Support Palabatu</p>
+                        <h2 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: 'clamp(30px, 6vw, 56px)',
+                            fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
+                        }}>help us keep it running</h2>
+                        <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '520px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif", margin: '0 auto' }}>
+                            Palabatu runs on volunteer time and out-of-pocket hosting costs. If it's helped
+                            you find a spot or log a send, here's how to chip in — with money, or with a skill.
+                        </p>
+
+                        <div className="about-features" style={{ maxWidth: '600px' }}>
+                            <div className="about-feature">
+                                <h3 style={{
+                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+                                    marginBottom: '8px'
+                                }}>Chip In</h3>
+                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                                    Donations cover hosting, the domain, and image storage as Palabatu grows.
+                                </p>
+                                <div className="support-links">
+                                    <a href={SAWERIA_URL} target="_blank" rel="noopener noreferrer" className="support-link">
+                                        Saweria (IDR)
+                                    </a>
+                                    <a href={GITHUB_SPONSORS_URL} target="_blank" rel="noopener noreferrer" className="support-link">
+                                        GitHub Sponsors (USD)
+                                    </a>
+                                    <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" className="support-link">
+                                        Ko-fi (USD)
+                                    </a>
+                                </div>
+                            </div>
+                            <div className="about-feature">
+                                <h3 style={{
+                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+                                    marginBottom: '8px'
+                                }}>Bring a Skill</h3>
+                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                                    Dev, design, illustration, copywriting — if you've got a skill to lend,
+                                    we've got a spot for it.
+                                </p>
+                                <a href={DISCORD_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="support-cta">
+                                    Join the Discord
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
