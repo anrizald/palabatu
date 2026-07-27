@@ -5,9 +5,22 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, Terms, Privacy } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon } from './pages/index.js'
+
+// Site isn't public yet -- flip to true to bring the real app back online.
+const SITE_LIVE = false
 
 export default function App() {
+  if (!SITE_LIVE) {
+    return (
+      <ErrorBoundary>
+        <Routes>
+          <Route path="*" element={<ComingSoon />} />
+        </Routes>
+      </ErrorBoundary>
+    )
+  }
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
@@ -27,8 +40,6 @@ export default function App() {
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/notifications" element={<Notifications />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

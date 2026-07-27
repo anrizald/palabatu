@@ -478,8 +478,13 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
     const [tick, setTick] = useState(0)
     const [mobileCluster, setMobileCluster] = useState<Cluster | null>(null)
 
+    // Only zoom needs to retrigger clustering: latLngToContainerPoint distances
+    // between markers are pan-invariant (panning is a pure translation that
+    // cancels out when diffing two container points), so recomputing on
+    // moveend was pure waste — and worse, it re-rendered the marker/Popup tree
+    // on every pan-end, which made Leaflet's Popup re-adjustPan and snap the
+    // view back onto an open card no matter how far the user had panned away.
     useMapEvents({
-        moveend() { setTick(t => t + 1) },
         zoomend() { setTick(t => t + 1) },
     })
 
