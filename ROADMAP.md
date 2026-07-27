@@ -31,6 +31,15 @@ Everything on the original deployability punch list (validation, rate limiting, 
 - **Styling**: revisit Tamagui (cross-platform React UI kit) only once RN work actually starts — it was evaluated and rejected for the current web-only app since its core value (shared components across RN + web) doesn't apply yet. Don't assume Tailwind carries over as-is; re-litigate Tamagui vs. NativeWind vs. plain StyleSheet at that point.
 - Not scoped beyond framework choice yet — no timeline, no feature-parity decision (full parity vs. mobile-first subset) made.
 
+## Marketing site & community (parallel track, not gating v1)
+
+Separate from the four product phases above — public-facing presence around palabatu.id. None of this blocks the app itself shipping.
+
+- **Waitlist / coming-soon page** — gated email capture, being built in a separate session as of 2026-07-26. Planned flow: submitted emails land in a new `waitlist_subscribers` table (source of truth, owned data) and are also synced to a Resend Audience via its Audiences API, so Resend Automations (instant welcome email, drip sequences) and Broadcasts (manual one-off sends) can actually reach them — Resend already being the transactional-email provider means no second email service is needed.
+- **Discord community** — a direct feedback/beta-testing channel ahead of in-app social features (Crew, Phase 3). Open question not yet decided: public-open vs. invite-gated off the waitlist.
+- **Mission & Support page** — mission/vision copy plus donation links. Saweria for IDR (QRIS/e-wallet/bank transfer, no subscription lock-in); for USD, GitHub Sponsors (fits since the repo's already on GitHub, zero platform fee) plus Ko-fi, deliberately not spreading across more than two USD platforms.
+- **Public interactive roadmap page** — a visitor-facing version of this file: a custom map-like background (user supplying the art personally, same ownership pattern as the Phase 1 art assets) with each phase revealed on click/hover. A private prototype of the "phases as an ascending climbing route" visual concept already exists as a Claude artifact from this planning session — worth using as a design reference, not something to build directly on top of.
+
 ## Deferred, no committed phase
 
 - **Sensitive/approximate crag locations** — obscure exact GPS coordinates for spots with land-access or overcrowding concerns. Cheap to build once decided, but the policy itself needs outside input the user doesn't have: an outdoor-bouldering-access perspective and/or legal advice (Indonesian land-access/liability norms), not just an internal call. Moved out of Phase 1 — not launch-blocking, revisit once that input exists.
