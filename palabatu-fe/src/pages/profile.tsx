@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucide-react'
+import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown, LogOut } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import Toast from '../components/Toast.js'
@@ -91,6 +91,7 @@ export default function Profile() {
         location: '',
         created_at: '',
     })
+    const [initialProfile, setInitialProfile] = useState<Profile | null>(null)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [stats, setStats] = useState<ProfileStats | null>(null)
     const [activity, setActivity] = useState<RecentActivity>({ sends: [], problems: [] })
@@ -116,7 +117,6 @@ export default function Profile() {
     const [showAdvanced, setShowAdvanced] = useState(false);
 
     const isOwner = !!(user && user.slug === slug);
-    const isSelfAdmin = isOwner && (profile.title.includes('Council') || profile.title.includes('Associate'));
 
     useEffect(() => {
         if (!slug) return;
@@ -125,7 +125,7 @@ export default function Profile() {
 
         api.get(`/api/profiles/${slug}`).then(data => {
             if (data && !data.error) {
-                setProfile({
+                const loaded = {
                     username: data.username || '',
                     title: Array.isArray(data.title)
                         ? data.title
@@ -138,7 +138,9 @@ export default function Profile() {
                     bio: data.bio || '',
                     location: data.location || '',
                     created_at: data.created_at || '',
-                })
+                };
+                setProfile(loaded);
+                setInitialProfile(loaded);
             } else {
                 setLoadError(data?.error || 'Failed to load this profile.');
             }
@@ -205,6 +207,7 @@ export default function Profile() {
         if (data.error) {
             showToast(`Error updating profile: ${data.error}`, 'error');
         } else {
+            setInitialProfile(profile);
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
             showToast('Profile updated!');
@@ -290,6 +293,8 @@ export default function Profile() {
 
     const initials = profile.username ? profile.username.slice(0, 2).toUpperCase() : '??';
     const joinDate = formatJoinDate(profile.created_at);
+    const isDirty = !!initialProfile && JSON.stringify({ username: profile.username, bio: profile.bio, location: profile.location, tags: profile.tags })
+        !== JSON.stringify({ username: initialProfile.username, bio: initialProfile.bio, location: initialProfile.location, tags: initialProfile.tags });
 
     return (
         <>
@@ -496,36 +501,6 @@ export default function Profile() {
                             </div>
                         </div>
 
-                        {/* Title */}
-                        <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
-                            <div>
-                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Title</div>
-                                <div className="flex gap-2">
-                                    {(['Council', 'Associate'] as Title[]).map(t => {
-                                        const active = profile.title.includes(t);
-                                        return (
-                                            <button
-                                                key={t}
-                                                onClick={() => {
-                                                    if (!isSelfAdmin) return;
-                                                    const titles = active
-                                                        ? profile.title.filter(x => x !== t)
-                                                        : [...profile.title, t];
-                                                    setProfile({ ...profile, title: titles });
-                                                }}
-                                                className={`flex-1 py-2.5 rounded-[10px] border text-sm text-center transition-colors
-                                                    ${active && t === 'Council' ? 'bg-accent/15 border-accent text-accent' : ''}
-                                                    ${active && t === 'Associate' ? 'bg-associate/10 border-associate text-associate' : ''}
-                                                    ${!active ? 'bg-transparent border-border text-text-dim' : ''}
-                                                    ${isSelfAdmin ? 'cursor-pointer hover:border-accent' : 'cursor-default'}
-                                                    ${!isSelfAdmin && !active ? 'opacity-30' : ''}`}
-                                            >{t}</button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Climbing Tags */}
                         <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                             <div>
@@ -569,15 +544,24 @@ export default function Profile() {
                             </div>
                         </div>
 
-                        <button
-                            onClick={saveProfile}
-                            disabled={isSaving}
-                            className={`self-end inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] transition-all
-                                ${saved ? 'bg-gradient-to-br from-associate to-associate-dark shadow-[0_2px_12px_rgba(93,187,106,0.3)]' : 'bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)]'}
-                                ${isSaving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                            {isSaving ? 'Saving...' : saved ? <><Check size={16} className="shrink-0" /> Saved</> : 'Save Changes'}
-                        </button>
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <button
+                                onClick={handleLogout}
+                                className="bg-transparent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-sm text-text-dim hover:border-danger hover:text-danger transition-colors cursor-pointer"
+                            >
+                                <LogOut size={16} className="shrink-0" /> Logout
+                            </button>
+
+                            <button
+                                onClick={saveProfile}
+                                disabled={isSaving || !isDirty}
+                                className={`inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] transition-all
+                                    ${saved ? 'bg-gradient-to-br from-associate to-associate-dark shadow-[0_2px_12px_rgba(93,187,106,0.3)]' : 'bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)]'}
+                                    ${(isSaving || !isDirty) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                                {isSaving ? 'Saving...' : saved ? <><Check size={16} className="shrink-0" /> Saved</> : 'Save Changes'}
+                            </button>
+                        </div>
 
                         {/* Account Security */}
                         <div className="bg-panel border border-border rounded-2xl mt-2 overflow-hidden">

@@ -47,3 +47,26 @@ func UserFromContext(c *gin.Context) AuthUser {
 	authUser, _ := user.(AuthUser)
 	return authUser
 }
+
+// OptionalAuth parses the Authorization header the same way RequireAuth
+// does, but never aborts: a missing or invalid token just leaves AuthUser
+// unset (UserFromContext then returns its zero value, ID ""). For routes
+// like POST /api/feedback that must stay open to logged-out visitors while
+// still opportunistically tagging a submission with user_id when a valid
+// session token is present.
+func OptionalAuth(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) == 2 && parts[0] == "Bearer" && parts[1] != "" {
+		claims := jwt.MapClaims{}
+		_, err := jwt.ParseWithClaims(parts[1], claims, func(t *jwt.Token) (interface{}, error) {
+			return []byte(os.Getenv("JWT_SECRET")), nil
+		})
+		if err == nil {
+			if id, _ := claims["id"].(string); id != "" {
+				c.Set(userContextKey, AuthUser{ID: id})
+			}
+		}
+	}
+	c.Next()
+}

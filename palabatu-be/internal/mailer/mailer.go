@@ -1,10 +1,12 @@
-// Package mailer sends transactional email (verification, password reset)
-// through Resend's SMTP endpoint, mirroring palabatu-be/lib/mailer.ts.
+// Package mailer sends transactional email (verification, password reset,
+// feedback notifications) through Resend's SMTP endpoint, mirroring
+// palabatu-be/lib/mailer.ts.
 package mailer
 
 import (
 	"crypto/tls"
 	"fmt"
+	"html"
 	"net/smtp"
 	"os"
 )
@@ -76,4 +78,28 @@ func SendPasswordResetEmail(email, token string) error {
 		<p>Link expires in 1 hour. If you didn't request this, ignore this email.</p>
 	`, resetURL, resetURL)
 	return send(email, "Reset your Palabatu password", html)
+}
+
+// SendFeedbackNotification alerts the owner immediately when a feedback /
+// bug report is submitted, so nothing sits unseen even before anyone opens
+// the Developer page's review list. message and submitterEmail are
+// user-typed free text (unlike this file's other templates, which only ever
+// interpolate URLs/tokens), so both are HTML-escaped before going into the
+// email body.
+func SendFeedbackNotification(to, message string, submitterEmail, pageURL *string) error {
+	submitter := "Anonymous"
+	if submitterEmail != nil && *submitterEmail != "" {
+		submitter = html.EscapeString(*submitterEmail)
+	}
+	pageLine := ""
+	if pageURL != nil && *pageURL != "" {
+		pageLine = fmt.Sprintf("<p><strong>Page:</strong> %s</p>", html.EscapeString(*pageURL))
+	}
+	body := fmt.Sprintf(`
+		<h2>New feedback submitted</h2>
+		<p><strong>From:</strong> %s</p>
+		%s
+		<p>%s</p>
+	`, submitter, pageLine, html.EscapeString(message))
+	return send(to, "New Palabatu feedback", body)
 }

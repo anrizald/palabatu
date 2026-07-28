@@ -6,15 +6,15 @@ This file tracks direction across sessions. Update it as items complete or scope
 
 ## Phase 1 — Pre-launch (blocking v1)
 
-Everything on the original deployability punch list (validation, rate limiting, CI, shareable URLs, moderation queue, topo annotation, notifications) is done. Three open items remain:
+Everything on the original deployability punch list (validation, rate limiting, CI, shareable URLs, moderation queue, topo annotation, notifications) is done. Two open items remain:
 
 - **Deployment services** — decide and provision the production tier for every third-party service the app actually depends on, currently all wired up on dev/free-tier credentials only:
   - **Email (Resend)** — on the free tier today, which can only send from the shared `onboarding@resend.dev` sandbox address to the account owner's own inbox. Needs a paid tier + a verified custom domain before signup/reset emails can reach real users.
   - **Image storage/CDN (Cloudinary)** — confirm the production plan and limits; currently a dev account.
   - **App hosting** — where the Go binary (which also serves the built frontend, per the shareable-URL work) actually runs in production. Nothing chosen yet.
-  - **DNS/domain** — palabatu.id itself isn't registered/pointed anywhere yet.
+  - **DNS/domain** — palabatu.id is registered (via Hostinger), but unpointed: it still shows Hostinger's default parking template because nothing's been deployed there yet. Needs DNS pointed at wherever app hosting ends up.
 - **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
-- **Feedback / bug report form** — a global entry point, decided 2026-07-27 to live in the header. Since `Header` renders above `<Routes>` for every page including logged-out (confirmed by reading `App.tsx`), it needs a matching entry in `Sidebar.tsx` too — same split this codebase already uses for the "Reports" admin link (Header = desktop, Sidebar = mobile, they're separate components). Whether it's open to logged-out visitors or only signed-in users isn't decided yet; if it's open, the submit endpoint needs the same public rate-limiter pattern already used on other unauthenticated endpoints. Submission plan: write to a new `feedback` table (own the data) and also email each submission immediately via the existing Resend/`mailer.go`, so nothing sits unseen — a review list for this is a natural fit for the Developer page (below) once that exists, rather than building a separate admin UI now.
+- ~~**Feedback / bug report form**~~ — **built 2026-07-28.** A global "Feedback" entry point in `Header.tsx` (desktop) and `Sidebar.tsx` (mobile), opening `FeedbackModal.tsx` (mirrors `ReportModal.tsx`'s visual language). Open to logged-out visitors as well as signed-in users: `POST /api/feedback` (`internal/feedback/`) sits behind `middleware.RateLimit` (per-IP, same pattern as `internal/waitlist`) instead of `middleware.RequireAuth`, and runs the new `middleware.OptionalAuth` so a logged-in submitter's `user_id` gets attached without requiring a session. Submissions land in their own `feedback` table (migrations/0012) and trigger an immediate email via `mailer.SendFeedbackNotification`, sent to whatever inbox `OWNER_USER_ID` resolves to (`auth.GetUserEmail`) rather than a second owner-email env var. Review list is a 5th tab ("Feedback") on the Developer page, listing open submissions and marking them reviewed via `POST /api/feedback/:id/reviewed` — same owner-only gate as the rest of that page.
 
 ## Phase 2 — Post-launch, near-term
 
@@ -25,6 +25,7 @@ Everything on the original deployability punch list (validation, rate limiting, 
 
 - **Logbook** — full personal ascent history: every problem sent, from first V0 to current project. Builds on the existing `sends` domain (`internal/social`), which today only powers the tick toggle and an aggregate count on profile stats — no endpoint lists *which* problems were sent. Needs a joined `sends` → `problems` query and a profile-page view.
 - **Crew** — user-to-user following, an activity feed of who's active at your local spot, and a reputation/recognition signal ("build your name"). `internal/social` already anticipated this in scope. Needs a new `follows` table, follow/unfollow endpoints, and an activity view. "Build your name" may fold into the RBAC/badge work above rather than inventing a separate reputation system. Distinct from "follow a crag" (that follows a *location*; this follows *people*), though the two will likely ship around the same time since both extend the existing notification system.
+- **Ultra-customizable profile page** — Friendster-era profile customization, brought back: users style their own profile page (custom layout/colors/theme, not just the fixed template everyone gets today). Just added 2026-07-28, not designed yet — open questions: how far customization goes (theme picker vs. raw CSS/HTML a la old Friendster, with the XSS/sanitization implications that implies), where it's stored (`profiles.Tags`-style opaque JSON blob vs. dedicated columns), and how it interacts with the RBAC/badge work above if badges/titles need to render consistently inside a custom layout.
 
 ## Phase 4 — Native mobile apps (iOS / Android)
 
@@ -43,9 +44,16 @@ Separate from the four product phases above — public-facing presence around pa
 
 ## Developer / ops tooling (parallel track, owner-only)
 
-Internal tooling for the user themselves, not community-facing — distinct from the RBAC/badge rework above, which is about community admin roles (Council/Associate/Warden). Access control for this is unscoped: likely needs to be tighter than any of those tiers, possibly just the owner's own account rather than a role anyone else could hold.
+Internal tooling for the user themselves, not community-facing — distinct from the RBAC/badge rework above, which is about community admin roles (Council/Associate/Warden).
 
-- **Developer page** — data export, analytics viewing, API docs, and tester management, in one place. Analytics would need new business/domain metrics beyond what `internal/metrics` currently tracks (HTTP-layer request count/duration only, nothing scraping `GET /metrics` yet). Not scoped beyond the idea yet.
+- **Developer page** — data export, analytics viewing, API docs, and tester management, in one place. Scoped 2026-07-28, **built 2026-07-28**:
+  - **Access control** — `OWNER_USER_ID` env var (godotenv, alongside `JWT_SECRET` etc.) plus `middleware.RequireOwner` (`palabatu-be/internal/middleware/owner.go`), which compares it against `AuthUser.ID`. Deliberately not a role/title — Council/Associate/Warden are community tiers meant to be held by more than one person; this page is for one account. Chained after `RequireAuth` via one `rg.Group("/dev", middleware.RequireAuth, middleware.RequireOwner)` call rather than repeating it per route.
+  - **New domain package** `internal/devtools/` (`handler.go`/`service.go`/`repository.go`/`errors.go`, mounted on the existing `/api` group as `/api/dev/*`), following the existing one-package-per-domain convention.
+  - **Data export** — `GET /api/dev/export/{users|problems|sends|comments|reports}`, JSON by default, CSV via `?format=csv` (CSV rendering shared across all five types via one reflection-based `writeCSV` helper keyed off each type's json tags). `users` export deliberately excludes `password`/`verification_token`/`reset_token`/`reset_token_expiry`.
+  - **Analytics** — `GET /api/dev/analytics`: signups/problems/sends per day (trailing 30 days), verified-vs-unverified counts, top 10 sent problems, top 10 most active users (by sends+comments+problems added). Direct Postgres aggregate queries, deliberately bypassing `internal/metrics`/Prometheus (nothing scrapes `GET /metrics` today).
+  - **API docs** — manually maintained reference (route, method, auth requirement, one-line purpose), rendered as a static table in `Developer.tsx` covering every mounted route across all domains.
+  - **Tester management** — `profiles.is_tester boolean default false` (`migrations/0011_developer_tools`), plus search-by-username/email (`GET /api/dev/testers/search`) and toggle (`POST /api/dev/testers/:id/toggle`, atomic via `NOT COALESCE(is_tester, false)` in SQL) on the page. Gating specific unreleased features behind `is_tester` is still unstarted — ships ad hoc as those features need it.
+  - **Frontend** — `src/pages/Developer.tsx` at `/developer` (tabs: Analytics/Export/Testers/API Docs), with its own owner-email guard as a fallback for direct navigation. Nav entry in `Header.tsx`/`Sidebar.tsx` renders only when the logged-in user's email matches `VITE_OWNER_EMAIL` — backend `RequireOwner` is the actual enforcement.
 
 ## Deferred, no committed phase
 

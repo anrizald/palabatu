@@ -74,8 +74,8 @@ migrate -path migrations -database "$DATABASE_URL" version
 
 ## Environment variables
 
-- `palabatu-fe/.env`: `VITE_API_URL` (backend base URL).
-- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
+- `palabatu-fe/.env`: `VITE_API_URL` (backend base URL), `VITE_OWNER_EMAIL` (gates the Developer nav link's visibility only — the real enforcement is backend-side, see `OWNER_USER_ID` below).
+- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, `OWNER_USER_ID` (the single `users.id` allowed to call `/api/dev/*`, see `middleware.RequireOwner`), Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
 
 ## Architecture
 
@@ -120,11 +120,20 @@ palabatu-be/
 │   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
 │   │   ├── repository.go    # `problems` table queries
 │   │   └── errors.go        # ErrNotFound, ErrForbidden
-│   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
-│       ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
-│       ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
-│       ├── repository.go     # `sends` + `comments` table queries
-│       └── errors.go         # ErrEmptyComment
+│   ├── social/               # sends (ticks) and comments today; likes/follows if those get added later
+│   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
+│   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
+│   │   ├── repository.go     # `sends` + `comments` table queries
+│   │   └── errors.go         # ErrEmptyComment
+│   └── devtools/             # owner-only Developer page: fixed data export, analytics, tester-flag management.
+│       │                     # Every route is behind middleware.RequireAuth + middleware.RequireOwner (OWNER_USER_ID
+│       │                     # env var compared against AuthUser.ID) — not an authz role, since this is one account,
+│       │                     # not a community tier others can hold.
+│       ├── handler.go        # Routes(rg) mounted at /api/dev/* — export/:table, analytics, testers/search, testers/:id/toggle
+│       ├── service.go        # Export/GetAnalytics/SearchTesterCandidates/ToggleTester
+│       ├── repository.go     # Reads directly from users/problems/sends/comments/reports (own SQL, no cross-domain
+│       │                     # repository calls), mirroring auth.getProfileStats' precedent for the same reasoning
+│       └── errors.go         # ErrInvalidTable, ErrNotFound
 ```
 
 - Domain package convention (executed 2026-07-09, replacing a `handler`/`service`/`repository`-by-technical-layer split — see git history before that commit if you need the old shape): each domain (`auth`, `problems`, `social`) is one package holding its own `handler.go`/`service.go`/`repository.go`. Within a domain, repository-tier functions are unexported (lowercase) since they're now pure implementation detail of that package; service-tier functions stay exported only where the handler in the same file needs them or another domain calls in (e.g. `auth.GetUserTitles`). Handlers should stay thin (request parsing + response writing); business rules belong in the service-tier functions; raw SQL belongs in the repository-tier functions. This is a modular monolith (one binary, one `pgxpool`, one deploy) — not separate network-separated services, which aren't warranted at current scale.
