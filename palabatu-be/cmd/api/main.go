@@ -19,6 +19,8 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/devtools"
+	"palabatu-be/internal/feedback"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/notification"
 	"palabatu-be/internal/problems"
@@ -81,6 +83,8 @@ func main() {
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)
 	waitlist.Routes(apiGroup)
+	devtools.Routes(apiGroup)
+	feedback.Routes(apiGroup)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

@@ -5,10 +5,10 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon } from './pages/index.js'
+import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
-const SITE_LIVE = false
+const SITE_LIVE = true
 
 export default function App() {
   if (!SITE_LIVE) {
@@ -40,6 +40,7 @@ export default function App() {
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/developer" element={<Developer />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

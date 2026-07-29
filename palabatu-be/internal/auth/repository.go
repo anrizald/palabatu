@@ -173,6 +173,16 @@ func getUserByID(ctx context.Context, id string) (*User, error) {
 	return &u, nil
 }
 
+// GetUserEmail resolves a user id to their email. Exported for
+// internal/feedback, which resolves OWNER_USER_ID to an inbox to notify on
+// each submission rather than duplicating a users-table query or requiring
+// a second owner-email env var alongside OWNER_USER_ID.
+func GetUserEmail(ctx context.Context, id string) (string, error) {
+	var email string
+	err := db.Pool.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, id).Scan(&email)
+	return email, err
+}
+
 // getUserIDBySlug resolves a profile URL slug to the underlying user id.
 func getUserIDBySlug(ctx context.Context, slug string) (string, error) {
 	var id string

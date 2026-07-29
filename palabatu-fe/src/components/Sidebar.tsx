@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, X } from 'lucide-react';
+import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, Wrench, MessageSquare, X } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 
@@ -9,9 +9,11 @@ type SidebarProps = {
     isOpen: boolean;
     onClose: () => void;
     isAdmin?: boolean;
+    isOwner?: boolean;
+    onOpenFeedback: () => void;
 };
 
-export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = false, onOpenFeedback }: SidebarProps) {
     const { user, handleLogout } = useAuth();
     const location = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
@@ -31,7 +33,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
             setUnreadCount(0);
             return;
         }
-        const refresh = () => getUnreadCount(user.id).then(setUnreadCount);
+        const refresh = () => getUnreadCount().then(setUnreadCount);
         refresh();
         window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
         return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
@@ -146,6 +148,25 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                     flex-shrink: 0;
                 }
 
+                .sidebar-feedback-btn {
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 15px;
+                    color: #d8c8b8;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 13px 12px;
+                    border-radius: 10px;
+                    border-left: 3px solid transparent;
+                    transition: background 0.2s, color 0.2s;
+                    text-align: left;
+                }
+                .sidebar-feedback-btn svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
+                .sidebar-feedback-btn:hover { background: rgba(240,224,200,0.06); }
+
                 .sidebar-footer {
                     margin-top: auto;
                     padding: 16px 12px 24px;
@@ -224,9 +245,17 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
                                 <Link to="/directory" className={`sidebar-item ${isDirectoryActive ? 'active' : ''}`} onClick={onClose}>
                                     <Users size={18} /> Directory
                                 </Link>
+                                <button className="sidebar-feedback-btn" onClick={onOpenFeedback}>
+                                    <MessageSquare size={18} /> Feedback
+                                </button>
                                 {isAdmin && (
                                     <Link to="/admin/reports" className="sidebar-item" onClick={onClose}>
                                         <Flag size={18} /> Reports
+                                    </Link>
+                                )}
+                                {isOwner && (
+                                    <Link to="/developer" className="sidebar-item" onClick={onClose}>
+                                        <Wrench size={18} /> Developer
                                     </Link>
                                 )}
                                 {user && (

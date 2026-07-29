@@ -106,7 +106,19 @@ Auth, profiles, the interactive map, problem/spot CRUD, comments, send tracking,
 
 ## Contributing
 
-Solo/small-team project, not yet accepting outside contributions while pre-launch. Branch convention in use: `feat/`, `fix/`, `refactor/`, `revamp/`, `ui/` off `main`; CI (`go vet`, `go build`, ESLint, frontend build) runs on every PR.
+Solo/small-team project, not yet accepting outside contributions while pre-launch.
+
+### Branches
+
+Five long-lived branches, each with a distinct job:
+
+- **`main`** — production. What deploys to `palabatu.id` once the site is actually hosted.
+- **`dev`** — primary integration branch. Day-to-day feature work merges here first; CI (`go vet`, `go build`, ESLint, frontend build) runs on every PR and on every push to `dev`.
+- **`stage`** — public-facing holding branch. Deliberately kept behind `dev`, pinned at whatever state is safe to show the public (currently the "coming soon" gate) while `dev` races ahead with the live app for internal testing.
+- **`ci`** — sandbox for iterating on `.github/workflows` changes in isolation, so a broken CI config never blocks real feature work on `dev`/`main`.
+- **`devtools`** — long-lived home for owner-only internal tooling (the Developer page, feedback system, and similar admin-facing features), merged into `dev` periodically but kept separable from the main app's feature history.
+
+Short-lived branches (`feat/`, `fix/`, `refactor/`, `revamp/`, `ui/`) branch off `dev` and merge back via PR.
 
 ## License
 
