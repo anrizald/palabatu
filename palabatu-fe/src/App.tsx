@@ -8,7 +8,7 @@ import { ProblemList } from './pages/ProblemList.js'
 import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
-const SITE_LIVE = true
+const SITE_LIVE = false
 
 export default function App() {
   if (!SITE_LIVE) {
