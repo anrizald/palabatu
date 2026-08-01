@@ -7,8 +7,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"palabatu-be/internal/apitypes"
 	"palabatu-be/internal/middleware"
 )
+
+// ReportCommentRequest is handleReportComment's request body.
+type ReportCommentRequest struct {
+	Reason string `json:"reason"`
+}
+
+// ReportImageRequest is handleReportImage's request body.
+type ReportImageRequest struct {
+	URL    string `json:"url"`
+	Reason string `json:"reason"`
+}
+
+// ResolveReportRequest is handleResolveReport's request body.
+type ResolveReportRequest struct {
+	Action string `json:"action"`
+}
 
 // Routes registers the report domain's routes on the /api group. Create
 // routes live under /comments and /problems (matching social.Routes' own
@@ -24,15 +41,27 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/reports/:id/resolve", middleware.RequireAuth, handleResolveReport)
 }
 
+// handleReportComment godoc
+// @Summary      Report a comment
+// @Tags         report
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                  true  "Comment ID"
+// @Param        body  body      report.ReportCommentRequest  true  "Report reason"
+// @Success      200   {object}  report.Report
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse  "reporting your own content"
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/comments/{id}/report [post]
 func handleReportComment(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
-	var body struct {
-		Reason string `json:"reason"`
-	}
+	var body ReportCommentRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
@@ -40,16 +69,27 @@ func handleReportComment(c *gin.Context) {
 	writeReportResult(c, report, err)
 }
 
+// handleReportImage godoc
+// @Summary      Report a problem's topo image
+// @Tags         report
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                true  "Problem ID"
+// @Param        body  body      report.ReportImageRequest  true  "Image URL and reason"
+// @Success      200   {object}  report.Report
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse  "reporting your own content"
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/images/report [post]
 func handleReportImage(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
-	var body struct {
-		URL    string `json:"url"`
-		Reason string `json:"reason"`
-	}
+	var body ReportImageRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
@@ -62,18 +102,28 @@ func writeReportResult(c *gin.Context, rep *Report, err error) {
 	case err == nil:
 		c.JSON(http.StatusOK, rep)
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrCannotReportOwnContent):
-		c.JSON(http.StatusForbidden, gin.H{"error": "You cannot report your own content."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "You cannot report your own content."})
 	case errors.Is(err, ErrReasonTooLong):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Reason is too long"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Reason is too long"})
 	case errors.Is(err, ErrInvalidTarget):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid report target"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid report target"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleListReports godoc
+// @Summary      List pending reports
+// @Description  Admin-only (Council/Associate title) moderation queue.
+// @Tags         report
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   report.Report
+// @Failure      403  {object}  apitypes.ErrorResponse
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/reports [get]
 func handleListReports(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 
@@ -82,37 +132,51 @@ func handleListReports(c *gin.Context) {
 	case err == nil:
 		c.JSON(http.StatusOK, reports)
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to view reports."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to view reports."})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleResolveReport godoc
+// @Summary      Resolve a report
+// @Description  Admin-only. Action is either "remove" (deletes the reported content) or "dismiss".
+// @Tags         report
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                       true  "Report ID"
+// @Param        body  body      report.ResolveReportRequest  true  "Resolution action"
+// @Success      200   {object}  apitypes.SuccessResponse
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      409   {object}  apitypes.ErrorResponse  "report already resolved"
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/reports/{id}/resolve [post]
 func handleResolveReport(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
-	var body struct {
-		Action string `json:"action"`
-	}
+	var body ResolveReportRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
 	err := Resolve(c.Request.Context(), userID, id, body.Action)
 	switch {
 	case err == nil:
-		c.JSON(http.StatusOK, gin.H{"success": true})
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to resolve reports."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to resolve reports."})
 	case errors.Is(err, ErrInvalidAction):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid resolution action"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid resolution action"})
 	case errors.Is(err, ErrAlreadyResolved):
-		c.JSON(http.StatusConflict, gin.H{"error": "Report already resolved"})
+		c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: "Report already resolved"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }

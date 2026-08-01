@@ -72,6 +72,28 @@ migrate -path migrations -database "$DATABASE_URL" version
 - **Never run `migrate ... down` against the production `DATABASE_URL`** — it drops tables. Point at a local Postgres instance for testing the up/down cycle. `scripts/db.ps1` enforces this automatically.
 - `golang-migrate`'s postgres driver (v4.19.1) registers itself for both the `postgres://` and `postgresql://` URI schemes, so Neon's connection strings work unmodified — no prefix-swapping needed.
 
+## API Contract
+
+`palabatu-be`'s handlers document themselves via [swaggo/swag v2](https://github.com/swaggo/swag) comment annotations, generated into a committed OpenAPI 3.1 spec at `palabatu-be/docs/swagger.json`. This exists so a mismatched request/response shape becomes a documented, generatable contract instead of something hand-copied by eye into `palabatu-fe`'s types (which is how it worked before this existed) — and so a future second client (the Phase 4 React Native app, see ROADMAP.md) has a real spec to generate against instead of a third copy of hand-guessed types.
+
+Rules for every new or changed endpoint:
+- **Named types only** — every request body and every non-trivial response is a named Go struct (in that domain's `dto.go` if it has one, e.g. `internal/auth/dto.go`/`internal/problems/dto.go`, otherwise declared inline near the top of `handler.go`). Never bind into an anonymous `var body struct{...}`, never respond with a bare `gin.H{...}`.
+- **Shared response envelopes** live in `internal/apitypes` (sibling of `internal/middleware`/`internal/authz`, same one-way-import shape — domains import it, it imports nothing domain-specific): `apitypes.ErrorResponse{Error string}` for every non-2xx body, `apitypes.SuccessResponse{Success bool}` for plain "it worked" responses, `apitypes.MessageResponse{Message string}` for a human-readable confirmation, `apitypes.CountResponse{Count int}` for a bare count. Reach for a domain-local named type instead only when the shape is genuinely domain-specific.
+- **Every handler gets a swag doc comment** directly above it: `@Summary`, `@Tags <domain>`, `@Accept`/`@Produce` as applicable, `@Param` per path/query/body/formData parameter, `@Success`/`@Failure` per response, `@Router <path> [method]`, and `@Security BearerAuth` iff the route is wrapped in `middleware.RequireAuth`.
+- **Route mounting** stays as-is: the `/auth` group for auth's own routes (`auth.AuthRoutes`), the `/api` group (`apiGroup`) for everything else including `auth.ProfileRoutes`.
+- **Public (no-auth) endpoints that accept user input** get the existing `middleware.RateLimit(...)` pattern, per the precedent in `waitlist`, `auth`'s signup/signin/forgot-password/reset-password, and `social.handleCreateComment`.
+- After changing any handler's request/response shape or annotations, run `.\scripts\gen-api-docs.ps1` (wraps `swag init` with this repo's required flags — see below) and commit the regenerated `palabatu-be/docs/swagger.json` alongside the code change.
+
+```powershell
+.\scripts\gen-api-docs.ps1
+```
+
+Requires the swag v2 CLI once per machine: `go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5` (installs to `%GOPATH%\bin`, already on PATH per the `migrate` precedent above). `swag` is a codegen tool only — it never touches `go.mod`/`go.sum`.
+
+- Pinned at `v2.0.0-rc5` deliberately: swag's stable v1 line only emits Swagger 2.0, and swag v2 (native OpenAPI 3.1 output, via `swag init`'s `--v3.1` flag) is still a release candidate, not GA. Expect to bump the pin occasionally as it stabilizes.
+- **Known upstream limitation** (swaggo/swag [#1933](https://github.com/swaggo/swag/issues/1933), open as of this writing): a `formData file` param's schema lands under the wrong content-type key in `--v3.1` output — `multipart/form-data`'s schema comes out as an empty object, with the real `type: file` schema misplaced under `application/x-www-form-urlencoded`. Affects `POST /upload/topo` and `POST /upload/avatar` only; the `@Accept multipart/form-data`/`@Param ... formData file` annotations are still correct, and the actual endpoints are unaffected — this is a spec-generation cosmetic issue, not a runtime behavior change. Don't "fix" it with non-standard annotations; revisit once swag v2 addresses the upstream issue.
+- No route serves the spec itself (no Swagger UI, no `/swagger.json` endpoint) — this is deliberately just a committed artifact for other tooling to generate against, not a live docs page.
+
 ## Environment variables
 
 - `palabatu-fe/.env`: `VITE_API_URL` (backend base URL).
@@ -80,6 +102,8 @@ migrate -path migrations -database "$DATABASE_URL" version
 ## Architecture
 
 **Frontend**: React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Routing is a flat `<Routes>` tree in [palabatu-fe/src/App.tsx](palabatu-fe/src/App.tsx). Pages live in `src/pages/`, shared UI in `src/components/`. Map view (`src/pages/Map.tsx`) uses React Leaflet with marker clustering.
+
+Product context (users, positioning, brand commitments) and the visual design system (palette, typography, component patterns, do's/don'ts) live in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) at the repo root, not duplicated here — check them before making product-shape or visual-design decisions. The `impeccable` skill (`.claude/skills/impeccable/`) reads both automatically for its own commands; consult them directly for any other frontend/design work.
 
 When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component styles), always design for responsiveness — check behavior at mobile widths as well as desktop, not just the viewport you're eyeballing. This app is used as an installable PWA on phones, so mobile is a primary target, not an afterthought.
 
