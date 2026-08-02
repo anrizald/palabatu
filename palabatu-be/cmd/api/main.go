@@ -81,7 +81,15 @@ func main() {
 	}))
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
+	r.GET("/healthz", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		if err := db.Pool.Ping(ctx); err != nil {
+			c.String(http.StatusServiceUnavailable, "database unreachable: %v", err)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
 
 	apiGroup := r.Group("/api")
 
