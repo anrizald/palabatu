@@ -44,11 +44,23 @@ func generateToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// skipEmailVerification is a testing-deploy escape hatch (SKIP_EMAIL_VERIFICATION=true):
+// Resend's free tier can only deliver to the account owner's own address, so
+// on a shared testing deploy every other tester's signup would otherwise
+// roll back when the verification email fails to send. Must stay unset in
+// production - real accounts should always go through real email
+// verification.
+func skipEmailVerification() bool {
+	return os.Getenv("SKIP_EMAIL_VERIFICATION") == "true"
+}
+
 // Signup creates a user and its profile row together (see
 // insertUserAndProfile) and emails a verification link. If the email fails
 // to send, the user row is rolled back, mirroring
 // palabatu-be/routes/auth.ts — the profile row goes with it via
-// profiles_id_fkey's ON DELETE CASCADE (migrations/0003).
+// profiles_id_fkey's ON DELETE CASCADE (migrations/0003). Skipped entirely
+// when skipEmailVerification() is true: the account is marked verified
+// immediately instead.
 func Signup(ctx context.Context, email, password, username string, termsAccepted bool) error {
 	if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" || strings.TrimSpace(username) == "" {
 		return ErrMissingFields
@@ -70,6 +82,10 @@ func Signup(ctx context.Context, email, password, username string, termsAccepted
 	id, err := createUser(ctx, email, string(hashed), username, verificationToken, time.Now())
 	if err != nil {
 		return err
+	}
+
+	if skipEmailVerification() {
+		return markVerified(ctx, id)
 	}
 
 	if err := mailer.SendVerificationEmail(email, verificationToken); err != nil {

@@ -217,6 +217,17 @@ func verifyEmailByToken(ctx context.Context, token string) (id string, email str
 	return id, email, err
 }
 
+// markVerified is verifyEmailByToken's SKIP_EMAIL_VERIFICATION counterpart
+// (see Signup) - same effect, keyed by id instead of a mailed token since
+// there's no email round-trip to match one against.
+func markVerified(ctx context.Context, id string) error {
+	_, err := db.Pool.Exec(ctx,
+		`UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1`,
+		id,
+	)
+	return err
+}
+
 func setResetToken(ctx context.Context, email, token string, expiry time.Time) error {
 	_, err := db.Pool.Exec(ctx,
 		`UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3`,
