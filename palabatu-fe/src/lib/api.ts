@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 /// <reference types="vite-plugin-pwa/client" />
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// `??` (not `||`): an explicitly-empty VITE_API_URL means "same origin, use
+// relative paths" (see Dockerfile's frontend-build stage) - `||` would treat
+// that empty string as falsy and wrongly fall back to the localhost default.
+const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 const getUrl = (path: string) => {
     const cleanBase = BASE.endsWith('/') ? BASE.slice(0, -1) : BASE;

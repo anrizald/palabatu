@@ -7,6 +7,10 @@ WORKDIR /app/palabatu-fe
 COPY palabatu-fe/package.json palabatu-fe/package-lock.json ./
 RUN npm ci
 COPY palabatu-fe/ ./
+# Bake an empty API base URL so the built app calls relative paths
+# (same-origin) instead of the localhost:3001 dev default - this container
+# serves both API and frontend from the same origin.
+ENV VITE_API_URL=""
 RUN npm run build
 
 FROM golang:1.26-alpine AS backend-build
