@@ -1,12 +1,8 @@
 import { createContext } from 'react';
 import type { ToastProps } from '../components/Toast.js';
+import type { User as AuthUser } from '../types/auth.js';
 
-export type User = {
-    id: string;
-    email: string;
-    username: string;
-    slug: string;
-} | null;
+export type User = AuthUser | null;
 
 export type AuthContextType = {
     user: User;

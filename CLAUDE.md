@@ -72,14 +72,53 @@ migrate -path migrations -database "$DATABASE_URL" version
 - **Never run `migrate ... down` against the production `DATABASE_URL`** — it drops tables. Point at a local Postgres instance for testing the up/down cycle. `scripts/db.ps1` enforces this automatically.
 - `golang-migrate`'s postgres driver (v4.19.1) registers itself for both the `postgres://` and `postgresql://` URI schemes, so Neon's connection strings work unmodified — no prefix-swapping needed.
 
+## API Contract
+
+`palabatu-be`'s handlers document themselves via [swaggo/swag v2](https://github.com/swaggo/swag) comment annotations, generated into a committed OpenAPI 3.1 spec at `palabatu-be/docs/swagger.json`. This exists so a mismatched request/response shape becomes a documented, generatable contract instead of something hand-copied by eye into `palabatu-fe`'s types (which is how it worked before this existed) — and so a future second client (the Phase 4 React Native app, see ROADMAP.md) has a real spec to generate against instead of a third copy of hand-guessed types.
+
+Rules for every new or changed endpoint:
+- **Named types only** — every request body and every non-trivial response is a named Go struct (in that domain's `dto.go` if it has one, e.g. `internal/auth/dto.go`/`internal/problems/dto.go`, otherwise declared inline near the top of `handler.go`). Never bind into an anonymous `var body struct{...}`, never respond with a bare `gin.H{...}`.
+- **Shared response envelopes** live in `internal/apitypes` (sibling of `internal/middleware`/`internal/authz`, same one-way-import shape — domains import it, it imports nothing domain-specific): `apitypes.ErrorResponse{Error string}` for every non-2xx body, `apitypes.SuccessResponse{Success bool}` for plain "it worked" responses, `apitypes.MessageResponse{Message string}` for a human-readable confirmation, `apitypes.CountResponse{Count int}` for a bare count. Reach for a domain-local named type instead only when the shape is genuinely domain-specific.
+- **Every handler gets a swag doc comment** directly above it: `@Summary`, `@Tags <domain>`, `@Accept`/`@Produce` as applicable, `@Param` per path/query/body/formData parameter, `@Success`/`@Failure` per response, `@Router <path> [method]`, and `@Security BearerAuth` iff the route is wrapped in `middleware.RequireAuth`.
+- **Route mounting** stays as-is: the `/auth` group for auth's own routes (`auth.AuthRoutes`), the `/api` group (`apiGroup`) for everything else including `auth.ProfileRoutes`.
+- **Public (no-auth) endpoints that accept user input** get the existing `middleware.RateLimit(...)` pattern, per the precedent in `waitlist`, `auth`'s signup/signin/forgot-password/reset-password, and `social.handleCreateComment`.
+- After changing any handler's request/response shape or annotations, run `.\scripts\gen-api-docs.ps1` (wraps `swag init` with this repo's required flags — see below) and commit the regenerated `palabatu-be/docs/swagger.json` alongside the code change.
+
+```powershell
+.\scripts\gen-api-docs.ps1
+```
+
+Requires the swag v2 CLI once per machine: `go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5` (installs to `%GOPATH%\bin`, already on PATH per the `migrate` precedent above). `swag` is a codegen tool only — it never touches `go.mod`/`go.sum`.
+
+- Pinned at `v2.0.0-rc5` deliberately: swag's stable v1 line only emits Swagger 2.0, and swag v2 (native OpenAPI 3.1 output, via `swag init`'s `--v3.1` flag) is still a release candidate, not GA. Expect to bump the pin occasionally as it stabilizes.
+- **Known upstream limitation** (swaggo/swag [#1933](https://github.com/swaggo/swag/issues/1933), open as of this writing): a `formData file` param's schema lands under the wrong content-type key in `--v3.1` output — `multipart/form-data`'s schema comes out as an empty object, with the real `type: file` schema misplaced under `application/x-www-form-urlencoded`. Affects `POST /upload/topo` and `POST /upload/avatar` only; the `@Accept multipart/form-data`/`@Param ... formData file` annotations are still correct, and the actual endpoints are unaffected — this is a spec-generation cosmetic issue, not a runtime behavior change. Don't "fix" it with non-standard annotations; revisit once swag v2 addresses the upstream issue.
+- No route serves the spec itself (no Swagger UI, no `/swagger.json` endpoint) — this is deliberately just a committed artifact for other tooling to generate against, not a live docs page.
+
+### Frontend consumption
+
+`palabatu-fe` generates TypeScript types from the committed spec rather than hand-copying shapes by eye:
+
+```powershell
+npm run gen:types   # openapi-typescript ../palabatu-be/docs/swagger.json -o ./src/types/api.d.ts
+```
+
+Run it (from `palabatu-fe/`) after any backend handler shape/annotation change lands and `docs/swagger.json` is regenerated, and commit the resulting `palabatu-fe/src/types/api.d.ts`.
+
+- `src/lib/api.ts`'s `get`/`post`/`put`/`upload`/`delete` all take a **required** generic (`api.get<T>(path)`, no default) — every call site in the codebase supplies a real `T` as of 2026-08-01, so a missing type argument is a compile error, not a silent `any`. (Earlier in the migration this briefly defaulted to `T = any` so untyped call sites could be converted incrementally instead of all at once; once every call site was converted, the default was removed specifically so a future call site can't quietly skip typing — see git history around 2026-08-01 if you need the reasoning.) Where a call's success payload genuinely isn't used by anyone (e.g. a fire-and-forget mutation), that's still a real type — either `Partial<ErrorResponse>` (only the error path is checked) or `unknown` (the result is fully discarded) — never `any`.
+- **`api.d.ts` is not imported directly by call sites.** It's all-optional by construction (swag doesn't emit `required`, and doesn't model Go pointer-vs-value nullability), so using it raw would force defensive optional-chaining everywhere a field is actually guaranteed. Instead, each domain has a small hand-written mirror type in `src/types/` (`problem.ts`, `social.ts`, `report.ts`, `apitypes.ts` mirroring `internal/apitypes`, etc.) — named after and doc-commented with a pointer to the Go struct and the generated schema name it mirrors, with optionality/nullability resolved against the actual Go field types (no `omitempty` → always present; `*T` → `| null`), not guessed. Add new response/request shapes there, colocated by domain, rather than declaring a local `type X = {...}` inside a page or component file.
+- **Check `src/types/` before hand-writing a type.** A local one-off redefinition of an entity that already has a shared type is exactly the drift this setup exists to prevent (see git history around 2026-08-01 for a case where `ProblemRow` had drifted into two conflicting local definitions, and `Comment` was independently redefined verbatim in two files).
+- Where a call site never reads the success payload (only checks for a possible error), type it narrowly as `Partial<ErrorResponse>` rather than fabricating unused precision.
+
 ## Environment variables
 
-- `palabatu-fe/.env`: `VITE_API_URL` (backend base URL).
-- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
+- `palabatu-fe/.env`: `VITE_API_URL` (backend base URL), `VITE_OWNER_EMAIL` (gates the Developer nav link's visibility only — the real enforcement is backend-side, see `OWNER_USER_ID` below).
+- `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, `OWNER_USER_ID` (the single `users.id` allowed to call `/api/dev/*`, see `middleware.RequireOwner`), Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
 
 ## Architecture
 
 **Frontend**: React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Routing is a flat `<Routes>` tree in [palabatu-fe/src/App.tsx](palabatu-fe/src/App.tsx). Pages live in `src/pages/`, shared UI in `src/components/`. Map view (`src/pages/Map.tsx`) uses React Leaflet with marker clustering.
+
+Product context (users, positioning, brand commitments) and the visual design system (palette, typography, component patterns, do's/don'ts) live in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) at the repo root, not duplicated here — check them before making product-shape or visual-design decisions. The `impeccable` skill (`.claude/skills/impeccable/`) reads both automatically for its own commands; consult them directly for any other frontend/design work.
 
 When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component styles), always design for responsiveness — check behavior at mobile widths as well as desktop, not just the viewport you're eyeballing. This app is used as an installable PWA on phones, so mobile is a primary target, not an afterthought.
 
@@ -120,11 +159,20 @@ palabatu-be/
 │   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
 │   │   ├── repository.go    # `problems` table queries
 │   │   └── errors.go        # ErrNotFound, ErrForbidden
-│   └── social/               # sends (ticks) and comments today; likes/follows if those get added later
-│       ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
-│       ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
-│       ├── repository.go     # `sends` + `comments` table queries
-│       └── errors.go         # ErrEmptyComment
+│   ├── social/               # sends (ticks) and comments today; likes/follows if those get added later
+│   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
+│   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
+│   │   ├── repository.go     # `sends` + `comments` table queries
+│   │   └── errors.go         # ErrEmptyComment
+│   └── devtools/             # owner-only Developer page: fixed data export, analytics, tester-flag management.
+│       │                     # Every route is behind middleware.RequireAuth + middleware.RequireOwner (OWNER_USER_ID
+│       │                     # env var compared against AuthUser.ID) — not an authz role, since this is one account,
+│       │                     # not a community tier others can hold.
+│       ├── handler.go        # Routes(rg) mounted at /api/dev/* — export/:table, analytics, testers/search, testers/:id/toggle
+│       ├── service.go        # Export/GetAnalytics/SearchTesterCandidates/ToggleTester
+│       ├── repository.go     # Reads directly from users/problems/sends/comments/reports (own SQL, no cross-domain
+│       │                     # repository calls), mirroring auth.getProfileStats' precedent for the same reasoning
+│       └── errors.go         # ErrInvalidTable, ErrNotFound
 ```
 
 - Domain package convention (executed 2026-07-09, replacing a `handler`/`service`/`repository`-by-technical-layer split — see git history before that commit if you need the old shape): each domain (`auth`, `problems`, `social`) is one package holding its own `handler.go`/`service.go`/`repository.go`. Within a domain, repository-tier functions are unexported (lowercase) since they're now pure implementation detail of that package; service-tier functions stay exported only where the handler in the same file needs them or another domain calls in (e.g. `auth.GetUserTitles`). Handlers should stay thin (request parsing + response writing); business rules belong in the service-tier functions; raw SQL belongs in the repository-tier functions. This is a modular monolith (one binary, one `pgxpool`, one deploy) — not separate network-separated services, which aren't warranted at current scale.
@@ -150,3 +198,10 @@ palabatu-be/
 
 - `App.tsx` has an unused `Home()`/`About()` component pair left over from an earlier Supabase-based setup — not wired into any route.
 - `req.user`-equivalent context on the backend has no shared typed augmentation yet beyond `middleware.UserFromContext`.
+
+## To do
+
+1. **Minor — empty state bug on the landing page.** [Landing.tsx:504](palabatu-fe/src/pages/Landing.tsx#L504) treats `problems.length === 0` as "still loading" and renders 5 pulsing skeleton cards. Since the production DB genuinely has zero problems right now, real visitors see perpetual loading skeletons in the "Explore Problems" section forever instead of an empty-state message — the Directory page handles this correctly ("No problems added yet. Add one from the map.") but Landing doesn't.
+2. Problems need directions/patokan (local landmark reference) info so users can actually find the spot in person — beyond just the map pin.
+3. Need community guidelines: a page/doc users can read (and re-read later), plus a checkbox at signup requiring acknowledgment. Content of the guidelines still to be discussed.
+4. **Minor — password inputs aren't wrapped in a `<form>`.** [Login.tsx](palabatu-fe/src/pages/Login.tsx), [Signup.tsx](palabatu-fe/src/pages/Signup.tsx), and [ResetPassword.tsx](palabatu-fe/src/pages/ResetPassword.tsx) all build their inputs out of plain `<div>`s with an `onClick`-driven submit button rather than `<form onSubmit={...}>`. Chrome logs a `[DOM] Password field is not contained in a form` warning on each. Not functionally broken (submit still fires via onClick), but it means Enter-to-submit doesn't work and password managers may not reliably offer to save/autofill credentials. Fix: wrap the fields + submit button in a real `<form>`, call `e.preventDefault()` in the handler, and change the button to `type="submit"`.

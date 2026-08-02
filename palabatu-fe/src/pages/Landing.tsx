@@ -5,6 +5,7 @@ import type { ProblemRow } from '../types/problem.js';
 import ProblemDetails from '../components/ProblemDetails.js';
 import Toast from '../components/Toast.js';
 import { useAuth } from '../lib/useAuth.js';
+import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
 type Geo = { lat: number; lng: number };
@@ -12,11 +13,26 @@ type CardItem = { problem: ProblemRow; badge: string; icon: 'pin' | 'flame' | 'c
 
 const CARD_LIMIT = 10;
 
-// placeholder support links — replace with real URLs
-const SAWERIA_URL = 'https://saweria.co/palabatu';
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/palabatu';
-const KOFI_URL = 'https://ko-fi.com/palabatu';
+// placeholder — replace once a real invite exists
 const DISCORD_SUPPORT_URL = 'https://discord.gg/palabatu';
+
+// placeholder — replace with real donation URLs
+const SAWERIA_URL = 'https://saweria.co/anrizald';
+const KOFI_URL = 'https://ko-fi.com/ghulaman';
+
+const GITHUB_REPO_URL = 'https://github.com/anrizald/palabatu';
+const INSTAGRAM_URL = 'https://instagram.com/palbat.id';
+
+const labelStyle = {
+    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
+    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
+    margin: '0 0 8px',
+} as const;
+
+const bodyStyle = {
+    fontSize: '14px', color: '#8a7060', lineHeight: 1.6,
+    fontFamily: "'DM Sans', sans-serif", margin: 0,
+} as const;
 
 function haversineKm(a: Geo, b: Geo) {
     const R = 6371;
@@ -68,6 +84,32 @@ function ClockIcon() {
     );
 }
 
+function GithubIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.48 0-.24-.01-1.02-.01-1.85-2.78.61-3.37-1.19-3.37-1.19-.45-1.16-1.11-1.47-1.11-1.47-.91-.63.07-.62.07-.62 1 .07 1.53 1.04 1.53 1.04.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.56-1.13-4.56-5.02 0-1.11.39-2.02 1.03-2.73-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.04a9.4 9.4 0 0 1 5 0c1.91-1.31 2.75-1.04 2.75-1.04.55 1.41.2 2.45.1 2.71.64.71 1.03 1.62 1.03 2.73 0 3.9-2.34 4.76-4.57 5.01.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.58.69.48A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z" />
+        </svg>
+    );
+}
+
+function DiscordIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20.32 5.36A17.5 17.5 0 0 0 15.9 4c-.2.36-.44.84-.6 1.22a16.2 16.2 0 0 0-4.6 0A11 11 0 0 0 10.1 4a17.6 17.6 0 0 0-4.42 1.36C2.6 9.2 1.85 12.95 2.12 16.64a17.6 17.6 0 0 0 5.36 2.72c.43-.59.82-1.22 1.15-1.88-.63-.24-1.23-.53-1.8-.88.15-.11.3-.23.44-.35a12.6 12.6 0 0 0 10.46 0c.14.12.29.24.44.35-.57.35-1.17.64-1.8.88.33.66.72 1.29 1.15 1.88a17.5 17.5 0 0 0 5.36-2.72c.32-4.28-.68-8-2.6-11.28ZM9.68 14.1c-.86 0-1.56-.8-1.56-1.77 0-.98.68-1.78 1.56-1.78.89 0 1.58.81 1.56 1.78 0 .98-.68 1.77-1.56 1.77Zm4.65 0c-.86 0-1.56-.8-1.56-1.77 0-.98.69-1.78 1.56-1.78.89 0 1.58.81 1.56 1.78 0 .98-.67 1.77-1.56 1.77Z" />
+        </svg>
+    );
+}
+
+function InstagramIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4.2" />
+            <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+        </svg>
+    );
+}
+
 function TabIcon({ icon }: { icon: CardItem['icon'] }) {
     if (icon === 'flame') return <FlameIcon />;
     if (icon === 'clock') return <ClockIcon />;
@@ -109,10 +151,10 @@ export default function Landing() {
     useEffect(() => {
         async function fetchData() {
             const [problemsData, usersData] = await Promise.all([
-                api.get('/api/problems'),
-                api.get('/auth/users/count'),
+                api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
+                api.get<Partial<CountResponse>>('/auth/users/count'),
             ]);
-            if (problemsData.error) {
+            if ('error' in problemsData) {
                 console.error("Error fetching problems:", problemsData.error);
             } else {
                 setProblems(problemsData || []);
@@ -310,48 +352,60 @@ export default function Landing() {
 
         /* --- about --- */
         .about { text-align: center; }
-        .about-features {
-            display: flex;
-            width: 100%;
-            max-width: 720px;
-            margin: 40px auto;
+        .mission { max-width: 640px; margin: 44px auto 0; }
+        .mission p {
+            font-size: 15px; color: #8a7060; line-height: 1.7;
+            font-family: 'DM Sans', sans-serif; margin: 0 0 12px;
         }
-        .about-feature {
-            flex: 1;
-            padding: 0 28px;
-            border-left: 1px solid #2a2420;
+        .mission p:last-child { margin-bottom: 0; }
+        .mission .mission-line {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(21px, 3vw, 30px);
+            font-weight: 700; color: #f0e0c8; line-height: 1.4;
+            margin: 0 0 20px;
         }
-        .about-feature:first-child { border-left: none; padding-left: 0; }
+
+        /* two panels: vision | support */
+        .about-split {
+            display: flex; gap: 22px; align-items: flex-start;
+            text-align: left; max-width: 900px; margin: 48px auto 0;
+        }
+        .about-panel {
+            flex: 1; min-width: 0;
+            background: #141210; border: 1px solid #2a2420;
+            border-radius: 16px; padding: 26px 24px;
+        }
+        #support { scroll-margin-top: 80px; }
+        .about-feature { border-top: 1px solid #2a2420; padding-top: 20px; margin-top: 20px; }
+        .about-feature:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .pat-lane { border-top: 1px solid #2a2420; padding-top: 18px; margin-top: 18px; }
+        .pat-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+        .pat-link {
+            font-size: 12px; color: #c87a30; text-decoration: none;
+            background: rgba(200,122,48,0.12); border: 1px solid #c87a3040;
+            border-radius: 20px; padding: 6px 13px;
+            font-family: 'DM Sans', sans-serif;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .pat-link:hover { background: rgba(200,122,48,0.22); border-color: #c87a30; }
+        .pat-icons { display: flex; gap: 10px; margin-top: 14px; }
+        .pat-icon-link {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+            border: 1px solid #c87a30; color: #c87a30;
+            transition: background 0.15s;
+        }
+        .pat-icon-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .pat-icon-link:hover { background: rgba(200,122,48,0.12); }
+        .pat-link:focus-visible, .pat-icon-link:focus-visible { outline: 2px solid #c87a30; outline-offset: 2px; }
 
         @media (max-width: 640px) {
-            .about-features { flex-direction: column; margin: 32px auto; }
-            .about-feature {
-                border-left: none;
-                border-top: 1px solid #2a2420;
-                padding: 20px 0 0;
-                margin-top: 20px;
-            }
-            .about-feature:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+            .mission { margin-top: 36px; }
+            .about-split { flex-direction: column; gap: 20px; margin: 36px auto 0; }
+            .about-panel { width: 100%; box-sizing: border-box; }
             .section { padding: 64px 20px; }
             .explore-head { flex-direction: column; align-items: flex-start; }
         }
-
-        /* --- support --- */
-        #support { scroll-margin-top: 76px; }
-        .support-links { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 16px; }
-        .support-link {
-            font-size: 14px; font-weight: 600; color: #c87a30;
-            text-decoration: none; font-family: 'DM Sans', sans-serif;
-        }
-        .support-link:hover { text-decoration: underline; }
-        .support-cta {
-            display: inline-block; margin-top: 16px;
-            padding: 10px 24px; border: 1px solid #c87a30; color: #c87a30;
-            border-radius: 9px; text-decoration: none;
-            font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;
-            transition: background 0.15s;
-        }
-        .support-cta:hover { background: rgba(200,122,48,0.1); }
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -471,103 +525,99 @@ export default function Landing() {
                             fontSize: 'clamp(36px, 7vw, 72px)',
                             fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
                         }}>about palabatu</h1>
-                        <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '520px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif", margin: '0 auto' }}>
-                            Palabatu started as a shared pin-drop between friends chasing sandstone and volcanic
-                            boulders across Java. Now it's the map Indonesian climbers open first — find a spot,
-                            see what's been climbed, and log your own sends on the rock you're actually pulling on.
-                        </p>
-
-                        <div className="about-features">
-                            <div className="about-feature">
-                                <h3 style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
-                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    marginBottom: '8px'
-                                }}>Spot Map</h3>
-                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
-                                    Real boulders at real coordinates, added by the climbers who found them.
-                                </p>
-                            </div>
-                            <div className="about-feature">
-                                <h3 style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
-                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    marginBottom: '8px'
-                                }}>Logbook</h3>
-                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
-                                    Track every problem you've sent, from your first V0 to your current project.
-                                </p>
-                            </div>
-                            <div className="about-feature">
-                                <h3 style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
-                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    marginBottom: '8px'
-                                }}>Crew</h3>
-                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
-                                    Follow climbers, see who's active at your local spot, build your name.
-                                </p>
-                            </div>
+                        <div className="mission">
+                            <p className="eyebrow" style={{ margin: '0 0 14px' }}>The mission</p>
+                            <p className="mission-line">
+                                From Sabang to Merauke.<br />All of it awaits.
+                            </p>
+                            <p>
+                                Every wall worth pulling on from Sumatra to Papua, mapped well enough that
+                                someone flying in from Osaka or Melbourne can find it, climb it, and leave
+                                it the way they found it.
+                            </p>
+                            <p>
+                                And numbers are leverage. A scattered community gets ignored when someone
+                                decides a limestone crag is worth more as gravel. A big one doesn't.
+                            </p>
                         </div>
 
-                        <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif" }}>
-                            No gym membership, no gatekeeping — just the rock and the people who show up for it.{' '}
+                        <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
+                            Anyone can add a boulder. Anyone can log a send.{' '}
                             <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
                                 Create your profile
                             </Link>
                         </p>
-                    </div>
-                </section>
 
-                {/* Support */}
-                <section className="section about" id="support">
-                    <div className="section-inner">
-                        <p className="eyebrow">Support Palabatu</p>
-                        <h2 style={{
-                            fontFamily: "'Playfair Display', serif",
-                            fontSize: 'clamp(30px, 6vw, 56px)',
-                            fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
-                        }}>help us keep it running</h2>
-                        <p style={{ fontSize: '16px', color: '#6a5848', maxWidth: '520px', lineHeight: 1.7, fontFamily: "'DM Sans', sans-serif", margin: '0 auto' }}>
-                            Palabatu runs on volunteer time and out-of-pocket hosting costs. If it's helped
-                            you find a spot or log a send, here's how to chip in — with money, or with a skill.
-                        </p>
-
-                        <div className="about-features" style={{ maxWidth: '600px' }}>
-                            <div className="about-feature">
-                                <h3 style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
-                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    marginBottom: '8px'
-                                }}>Chip In</h3>
-                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
-                                    Donations cover hosting, the domain, and image storage as Palabatu grows.
-                                </p>
-                                <div className="support-links">
-                                    <a href={SAWERIA_URL} target="_blank" rel="noopener noreferrer" className="support-link">
-                                        Saweria (IDR)
-                                    </a>
-                                    <a href={GITHUB_SPONSORS_URL} target="_blank" rel="noopener noreferrer" className="support-link">
-                                        GitHub Sponsors (USD)
-                                    </a>
-                                    <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" className="support-link">
-                                        Ko-fi (USD)
-                                    </a>
+                        <div className="about-split">
+                            <div className="about-panel">
+                                <p className="eyebrow" style={{ margin: '0 0 18px' }}>Vision</p>
+                                <div className="about-feature">
+                                    <h3 style={labelStyle}>Spot Map</h3>
+                                    <p style={bodyStyle}>
+                                        Real boulders at real coordinates, added by the people who found them.
+                                    </p>
+                                </div>
+                                <div className="about-feature">
+                                    <h3 style={labelStyle}>Logbook</h3>
+                                    <p style={bodyStyle}>
+                                        Every problem you've sent, from your first V0 to the one you're still
+                                        failing on.
+                                    </p>
+                                </div>
+                                <div className="about-feature">
+                                    <h3 style={labelStyle}>Crew</h3>
+                                    <p style={bodyStyle}>
+                                        See who else climbs your local spot, and what they've been getting on.
+                                    </p>
                                 </div>
                             </div>
-                            <div className="about-feature">
+
+                            <div className="about-panel" id="support">
+                                <p className="eyebrow" style={{ margin: '0 0 6px' }}>Support</p>
                                 <h3 style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 500,
-                                    color: '#c87a30', letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    marginBottom: '8px'
-                                }}>Bring a Skill</h3>
-                                <p style={{ fontSize: '14px', color: '#8a7060', lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
-                                    Dev, design, illustration, copywriting — if you've got a skill to lend,
-                                    we've got a spot for it.
+                                    fontFamily: "'Playfair Display', serif", fontSize: '27px',
+                                    fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
+                                }}>patungan</h3>
+                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                    everyone throws in what they've got
                                 </p>
-                                <a href={DISCORD_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="support-cta">
-                                    Join the Discord
-                                </a>
+                                <p style={bodyStyle}>
+                                    Hosting, image storage, and the domain cost money every month.
+                                </p>
+
+                                <div className="pat-lane">
+                                    <h4 style={labelStyle}>Duit</h4>
+                                    <p style={bodyStyle}>
+                                        Goes to servers, storage, and the domain. That's the entire list.
+                                    </p>
+                                    <div className="pat-links">
+                                        <a href={SAWERIA_URL} target="_blank" rel="noopener noreferrer" className="pat-link">
+                                            Saweria (IDR)
+                                        </a>
+                                        <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" className="pat-link">
+                                            Ko-fi (USD)
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div className="pat-lane">
+                                    <h4 style={labelStyle}>Tenaga</h4>
+                                    <p style={bodyStyle}>
+                                        Devs, illustrators, writers, translators — or anyone who knows a crag
+                                        well enough to fix what we got wrong.
+                                    </p>
+                                    <div className="pat-icons">
+                                        <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on GitHub">
+                                            <GithubIcon />
+                                        </a>
+                                        <a href={DISCORD_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Join the Discord">
+                                            <DiscordIcon />
+                                        </a>
+                                        <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on Instagram">
+                                            <InstagramIcon />
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

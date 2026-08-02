@@ -19,6 +19,8 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/devtools"
+	"palabatu-be/internal/feedback"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/notification"
 	"palabatu-be/internal/problems"
@@ -43,6 +45,15 @@ func stripTrailingSlash(next http.Handler) http.Handler {
 	})
 }
 
+// @title        Palabatu API
+// @version      1.0
+// @description  Backend API for Palabatu, a community app for Indonesian bouldering enthusiasts (spot map, climber profiles, route/problem listings, comments, reactions, reports).
+// @host         localhost:3001
+// @BasePath     /
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Type "Bearer" followed by a space and the JWT, e.g. "Bearer eyJhbGc...".
 func main() {
 	_ = godotenv.Load()
 
@@ -81,6 +92,8 @@ func main() {
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)
 	waitlist.Routes(apiGroup)
+	devtools.Routes(apiGroup)
+	feedback.Routes(apiGroup)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

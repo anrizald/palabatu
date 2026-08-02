@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
@@ -21,18 +21,18 @@ export default function Notifications() {
     const [items, setItems] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const refresh = () => {
+    const refresh = useCallback(() => {
         if (!user) return;
         setIsLoading(true);
         listNotifications().then(data => {
             setItems(data);
             setIsLoading(false);
         });
-    };
+    }, [user]);
 
     useEffect(() => {
         refresh();
-    }, [user]);
+    }, [refresh]);
 
     const unreadCount = items.filter(n => !n.read).length;
 

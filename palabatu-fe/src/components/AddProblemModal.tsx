@@ -2,8 +2,9 @@ import { api } from '../lib/api.js'
 import { useState, useEffect } from 'react'
 import { useMapEvents } from 'react-leaflet'
 import type { LeafletMouseEvent } from 'leaflet'
-import type { NewProblem, ProblemRow } from '../types/problem.js'
+import type { NewProblem, ProblemRow, ProblemSummary, TopoUploadResponse } from '../types/problem.js'
 import type { Shape } from '../types/annotation.js'
+import type { ErrorResponse } from '../types/apitypes.js'
 import { useAuth } from '../lib/useAuth.js'
 import Toast, { type ToastProps } from './Toast.js'
 import { GRADE_SCALES, type ProblemType } from '../lib/constants.js'
@@ -14,7 +15,7 @@ type Props = {
     onClose: () => void
     onAdded: (problem: ProblemRow) => void
     newProblem: NewProblem
-    setNewProblem: (val: NewProblem) => void
+    setNewProblem: (val: NewProblem | ((prev: NewProblem) => NewProblem)) => void
     isPicking: boolean
     setIsPicking: (val: boolean) => void
 }
@@ -64,22 +65,22 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         setGradeScale(defaultScale)
         setGradeFrom('')
         setGradeTo('')
-        setNewProblem({ ...newProblem, grade: '' })
-    }, [problemType])
+        setNewProblem(prev => ({ ...prev, grade: '' }))
+    }, [problemType, setNewProblem])
 
     // Reset grades when scale changes
     useEffect(() => {
         setGradeFrom('')
         setGradeTo('')
-        setNewProblem({ ...newProblem, grade: '' })
-    }, [gradeScale])
+        setNewProblem(prev => ({ ...prev, grade: '' }))
+    }, [gradeScale, setNewProblem])
 
     // Sync grade string to newProblem
     useEffect(() => {
         if (!gradeFrom) return
         const gradeStr = isRange && gradeTo ? `${gradeFrom}-${gradeTo}` : gradeFrom
-        setNewProblem({ ...newProblem, grade: gradeStr })
-    }, [gradeFrom, gradeTo, isRange])
+        setNewProblem(prev => ({ ...prev, grade: gradeStr }))
+    }, [gradeFrom, gradeTo, isRange, setNewProblem])
 
     const handleGradePick = (g: string) => {
         if (!isRange) {
@@ -113,7 +114,7 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             const uploadPromises = newProblem.imageFiles.map(file => {
                 const formData = new FormData();
                 formData.append('image', file);
-                return api.upload('/api/upload/topo', formData);
+                return api.upload<Partial<TopoUploadResponse & ErrorResponse>>('/api/upload/topo', formData);
             });
 
             const result = await Promise.all(uploadPromises);
@@ -122,16 +123,16 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
             // annotation onto the wrong surviving URL.
             result.forEach((res, idx) => {
                 if (!res.error) {
-                    uploadedUrls.push(res.url);
+                    uploadedUrls.push(res.url!);
                     uploadedDrafts.push(draftAnnotations[idx]);
                 }
             });
         }
 
-        const data = await api.post('/api/problems', { ...newProblem, image_urls: uploadedUrls });
+        const data = await api.post<ProblemSummary | ErrorResponse>('/api/problems', { ...newProblem, image_urls: uploadedUrls });
         setIsSubmitting(false);
 
-        if (data.error) { showError(data.error); return; }
+        if ('error' in data) { showError(data.error); return; }
 
         // Persist staged drawings now that the problem (and its final image
         // URLs) exist. Best-effort — the problem itself already succeeded,
@@ -139,16 +140,23 @@ export default function AddProblemModal({ onClose, onAdded, newProblem, setNewPr
         const annotationSaves = uploadedUrls
             .map((url, idx) => ({ url, shapes: uploadedDrafts[idx] }))
             .filter((pair): pair is { url: string; shapes: Shape[] } => !!pair.shapes && pair.shapes.length > 0)
-            .map(({ url, shapes }) => api.put(`/api/problems/${data.id}/annotations`, { url, data: shapes }));
+            .map(({ url, shapes }) => api.put<unknown>(`/api/problems/${data.id}/annotations`, { url, data: shapes }));
         if (annotationSaves.length > 0) {
             await Promise.all(annotationSaves).catch(e => console.error('Failed to save one or more annotations', e));
         }
 
         onAdded({
-            ...data,
+            id: data.id,
+            name: data.name,
+            grade: data.grade ?? '',
+            location_name: data.location_name ?? '',
+            latitude: data.latitude ?? newProblem.lat ?? 0,
+            longitude: data.longitude ?? newProblem.lng ?? 0,
             image_urls: uploadedUrls,
-            created_by: user?.id,
-            creator_name: user?.username,
+            created_by: user?.id ?? '',
+            creator_name: user?.username ?? '',
+            creator_slug: user?.slug ?? '',
+            created_at: new Date().toISOString(),
             send_count: 0
         })
         onClose();

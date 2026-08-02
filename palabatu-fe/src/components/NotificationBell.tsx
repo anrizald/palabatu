@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
@@ -27,17 +27,17 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
     const [unreadCount, setUnreadCount] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const refresh = () => {
+    const refresh = useCallback(() => {
         if (!user) return;
         listNotifications().then(setItems);
         getUnreadCount().then(setUnreadCount);
-    };
+    }, [user]);
 
     useEffect(() => {
         refresh();
         window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
         return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
-    }, [user]);
+    }, [refresh]);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {

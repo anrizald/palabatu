@@ -5,6 +5,8 @@ import { api } from './api.js';
 import { AuthContext } from './authContextInstance.js';
 import type { User } from './authContextInstance.js';
 import type { ToastProps } from '../components/Toast.js';
+import type { SessionResponse, SigninResponse } from '../types/auth.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User>(null);
@@ -15,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
-        api.get('/auth/session').then(data => {
+        api.get<Partial<SessionResponse>>('/auth/session').then(data => {
             if (data?.user) setUser(data.user);
             else localStorage.removeItem('token');
         });
@@ -28,8 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleLogin = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const data = await api.post('/auth/signin', { email, password });
-            if (data.error) {
+            const data = await api.post<SigninResponse | ErrorResponse>('/auth/signin', { email, password });
+            if ('error' in data) {
                 showToast(data.error, 'error');
             } else {
                 localStorage.setItem('token', data.token);
@@ -47,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleSignup = async (email: string, password: string, username: string, termsAccepted: boolean) => {
         setIsLoading(true);
         try {
-            const data = await api.post('/auth/signup', { email, password, username, terms_accepted: termsAccepted });
+            const data = await api.post<Partial<ErrorResponse>>('/auth/signup', { email, password, username, terms_accepted: termsAccepted });
             if (data.error) {
                 showToast(data.error, 'error');
             } else {
