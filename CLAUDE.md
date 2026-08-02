@@ -94,6 +94,21 @@ Requires the swag v2 CLI once per machine: `go install github.com/swaggo/swag/v2
 - **Known upstream limitation** (swaggo/swag [#1933](https://github.com/swaggo/swag/issues/1933), open as of this writing): a `formData file` param's schema lands under the wrong content-type key in `--v3.1` output — `multipart/form-data`'s schema comes out as an empty object, with the real `type: file` schema misplaced under `application/x-www-form-urlencoded`. Affects `POST /upload/topo` and `POST /upload/avatar` only; the `@Accept multipart/form-data`/`@Param ... formData file` annotations are still correct, and the actual endpoints are unaffected — this is a spec-generation cosmetic issue, not a runtime behavior change. Don't "fix" it with non-standard annotations; revisit once swag v2 addresses the upstream issue.
 - No route serves the spec itself (no Swagger UI, no `/swagger.json` endpoint) — this is deliberately just a committed artifact for other tooling to generate against, not a live docs page.
 
+### Frontend consumption
+
+`palabatu-fe` generates TypeScript types from the committed spec rather than hand-copying shapes by eye:
+
+```powershell
+npm run gen:types   # openapi-typescript ../palabatu-be/docs/swagger.json -o ./src/types/api.d.ts
+```
+
+Run it (from `palabatu-fe/`) after any backend handler shape/annotation change lands and `docs/swagger.json` is regenerated, and commit the resulting `palabatu-fe/src/types/api.d.ts`.
+
+- `src/lib/api.ts`'s `get`/`post`/`put`/`upload`/`delete` all take a **required** generic (`api.get<T>(path)`, no default) — every call site in the codebase supplies a real `T` as of 2026-08-01, so a missing type argument is a compile error, not a silent `any`. (Earlier in the migration this briefly defaulted to `T = any` so untyped call sites could be converted incrementally instead of all at once; once every call site was converted, the default was removed specifically so a future call site can't quietly skip typing — see git history around 2026-08-01 if you need the reasoning.) Where a call's success payload genuinely isn't used by anyone (e.g. a fire-and-forget mutation), that's still a real type — either `Partial<ErrorResponse>` (only the error path is checked) or `unknown` (the result is fully discarded) — never `any`.
+- **`api.d.ts` is not imported directly by call sites.** It's all-optional by construction (swag doesn't emit `required`, and doesn't model Go pointer-vs-value nullability), so using it raw would force defensive optional-chaining everywhere a field is actually guaranteed. Instead, each domain has a small hand-written mirror type in `src/types/` (`problem.ts`, `social.ts`, `report.ts`, `apitypes.ts` mirroring `internal/apitypes`, etc.) — named after and doc-commented with a pointer to the Go struct and the generated schema name it mirrors, with optionality/nullability resolved against the actual Go field types (no `omitempty` → always present; `*T` → `| null`), not guessed. Add new response/request shapes there, colocated by domain, rather than declaring a local `type X = {...}` inside a page or component file.
+- **Check `src/types/` before hand-writing a type.** A local one-off redefinition of an entity that already has a shared type is exactly the drift this setup exists to prevent (see git history around 2026-08-01 for a case where `ProblemRow` had drifted into two conflicting local definitions, and `Comment` was independently redefined verbatim in two files).
+- Where a call site never reads the success payload (only checks for a possible error), type it narrowly as `Partial<ErrorResponse>` rather than fabricating unused precision.
+
 ## Environment variables
 
 - `palabatu-fe/.env`: `VITE_API_URL` (backend base URL).

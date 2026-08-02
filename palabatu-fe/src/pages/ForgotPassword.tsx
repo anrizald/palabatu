@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 import FooterSection from "../components/Footer.js";
+import type { ErrorResponse } from '../types/apitypes.js';
 import { MailCheck, ArrowLeft } from 'lucide-react';
 
 export default function ForgotPassword() {
@@ -12,7 +13,7 @@ export default function ForgotPassword() {
 
     const handleSubmit = async () => {
         setIsLoading(true);
-        const data = await api.post('/auth/forgot-password', { email });
+        const data = await api.post<Partial<ErrorResponse>>('/auth/forgot-password', { email });
         setIsLoading(false);
         if (data.error) {
             setToast({ message: data.error, type: 'error', onClose: () => setToast(null) });

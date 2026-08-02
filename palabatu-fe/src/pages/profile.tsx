@@ -4,10 +4,17 @@ import { Check, Calendar, MapPin, Eye, EyeOff, Trash2, ChevronDown } from 'lucid
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import Toast from '../components/Toast.js'
+import type { Profile as AuthProfile, ProfileStats, RecentActivity } from '../types/auth.js'
+import type { ReactionType, ReactionCounts, ReactionStatus, ActionResponse } from '../types/social.js'
+import type { AvatarUploadResponse } from '../types/problem.js'
+import type { ErrorResponse } from '../types/apitypes.js'
 
 type climbingStyle = "Boulder" | "Lead" | "Toprope";
 type Title = "Council" | "Associate"
 
+// The profile page's own view-state shape: parsed/defaulted from the wire-level
+// AuthProfile (whose title/tags are opaque `unknown` -- see types/auth.ts) once
+// loaded, not a redefinition of the API contract itself.
 type Profile = {
     username: string;
     title: Title[]; // multiple selections allowed
@@ -19,34 +26,6 @@ type Profile = {
     bio: string;
     location: string;
     created_at: string;
-};
-
-type ProfileStats = {
-    sends_count: number;
-    problems_count: number;
-};
-
-type ReactionType = 'like' | 'fire' | 'heart';
-type ReactionCounts = Record<ReactionType, number>;
-type ReactionStatus = Record<ReactionType, boolean>;
-
-type RecentSend = {
-    problem_id: string;
-    problem_name: string;
-    grade: string | null;
-    created_at: string;
-};
-
-type RecentProblem = {
-    id: string;
-    name: string;
-    grade: string | null;
-    created_at: string;
-};
-
-type RecentActivity = {
-    sends: RecentSend[];
-    problems: RecentProblem[];
 };
 
 const LEVELS = ['Novice', 'Intermediate', 'Open', 'Andi/Anto'];
@@ -123,16 +102,18 @@ export default function Profile() {
         setIsLoading(true);
         setLoadError(null);
 
-        api.get(`/api/profiles/${slug}`).then(data => {
-            if (data && !data.error) {
+        api.get<AuthProfile | ErrorResponse>(`/api/profiles/${slug}`).then(data => {
+            if (!('error' in data)) {
+                const rawTitle = data.title;
+                const rawTags = data.tags as { level?: string; styles?: climbingStyle[] } | null | undefined;
                 setProfile({
                     username: data.username || '',
-                    title: Array.isArray(data.title)
-                        ? data.title
-                        : typeof data.title === 'string' ? [data.title] : [],
+                    title: (Array.isArray(rawTitle)
+                        ? rawTitle
+                        : typeof rawTitle === 'string' ? [rawTitle] : []) as Title[],
                     tags: {
-                        level: data.tags?.level || '',
-                        styles: data.tags?.styles || [],
+                        level: rawTags?.level || '',
+                        styles: rawTags?.styles || [],
                     },
                     avatar_url: data.avatar_url || '',
                     bio: data.bio || '',
@@ -140,29 +121,29 @@ export default function Profile() {
                     created_at: data.created_at || '',
                 })
             } else {
-                setLoadError(data?.error || 'Failed to load this profile.');
+                setLoadError(data.error || 'Failed to load this profile.');
             }
             setIsLoading(false);
         });
 
-        api.get(`/api/profiles/${slug}/stats`).then(data => {
-            if (data && !data.error) setStats(data);
+        api.get<ProfileStats | ErrorResponse>(`/api/profiles/${slug}/stats`).then(data => {
+            if (!('error' in data)) setStats(data);
         });
 
-        api.get(`/api/profiles/${slug}/activity`).then(data => {
-            if (data && !data.error) setActivity(data);
+        api.get<RecentActivity | ErrorResponse>(`/api/profiles/${slug}/activity`).then(data => {
+            if (!('error' in data)) setActivity(data);
         });
 
-        api.get(`/api/profiles/${slug}/reactions`).then(data => {
-            if (data && !data.error) setReactionCounts(data);
+        api.get<ReactionCounts | ErrorResponse>(`/api/profiles/${slug}/reactions`).then(data => {
+            if (!('error' in data)) setReactionCounts(data);
         });
     }, [slug]);
 
     useEffect(() => {
         if (!slug || !user) return;
 
-        api.get(`/api/profiles/${slug}/reactions/status`).then(data => {
-            if (data && !data.error) setReactionStatus(data);
+        api.get<ReactionStatus | ErrorResponse>(`/api/profiles/${slug}/reactions/status`).then(data => {
+            if (!('error' in data)) setReactionStatus(data);
         });
     }, [slug, user]);
 
@@ -174,8 +155,8 @@ export default function Profile() {
         setReactingType(type);
 
         try {
-            const res = await api.post(`/api/profiles/${slug}/reactions/${type}`, {});
-            if (res.error) {
+            const res = await api.post<ActionResponse | ErrorResponse>(`/api/profiles/${slug}/reactions/${type}`, {});
+            if ('error' in res) {
                 showToast(res.error, 'error');
             } else {
                 const added = res.action === 'added';
@@ -193,7 +174,7 @@ export default function Profile() {
     const saveProfile = async () => {
         if (!isOwner || !user) return;
         setIsSaving(true);
-        const data = await api.put(`/api/profiles/${user.id}`, {
+        const data = await api.put<Partial<ErrorResponse>>(`/api/profiles/${user.id}`, {
             username: profile.username,
             title: profile.title,
             tags: profile.tags,
@@ -223,11 +204,11 @@ export default function Profile() {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            const uploadRes = await api.upload('/api/upload/avatar/', formData);
+            const uploadRes = await api.upload<Partial<AvatarUploadResponse & ErrorResponse>>('/api/upload/avatar/', formData);
 
             if (uploadRes.avatar_url) {
-                setProfile(prev => ({ ...prev, avatar_url: uploadRes.avatar_url }));
-                await api.put(`/api/profiles/${user.id}`, {
+                setProfile(prev => ({ ...prev, avatar_url: uploadRes.avatar_url! }));
+                await api.put<Partial<ErrorResponse>>(`/api/profiles/${user.id}`, {
                     ...profile,
                     avatar_url: uploadRes.avatar_url
                 });
@@ -248,7 +229,7 @@ export default function Profile() {
     const handleChangePassword = async () => {
         if (!isOwner) return;
         setIsChangingPassword(true);
-        const data = await api.put('/auth/password', {
+        const data = await api.put<Partial<ErrorResponse>>('/auth/password', {
             current_password: currentPassword,
             new_password: newPassword,
         });
@@ -265,7 +246,7 @@ export default function Profile() {
     const handleDeleteAccount = async () => {
         if (!isOwner) return;
         setIsDeleting(true);
-        const data = await api.delete('/auth/account', { password: deletePassword });
+        const data = await api.delete<Partial<ErrorResponse>>('/auth/account', { password: deletePassword });
         setIsDeleting(false);
         if (data.error) {
             showToast(data.error, 'error');

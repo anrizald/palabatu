@@ -6,6 +6,8 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Sidebar from './Sidebar.js';
 import NotificationBell from './NotificationBell.js';
+import type { Profile as AuthProfile } from '../types/auth.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 export default function Header() {
     const { user, handleLogout } = useAuth();
@@ -26,8 +28,8 @@ export default function Header() {
             setUserTitles([]);
             return;
         }
-        api.get(`/api/profiles/${user.id}`).then(data => {
-            if (data && data.title) {
+        api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
+            if (!('error' in data) && data.title) {
                 const parsed = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
                 setUserTitles(parsed || []);
             }

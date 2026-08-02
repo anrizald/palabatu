@@ -31,7 +31,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false }: SidebarPro
             setUnreadCount(0);
             return;
         }
-        const refresh = () => getUnreadCount(user.id).then(setUnreadCount);
+        const refresh = () => getUnreadCount().then(setUnreadCount);
         refresh();
         window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
         return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);

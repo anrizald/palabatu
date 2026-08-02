@@ -4,20 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, MapPin, Map as MapIcon, Mountain } from 'lucide-react';
 import { GRADE_SCALES } from '../lib/constants.js';
 import FallbackImg from '../components/FallbackImg.js';
-
-type ProblemRow = {
-    id: string | number;
-    name: string;
-    location_name: string;
-    latitude: number;
-    longitude: number;
-    grade: string;
-    creator_name: string;
-    created_by: string;
-    creator_slug: string;
-    send_count: number;
-    image_urls: string[];
-};
+import type { ProblemRow } from '../types/problem.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 type SortBy = 'name' | 'sends';
 
@@ -64,12 +52,12 @@ export function ProblemList() {
     const fetchProblems = useCallback(() => {
         setIsLoading(true);
         setLoadError(null);
-        api.get('/api/problems')
+        api.get<ProblemRow[] | ErrorResponse>('/api/problems')
             .then(data => {
-                if (data && !data.error) {
-                    setProblems(data as ProblemRow[]);
+                if (Array.isArray(data)) {
+                    setProblems(data);
                 } else {
-                    setLoadError(data?.error || 'Failed to load problems.');
+                    setLoadError(data.error || 'Failed to load problems.');
                 }
             })
             .catch(() => setLoadError('Failed to load problems. Check your connection.'))
