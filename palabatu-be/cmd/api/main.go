@@ -84,11 +84,15 @@ func main() {
 	r.GET("/healthz", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
-		if err := db.Pool.Ping(ctx); err != nil {
-			c.String(http.StatusServiceUnavailable, "database unreachable: %v", err)
+		// Queries an actual table, not just db.Pool.Ping: a reachable Postgres
+		// with the wrong schema (e.g. pointed at the wrong Neon branch) would
+		// otherwise still report healthy while every real handler 500s.
+		var count int
+		if err := db.Pool.QueryRow(ctx, "SELECT count(*) FROM problems").Scan(&count); err != nil {
+			c.String(http.StatusServiceUnavailable, "problems table query failed: %v", err)
 			return
 		}
-		c.Status(http.StatusOK)
+		c.String(http.StatusOK, "ok, problems count: %d", count)
 	})
 
 	apiGroup := r.Group("/api")
