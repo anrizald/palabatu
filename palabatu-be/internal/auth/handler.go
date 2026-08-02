@@ -195,12 +195,21 @@ func handleForgotPassword(c *gin.Context) {
 
 	const genericMessage = "If that email exists, a reset link has been sent."
 
-	if err := ForgotPassword(c.Request.Context(), body.Email); err != nil {
+	resetURL, err := ForgotPassword(c.Request.Context(), body.Email)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, apitypes.MessageResponse{Message: genericMessage})
+	// Only non-empty when SKIP_EMAIL_VERIFICATION is on (see ForgotPassword) -
+	// otherwise this stays the generic message regardless of whether the
+	// email existed, same as before.
+	message := genericMessage
+	if resetURL != "" {
+		message = resetURL
+	}
+
+	c.JSON(http.StatusOK, apitypes.MessageResponse{Message: message})
 }
 
 // handleResetPassword godoc

@@ -69,8 +69,16 @@ func SendVerificationEmail(email, token string) error {
 	return send(email, "Verify your Palabatu account", html)
 }
 
+// ResetPasswordURL is exported so callers can build the same link the email
+// itself sends without duplicating the format string - see auth.ForgotPassword's
+// SKIP_EMAIL_VERIFICATION path, which returns this URL directly instead of
+// emailing it.
+func ResetPasswordURL(token string) string {
+	return fmt.Sprintf("%s/reset-password?token=%s", os.Getenv("CLIENT_URL"), token)
+}
+
 func SendPasswordResetEmail(email, token string) error {
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", os.Getenv("CLIENT_URL"), token)
+	resetURL := ResetPasswordURL(token)
 	html := fmt.Sprintf(`
 		<h2>Password Reset</h2>
 		<p>Click the link below to reset your password:</p>

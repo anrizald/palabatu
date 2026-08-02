@@ -147,26 +147,33 @@ func VerifyEmail(ctx context.Context, token string) error {
 }
 
 // ForgotPassword emails a reset link if the address exists. It deliberately
-// does not report whether the address was found, to avoid leaking that.
-func ForgotPassword(ctx context.Context, email string) error {
+// does not report whether the address was found, to avoid leaking that -
+// callers should ignore the returned URL unless skipEmailVerification() is
+// on, in which case it's the link that would have been emailed, handed back
+// directly since Resend's free tier can't deliver it to a tester's address.
+func ForgotPassword(ctx context.Context, email string) (string, error) {
 	_, err := getUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+		return "", nil
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	token, err := generateToken()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := setResetToken(ctx, email, token, time.Now().Add(resetTokenTTL)); err != nil {
-		return err
+		return "", err
 	}
 
-	return mailer.SendPasswordResetEmail(email, token)
+	if skipEmailVerification() {
+		return mailer.ResetPasswordURL(token), nil
+	}
+
+	return "", mailer.SendPasswordResetEmail(email, token)
 }
 
 // ResetPassword sets a new password for the user matching an unexpired reset token.
