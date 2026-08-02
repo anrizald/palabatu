@@ -17,9 +17,8 @@ const CARD_LIMIT = 10;
 const DISCORD_SUPPORT_URL = 'https://discord.gg/palabatu';
 
 // placeholder — replace with real donation URLs
-const SAWERIA_URL = 'https://saweria.co/palabatu';
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/palabatu';
-const KOFI_URL = 'https://ko-fi.com/palabatu';
+const SAWERIA_URL = 'https://saweria.co/anrizald';
+const KOFI_URL = 'https://ko-fi.com/ghulaman';
 
 const GITHUB_REPO_URL = 'https://github.com/anrizald/palabatu';
 const INSTAGRAM_URL = 'https://instagram.com/palbat.id';
@@ -594,9 +593,6 @@ export default function Landing() {
                                     <div className="pat-links">
                                         <a href={SAWERIA_URL} target="_blank" rel="noopener noreferrer" className="pat-link">
                                             Saweria (IDR)
-                                        </a>
-                                        <a href={GITHUB_SPONSORS_URL} target="_blank" rel="noopener noreferrer" className="pat-link">
-                                            GitHub Sponsors (USD)
                                         </a>
                                         <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" className="pat-link">
                                             Ko-fi (USD)
