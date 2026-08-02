@@ -17,6 +17,16 @@ import (
 func Routes(rg *gin.RouterGroup) {
 	limitJoin := middleware.RateLimit(5*time.Second, 3)
 	rg.POST("/waitlist", limitJoin, handleJoin)
+	rg.GET("/waitlist/count", handleCount)
+}
+
+func handleCount(c *gin.Context) {
+	count, err := Count(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
 func handleJoin(c *gin.Context) {

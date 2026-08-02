@@ -16,6 +16,12 @@ type Subscriber struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+func countSubscribers(ctx context.Context) (int, error) {
+	var count int
+	err := db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM waitlist_subscribers`).Scan(&count)
+	return count, err
+}
+
 func createSubscriber(ctx context.Context, email string) (*Subscriber, error) {
 	var s Subscriber
 	err := db.Pool.QueryRow(ctx, `

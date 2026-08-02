@@ -80,6 +80,14 @@ func SendPasswordResetEmail(email, token string) error {
 	return send(email, "Reset your Palabatu password", html)
 }
 
+func SendWaitlistConfirmation(email string) error {
+	html := `
+		<h2>You're on the list!</h2>
+		<p>Thanks for joining the Palabatu waitlist. We'll email you as soon as the app is live.</p>
+	`
+	return send(email, "You're on the Palabatu waitlist", html)
+}
+
 // SendFeedbackNotification alerts the owner immediately when a feedback /
 // bug report is submitted, so nothing sits unseen even before anyone opens
 // the Developer page's review list. message and submitterEmail are

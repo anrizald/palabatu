@@ -3,9 +3,22 @@ import { api } from '../lib/api.js';
 import FooterSection from '../components/Footer.js';
 
 const STORAGE_KEY = 'palabatu_waitlist_email';
+const INSTAGRAM_URL = 'https://instagram.com/palbat.id';
+// Placeholder count -- swap for the real waitlist_subscribers total once it's a number worth showing.
+const FICTIONAL_WAITLIST_BASE = 37;
 
 function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function InstagramIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4.2" />
+            <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+        </svg>
+    );
 }
 
 export default function ComingSoon() {
@@ -14,6 +27,7 @@ export default function ComingSoon() {
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [submittedEmail, setSubmittedEmail] = useState('');
+    const [realCount, setRealCount] = useState(0);
 
     useEffect(() => {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -21,6 +35,11 @@ export default function ComingSoon() {
             setSubmittedEmail(saved);
             setSubmitted(true);
         }
+        api.get('/api/waitlist/count')
+            .then((data) => {
+                if (typeof data.count === 'number') setRealCount(data.count);
+            })
+            .catch(() => {});
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -43,6 +62,11 @@ export default function ComingSoon() {
             localStorage.setItem(STORAGE_KEY, email);
             setSubmittedEmail(email);
             setSubmitted(true);
+            // Only a genuinely new row bumps the count -- a repeat signup from
+            // the same visitor (data.already_joined) was already counted.
+            if (!data.already_joined) {
+                setRealCount((c) => c + 1);
+            }
         } catch {
             setError('Something went wrong. Please try again.');
         } finally {
@@ -111,6 +135,22 @@ export default function ComingSoon() {
                 }
                 .cs-btn:hover { filter: brightness(1.08); }
                 .cs-error { color: #e07060; font-size: 12.5px; margin-top: 10px; font-family: 'DM Sans', sans-serif; }
+
+                .cs-ig {
+                    display: inline-flex; align-items: center; gap: 8px;
+                    margin-top: 28px;
+                    color: #8a7060; text-decoration: none;
+                    font-family: 'DM Sans', sans-serif; font-size: 13.5px;
+                    transition: color 0.15s ease;
+                }
+                .cs-ig svg { flex-shrink: 0; }
+                .cs-ig:hover { color: #c87a30; }
+                .cs-count {
+                    margin: 10px 0 0;
+                    color: #6a5848; font-size: 12.5px;
+                    font-family: 'DM Sans', sans-serif;
+                }
+                .cs-count b { color: #c87a30; font-weight: 600; }
 
                 .cs-done {
                     display: flex; flex-direction: column; align-items: center; gap: 14px;
@@ -184,6 +224,12 @@ export default function ComingSoon() {
                             {error && <p className="cs-error">{error}</p>}
                         </>
                     )}
+
+                    <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="cs-ig">
+                        <InstagramIcon />
+                        Meanwhile, check our Instagram
+                    </a>
+                    <p className="cs-count"><b>{FICTIONAL_WAITLIST_BASE + realCount}+</b> climbers registered for the waitlist</p>
                 </div>
             </div>
 
