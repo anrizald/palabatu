@@ -3,21 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
-
-type Report = {
-    id: string;
-    reporter_id: string;
-    reporter_name: string | null;
-    problem_id: string;
-    problem_name: string;
-    target_type: 'comment' | 'image';
-    comment_id: string | null;
-    comment_content: string | null;
-    image_url: string | null;
-    reason: string | null;
-    status: string;
-    created_at: string;
-};
+import type { Report } from '../types/report.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 export default function AdminReports() {
     const { user } = useAuth();
@@ -35,11 +22,11 @@ export default function AdminReports() {
             setIsLoading(false);
             return;
         }
-        api.get('/api/reports').then(data => {
+        api.get<Report[] | ErrorResponse>('/api/reports').then(data => {
             if (Array.isArray(data)) {
                 setReports(data);
             } else {
-                setLoadError(data?.error || 'Could not load reports.');
+                setLoadError(data.error || 'Could not load reports.');
             }
             setIsLoading(false);
         });
@@ -49,7 +36,7 @@ export default function AdminReports() {
         if (action === 'remove' && !window.confirm('Remove this content? This cannot be undone.')) return;
         setResolvingId(id);
         try {
-            const res = await api.post(`/api/reports/${id}/resolve`, { action });
+            const res = await api.post<Partial<ErrorResponse>>(`/api/reports/${id}/resolve`, { action });
             if (res.error) {
                 showError(`Error: ${res.error}`);
             } else {

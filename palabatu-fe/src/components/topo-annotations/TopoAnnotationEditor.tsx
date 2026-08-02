@@ -1,9 +1,10 @@
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { Pencil, Circle as CircleIcon, Undo2, Trash2, X, Check } from 'lucide-react'
 import { api } from '../../lib/api.js'
-import { ANNOTATION_COLORS, DEFAULT_STROKE_WIDTH, type Shape } from '../../types/annotation.js'
+import { ANNOTATION_COLORS, DEFAULT_STROKE_WIDTH, type Shape, type AnnotationRecord } from '../../types/annotation.js'
 import { useContainRect } from './useContainRect.js'
 import TopoAnnotationOverlay from './TopoAnnotationOverlay.js'
+import type { ErrorResponse } from '../../types/apitypes.js'
 
 type Tool = 'pen' | 'circle'
 
@@ -116,7 +117,7 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
         setIsSaving(true)
         setError(null)
         try {
-            const res = await api.put(`/api/problems/${problemId}/annotations`, { url, data: shapes })
+            const res = await api.put<Partial<AnnotationRecord & ErrorResponse>>(`/api/problems/${problemId}/annotations`, { url, data: shapes })
             if (res?.error) {
                 setError(res.error)
                 return

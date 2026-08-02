@@ -8,6 +8,8 @@ import Sidebar from './Sidebar.js';
 import NotificationBell from './NotificationBell.js';
 import FeedbackModal from './FeedbackModal.js';
 import Toast, { type ToastProps } from './Toast.js';
+import type { Profile as AuthProfile } from '../types/auth.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 export default function Header() {
     const { user } = useAuth();
@@ -25,7 +27,7 @@ export default function Header() {
     const submitFeedback = async ({ message, email }: { message: string; email: string }) => {
         setIsSubmittingFeedback(true);
         try {
-            const res = await api.post('/api/feedback', { message, email, page_url: window.location.pathname });
+            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { message, email, page_url: window.location.pathname });
             if (res.error) {
                 setToast({ message: `Error: ${res.error}`, type: 'error', onClose: () => setToast(null) });
             } else {
@@ -51,8 +53,8 @@ export default function Header() {
             setUserTitles([]);
             return;
         }
-        api.get(`/api/profiles/${user.id}`).then(data => {
-            if (data && data.title) {
+        api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
+            if (!('error' in data) && data.title) {
                 const parsed = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
                 setUserTitles(parsed || []);
             }

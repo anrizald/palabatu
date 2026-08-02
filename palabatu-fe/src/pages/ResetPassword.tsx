@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import FooterSection from '../components/Footer.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export default function ResetPassword() {
@@ -27,7 +28,7 @@ export default function ResetPassword() {
             return;
         }
         setIsLoading(true);
-        const data = await api.post('/auth/reset-password', { token, password });
+        const data = await api.post<Partial<ErrorResponse>>('/auth/reset-password', { token, password });
         setIsLoading(false);
         if (data.error) {
             setToast({ message: data.error, type: 'error', onClose: () => setToast(null) });

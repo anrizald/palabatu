@@ -9,43 +9,43 @@ const getUrl = (path: string) => {
 }
 
 export const api = {
-    post: (path: string, body: unknown) => fetch(getUrl(path), {
+    post: <T>(path: string, body: unknown) => fetch(getUrl(path), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify(body)
-    }).then(r => r.json()),
+    }).then(r => r.json() as Promise<T>),
 
-    get: (path: string) => fetch(getUrl(path), {
+    get: <T>(path: string) => fetch(getUrl(path), {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    }).then(r => r.json()),
+    }).then(r => r.json() as Promise<T>),
 
-    put: (path: string, body: unknown) => fetch(getUrl(path), {
+    put: <T>(path: string, body: unknown) => fetch(getUrl(path), {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify(body)
-    }).then(r => r.json()),
+    }).then(r => r.json() as Promise<T>),
 
-    upload: (path: string, formData: FormData) => fetch(getUrl(path), {
+    upload: <T>(path: string, formData: FormData) => fetch(getUrl(path), {
         method: 'POST',
         headers: {
             // Notice: No 'Content-Type' header here. The browser sets it automatically for FormData!
             'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: formData
-    }).then(r => r.json()),
+    }).then(r => r.json() as Promise<T>),
 
-    delete: (path: string, body?: unknown) => fetch(getUrl(path), {
+    delete: <T>(path: string, body?: unknown) => fetch(getUrl(path), {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-    }).then(r => r.json()),
+    }).then(r => r.json() as Promise<T>),
 };

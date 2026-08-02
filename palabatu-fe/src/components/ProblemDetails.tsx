@@ -7,8 +7,10 @@ import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
 import ReportModal, { type ReportTarget } from './ReportModal.js';
 import TopoImage from './topo-annotations/TopoImage.js';
-import type { Shape } from '../types/annotation.js';
+import type { AnnotationRecord, Shape } from '../types/annotation.js';
 import type { ProblemRow } from '../types/problem.js';
+import type { Comment, SendStatusResponse, ActionResponse } from '../types/social.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 import { MapPin, Flame } from 'lucide-react';
 
 type ProblemDetailsProps = {
@@ -20,15 +22,6 @@ type ProblemDetailsProps = {
     isPicking?: boolean;
     setIsPicking?: (val: boolean) => void;
     pickedCoords?: { lat: number; lng: number } | null;
-};
-
-type Comment = {
-    id: string;
-    content: string;
-    username: string;
-    created_at: string;
-    user_id: string;
-    user_slug: string;
 };
 
 export default function ProblemDetails({ problem, userTitles = [], onClose, onDelete, onUpdate, isPicking = false, setIsPicking, pickedCoords }: ProblemDetailsProps) {
@@ -65,8 +58,8 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     useEffect(() => {
         const fetchComments = async () => {
             try {
-                const res = await api.get(`/api/problems/${problem.id}/comments`);
-                if (!res.error) setComments(res);
+                const res = await api.get<Comment[] | ErrorResponse>(`/api/problems/${problem.id}/comments`);
+                if (Array.isArray(res)) setComments(res);
             } catch (e) {
                 console.error('Failed to fetch comments', e);
             }
@@ -77,8 +70,8 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         if (user) {
             const checkStatus = async () => {
                 try {
-                    const res = await api.get(`/api/problems/${problem.id}/send-status`);
-                    setHasSent(res.hasSent);
+                    const res = await api.get<SendStatusResponse | ErrorResponse>(`/api/problems/${problem.id}/send-status`);
+                    setHasSent('hasSent' in res && res.hasSent);
                 } catch (e) {
                     console.error('Failed to check send status', e);
                     setHasSent(false);
@@ -94,9 +87,9 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     }, [pickedCoords]);
 
     useEffect(() => {
-        api.get(`/api/problems/${problem.id}/annotations`).then(rows => {
+        api.get<AnnotationRecord[] | ErrorResponse>(`/api/problems/${problem.id}/annotations`).then(rows => {
             if (Array.isArray(rows)) {
-                setAnnotationsByUrl(Object.fromEntries(rows.map((r: { image_url: string; data: Shape[] }) => [r.image_url, r.data])));
+                setAnnotationsByUrl(Object.fromEntries(rows.map(r => [r.image_url, r.data])));
             }
         }).catch((e: unknown) => console.error('Failed to fetch annotations', e));
     }, [problem.id]);
@@ -104,11 +97,11 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const handleToggleSend = async () => {
         setIsTogglingSend(true);
         try {
-            const res = await api.post(`api/problems/${problem.id}/send`, {});
-            if (res.action === 'added') {
+            const res = await api.post<ActionResponse | ErrorResponse>(`api/problems/${problem.id}/send`, {});
+            if ('action' in res && res.action === 'added') {
                 setHasSent(true);
                 setSendCount((prev: number) => prev + 1);
-            } else if (res.action === 'removed') {
+            } else if ('action' in res && res.action === 'removed') {
                 setHasSent(false);
                 setSendCount((prev: number) => prev - 1);
             }
@@ -125,7 +118,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         setIsProcessing(true);
 
         try {
-            const res = await api.delete(`/api/problems/${problem.id}`);
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${problem.id}`);
 
             if (res.error) {
                 showError(`Error deleting: ${res.error}`);
@@ -144,7 +137,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
     const handleSave = async () => {
         setIsProcessing(true);
         try {
-            const data = await api.put(`/api/problems/${problem.id}`, editForm);
+            const data = await api.put<Partial<ErrorResponse>>(`/api/problems/${problem.id}`, editForm);
 
             if (data.error) {
                 showError(`Error updating: ${data.error}`);
@@ -166,8 +159,8 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         setIsPostingComment(true);
 
         try {
-            const data = await api.post(`/api/problems/${problem.id}/comments`, { content: newComment });
-            if (data.error) {
+            const data = await api.post<Comment | ErrorResponse>(`/api/problems/${problem.id}/comments`, { content: newComment });
+            if ('error' in data) {
                 showError(data.error);
             } else {
                 // Instantly add the new comment to the list so it updates on screen!
@@ -187,7 +180,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
         setDeletingCommentId(commentId);
 
         try {
-            const res = await api.delete(`/api/comments/${commentId}`);
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/comments/${commentId}`);
             if (res.error) {
                 showError(`Error deleting: ${res.error}`);
             } else {
@@ -207,8 +200,8 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
 
         try {
             const res = reportTarget.type === 'comment'
-                ? await api.post(`/api/comments/${reportTarget.id}/report`, { reason })
-                : await api.post(`/api/problems/${problem.id}/images/report`, { url: reportTarget.url, reason });
+                ? await api.post<Partial<ErrorResponse>>(`/api/comments/${reportTarget.id}/report`, { reason })
+                : await api.post<Partial<ErrorResponse>>(`/api/problems/${problem.id}/images/report`, { url: reportTarget.url, reason });
 
             if (res.error) {
                 showError(`Error: ${res.error}`);

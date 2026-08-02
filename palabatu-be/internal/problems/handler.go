@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"palabatu-be/internal/apitypes"
 	"palabatu-be/internal/middleware"
 )
 
@@ -24,15 +25,31 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
 }
 
+// handleListProblems godoc
+// @Summary      List all problems
+// @Tags         problems
+// @Produce      json
+// @Success      200  {array}   problems.ProblemListItem
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/problems [get]
 func handleListProblems(c *gin.Context) {
 	problems, err := ListProblems(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 		return
 	}
 	c.JSON(http.StatusOK, problems)
 }
 
+// handleGetProblem godoc
+// @Summary      Get a problem
+// @Tags         problems
+// @Produce      json
+// @Param        id   path      string  true  "Problem ID"
+// @Success      200  {object}  problems.ProblemDetail
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id} [get]
 func handleGetProblem(c *gin.Context) {
 	id := c.Param("id")
 
@@ -41,25 +58,30 @@ func handleGetProblem(c *gin.Context) {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleCreateProblem godoc
+// @Summary      Create a problem
+// @Description  Any authenticated user may create a problem; no role gate.
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      problems.CreateProblemRequest  true  "New problem"
+// @Success      200   {object}  problems.ProblemSummary
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems [post]
 func handleCreateProblem(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 
-	var body struct {
-		Name      string   `json:"name"`
-		Grade     string   `json:"grade"`
-		Location  string   `json:"location"`
-		Lat       float64  `json:"lat"`
-		Lng       float64  `json:"lng"`
-		ImageURLs []string `json:"image_urls"`
-	}
+	var body CreateProblemRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
@@ -68,27 +90,36 @@ func handleCreateProblem(c *gin.Context) {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
 	case errors.Is(err, ErrInvalidGrade):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid grade"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrInvalidLocation):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location must be within Indonesia"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleUpdateProblem godoc
+// @Summary      Update a problem
+// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator.
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                        true  "Problem ID"
+// @Param        body  body      problems.UpdateProblemRequest  true  "Updated fields"
+// @Success      200   {object}  problems.ProblemRow
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse  "not the creator and not an admin"
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id} [put]
 func handleUpdateProblem(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
-	var body struct {
-		Name         string  `json:"name"`
-		Grade        string  `json:"grade"`
-		LocationName string  `json:"location_name"`
-		Lat          float64 `json:"lat"`
-		Lng          float64 `json:"lng"`
-	}
+	var body UpdateProblemRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
@@ -97,18 +128,30 @@ func handleUpdateProblem(c *gin.Context) {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
 	case errors.Is(err, ErrInvalidGrade):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid grade"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrInvalidLocation):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location must be within Indonesia"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this problem."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleDeleteProblem godoc
+// @Summary      Delete a problem
+// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. Also best-effort destroys its Cloudinary images.
+// @Tags         problems
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Problem ID"
+// @Success      200  {object}  apitypes.SuccessResponse
+// @Failure      403  {object}  apitypes.ErrorResponse
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id} [delete]
 func handleDeleteProblem(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
@@ -116,39 +159,50 @@ func handleDeleteProblem(c *gin.Context) {
 	err := DeleteProblem(c.Request.Context(), userID, id)
 	switch {
 	case err == nil:
-		c.JSON(http.StatusOK, gin.H{"success": true})
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this problem."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to delete this problem."})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }
 
+// handleDeleteProblemImage godoc
+// @Summary      Remove one image from a problem
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                            true  "Problem ID"
+// @Param        body  body      problems.DeleteProblemImageRequest  true  "Image URL to remove"
+// @Success      200   {object}  apitypes.SuccessResponse
+// @Failure      403   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse  "problem or image not found"
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/images [delete]
 func handleDeleteProblemImage(c *gin.Context) {
 	userID := middleware.UserFromContext(c).ID
 	id := c.Param("id")
 
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body DeleteProblemImageRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
 	}
 
 	err := DeleteProblemImage(c.Request.Context(), userID, id, body.URL)
 	switch {
 	case err == nil:
-		c.JSON(http.StatusOK, gin.H{"success": true})
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to edit this problem."})
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
 	case errors.Is(err, ErrImageNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
 }

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-30T00:00:00.000Z",
+  "title": "Design System: Palabatu",
+  "extensions": {
+    "colorMeta": {
+      "ember-orange": { "role": "primary", "displayName": "Ember Orange", "canonical": "#c87a30", "tonalRamp": ["#000000", "#39230e", "#72461b", "#ab6929", "#d08d4e", "#e0b389", "#efd9c4", "#ffffff"] },
+      "scorched-umber": { "role": "primary", "displayName": "Scorched Umber", "canonical": "#8b4a18", "tonalRamp": ["#000000", "#281507", "#4f2a0e", "#773f15", "#9c6439", "#bd987b", "#decbbd", "#ffffff"] },
+      "on-accent": { "role": "neutral", "displayName": "On-Accent Cream", "canonical": "#fef3e6" },
+      "deep-basalt": { "role": "neutral", "displayName": "Deep Basalt", "canonical": "#0f0d0b", "tonalRamp": ["#000000", "#040403", "#090706", "#0d0b09", "#31302e", "#767574", "#babab9", "#ffffff"] },
+      "charcoal-panel": { "role": "neutral", "displayName": "Charcoal Panel", "canonical": "#141210", "tonalRamp": ["#000000", "#060505", "#0b0a09", "#110f0e", "#363432", "#797876", "#bcbbbb", "#ffffff"] },
+      "ash-surface": { "role": "neutral", "displayName": "Ash Surface", "canonical": "#1a1612", "tonalRamp": ["#000000", "#070605", "#0f0d0a", "#16130f", "#3b3734", "#7c7a78", "#bebcbb", "#ffffff"] },
+      "cold-slate": { "role": "neutral", "displayName": "Cold Slate", "canonical": "#2a2420", "tonalRamp": ["#000000", "#0c0a09", "#181512", "#241f1b", "#484340", "#858280", "#c2c0bf", "#ffffff"] },
+      "chalk-parchment": { "role": "neutral", "displayName": "Chalk Parchment", "canonical": "#f0e0c8", "tonalRamp": ["#000000", "#454039", "#898072", "#cec0ab", "#f2e4d0", "#f6ede0", "#fbf6ef", "#ffffff"] },
+      "sun-faded-parchment": { "role": "neutral", "displayName": "Sun-Faded Parchment", "canonical": "#d8c8b8", "tonalRamp": ["#000000", "#3e3935", "#7b7269", "#b9ab9e", "#ded0c2", "#e9e0d6", "#f4efeb", "#ffffff"] },
+      "weathered-stone": { "role": "neutral", "displayName": "Weathered Stone", "canonical": "#8a7060", "tonalRamp": ["#000000", "#27201b", "#4f4037", "#766052", "#9b8477", "#bcada4", "#ded6d2", "#ffffff"] },
+      "dusk-stone": { "role": "neutral", "displayName": "Dusk Stone", "canonical": "#6a5848", "tonalRamp": ["#000000", "#1e1915", "#3d3229", "#5b4b3e", "#7f7062", "#aaa096", "#d4cfcb", "#ffffff"] },
+      "faint-stone": { "role": "neutral", "displayName": "Faint Stone", "canonical": "#4a3c30" },
+      "moss-green": { "role": "tertiary", "displayName": "Moss Green", "canonical": "#5dbb6a", "tonalRamp": ["#000000", "#1b351e", "#356b3d", "#50a05b", "#74c57f", "#a2d8aa", "#d1ecd4", "#ffffff"] },
+      "moss-green-dark": { "role": "tertiary", "displayName": "Deep Moss Green", "canonical": "#3a8a45" },
+      "ember-red": { "role": "tertiary", "displayName": "Ember Red", "canonical": "#e07060", "tonalRamp": ["#000000", "#40201b", "#804037", "#c06052", "#e48477", "#edada4", "#f6d6d2", "#ffffff"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines only (e.g. the Landing page hero line)." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings, modal titles, card titles, the nav wordmark." },
+      "body": { "displayName": "Body", "purpose": "Reading content — card copy, comments, descriptions." },
+      "label": { "displayName": "Label", "purpose": "Buttons, nav links, form labels, short interactive text." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "0 40px 80px rgba(0,0,0,0.6)", "purpose": "Modals — the largest, softest shadow in the system." },
+      { "name": "popover", "value": "0 12px 32px rgba(0,0,0,0.5)", "purpose": "Dropdowns, notification panels." },
+      { "name": "floating", "value": "0 4px 24px rgba(0,0,0,0.5)", "purpose": "Toasts, map search box, small tooltips, the mobile drawer." },
+      { "name": "accent-glow", "value": "0 2px 12px rgba(200,122,48,0.3)", "purpose": "Primary CTA buttons only — uses the accent's own color, not black." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "ease/0.2s", "purpose": "Default hover/focus transition for opacity, border-color, and background across buttons and inputs." },
+      { "name": "card-lift", "value": "transform 0.2s, border-color 0.2s", "purpose": "Card hover: translateY(-4px) plus border-color shift to Ember Orange." },
+      { "name": "drawer-spring", "value": "spring(stiffness: 320, damping: 32)", "purpose": "Mobile sidebar slide-in via framer-motion." }
+    ],
+    "breakpoints": [
+      { "name": "phone-max", "value": "640px" },
+      { "name": "nav-collapse", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action button — sign up, submit, save.",
+      "html": "<button class=\"ds-btn-primary\">SAVE CHANGES</button>",
+      "css": ".ds-btn-primary { background: linear-gradient(145deg, #c87a30, #8b4a18); color: #fef3e6; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; border: none; border-radius: 10px; padding: 11px 24px; cursor: pointer; box-shadow: 0 2px 12px rgba(200,122,48,0.3); transition: opacity 0.2s, box-shadow 0.2s; } .ds-btn-primary:hover { box-shadow: 0 4px 16px rgba(200,122,48,0.4); } .ds-btn-primary:focus-visible { outline: 2px solid #c87a30; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Cancel/ghost button, paired with a primary button.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: #6a5848; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; border: 1px solid #2a2420; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: border-color 0.2s, color 0.2s; } .ds-btn-secondary:hover { border-color: #c87a30; color: #d8c8b8; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Problem/spot card, used in scrollable lists and grids.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">V4 &mdash; Sunset Slab</h3><p class=\"ds-card-body\">Overhang start, crimpy top-out.</p></div>",
+      "css": ".ds-card { background: #141210; border: 1px solid #2a2420; border-radius: 16px; padding: 18px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; } .ds-card:hover { transform: translateY(-4px); border-color: #c87a30; } .ds-card-title { font-family: 'Playfair Display', serif; font-weight: 700; color: #f0e0c8; margin: 0 0 6px; } .ds-card-body { font-family: 'DM Sans', sans-serif; font-weight: 400; color: #d8c8b8; margin: 0; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard form field — auth forms, comment box, problem forms.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Add a comment\" />",
+      "css": ".ds-input { width: 100%; background: #1a1612; border: 1px solid #2a2420; border-radius: 10px; padding: 10px 14px; color: #d8c8b8; font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; } .ds-input::placeholder { color: #4a3c30; } .ds-input:focus { border-color: #c87a30; }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Top-bar navigation link, with the inset-underline active state.",
+      "html": "<a class=\"ds-nav-link\" href=\"#\">Map</a> <a class=\"ds-nav-link ds-nav-link--active\" href=\"#\">Profile</a>",
+      "css": ".ds-nav-link { font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; color: #8a7060; text-decoration: none; padding-bottom: 4px; transition: color 0.2s; } .ds-nav-link:hover { color: #d8c8b8; } .ds-nav-link--active { color: #f0e0c8; box-shadow: inset 0 -2px 0 0 #c87a30; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Ember & Sandstone",
+    "overview": "Palabatu is a boulder at dusk: near-black stone (#0f0d0b-#1a1612) holding the last warmth of an ember-orange accent (#c87a30), with text the color of chalk on old sandstone (#f0e0c8). The system is single-theme dark, and depth comes from tonal layering (ink -> panel -> surface, each a shade lighter) rather than shadows. Two serif/sans faces carry the whole voice: Playfair Display for anything that should feel like a signature or a headline, DM Sans for everything you actually read and interact with.\nThe mood is warm and grassroots - this is a community-run app for climbers, not a SaaS dashboard - and every screen should be checked against that: no glossy everywhere-gradients, no generic blue-accent dashboard look, nothing that reads as a stock tech-startup template. That warmth doesn't mean unfinished - the grassroots feel and a credible, premium level of polish coexist; sloppy execution is not part of the aesthetic.\nComponents should feel tactile and warm: soft radii, an accent-tinted glow on primary actions, a gentle lift on hover for anything clickable. Nothing here is clinical or flat-by-decree - the one deliberate restraint is that the ember accent stays rare, so its glow still reads as warmth rather than noise.",
+    "keyCharacteristics": [
+      "Single dark theme; depth via tonal layering (ink/panel/surface/border), not drop shadows on static content.",
+      "One accent color, used sparingly, always warm (ember-orange gradient), never a second competing hue for primary actions.",
+      "Playfair Display for display/headline moments only; DM Sans for everything else - never mixed within the same text block.",
+      "Shadows reserved for things that float above the page (modals, dropdowns, toasts, the mobile drawer) and for the accent-tinted glow under primary CTAs."
+    ],
+    "rules": [
+      { "name": "The One Ember Rule", "body": "Ember Orange is the only warm accent used for action and attention. A second hue competing for the same role is a bug, not a design choice - new UI reaches for Moss Green or Ember Red only for their specific semantic roles (success/associate, danger), never as a second general-purpose accent.", "section": "colors" },
+      { "name": "The Two-Font Rule", "body": "Every piece of text is either Playfair Display (display/headline) or DM Sans (body/label) - never a third face, never Playfair Display below headline size, never DM Sans for a hero line.", "section": "typography" },
+      { "name": "The One Breakpoint Rule", "body": "Design for two states - phone and \"wider than phone\" - around the 640-768px band. Don't design a three- or four-tier responsive system.", "section": "layout" },
+      { "name": "The Floating-Only Rule", "body": "A shadow means \"this is above the page\" or \"this is the primary action.\" Static page content never gets a shadow at rest; use the tonal ladder and border-color instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use the @theme tokens in src/index.css (bg-panel, text-accent, font-serif, etc.) for new or rewritten components, rather than hand-rolled hex literals.",
+      "Do keep shadows reserved for floating UI and primary-button glow; use the tonal ladder plus border-color shifts for everything else.",
+      "Do implement input/link focus and hover states as CSS pseudo-classes, not manual JS onFocus/onBlur style mutation.",
+      "Do keep Ember Orange rare - one accent, used deliberately, not spread across multiple simultaneous elements on the same screen."
+    ],
+    "donts": [
+      "Don't introduce a second accent hue for a general \"primary\" role - Moss Green and Ember Red are semantic-only.",
+      "Don't mix modal radii - converge new and touched modals on xl (20px) rather than the stray 24px (rounded-3xl) instance.",
+      "Don't add a neutral-gray shadow-md/shadow-lg Tailwind utility to static page content.",
+      "Don't use Playfair Display below headline size, or DM Sans for a hero-scale headline.",
+      "Don't add a third Tailwind breakpoint tier (md:/lg:/xl:) without a real reason."
+    ]
+  }
+}

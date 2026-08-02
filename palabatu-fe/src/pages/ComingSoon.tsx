@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import FooterSection from '../components/Footer.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 const STORAGE_KEY = 'palabatu_waitlist_email';
 
@@ -32,7 +33,7 @@ export default function ComingSoon() {
         setError('');
         setSubmitting(true);
         try {
-            const data = await api.post('/api/waitlist', { email });
+            const data = await api.post<Partial<ErrorResponse>>('/api/waitlist', { email });
             if (data.error) {
                 setError(data.error);
                 return;

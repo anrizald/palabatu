@@ -7,42 +7,22 @@ import ProblemEditForm from '../components/ProblemEditForm.js';
 import PinpointMarker from '../components/PinpointMarker.js';
 import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import TopoImage from '../components/topo-annotations/TopoImage.js';
-import type { Shape } from '../types/annotation.js';
+import type { AnnotationRecord, Shape } from '../types/annotation.js';
+import type { ProblemDetail } from '../types/problem.js';
+import type { Profile as AuthProfile } from '../types/auth.js';
+import type { Comment, SendStatusResponse, ActionResponse } from '../types/social.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
 import { MapPin, Calendar, Share2, ArrowLeft, Flame, Map as MapIcon } from 'lucide-react';
 import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
 
-type ProblemDetail = {
-    id: string;
-    name: string;
-    grade: string | null;
-    location_name: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    created_by: string | null;
-    image_urls: string[];
-    creator_name: string | null;
-    creator_slug: string | null;
-    send_count: number;
-    created_at: string;
-};
-
 type NearbyProblem = {
     id: string | number;
     name: string;
     grade: string | null;
     location_name: string | null;
-};
-
-type Comment = {
-    id: string;
-    content: string;
-    username: string;
-    created_at: string;
-    user_id: string;
-    user_slug: string;
 };
 
 function formatDate(iso: string) {
@@ -102,45 +82,45 @@ export default function ProblemDetailPage() {
         setIsLoading(true);
         setLoadError(null);
 
-        api.get(`/api/problems/${id}`).then(data => {
-            if (data && !data.error) {
+        api.get<ProblemDetail | ErrorResponse>(`/api/problems/${id}`).then(data => {
+            if (!('error' in data)) {
                 setProblem(data);
                 setSendCount(data.send_count || 0);
                 setEditForm({
                     name: data.name,
                     grade: data.grade || '',
                     location_name: data.location_name || '',
-                    lat: data.latitude,
-                    lng: data.longitude,
+                    lat: data.latitude ?? 0,
+                    lng: data.longitude ?? 0,
                 });
             } else {
-                setLoadError(data?.error || 'This problem could not be found.');
+                setLoadError(data.error || 'This problem could not be found.');
             }
             setIsLoading(false);
         });
 
-        api.get(`/api/problems/${id}/comments`).then(data => {
-            if (data && !data.error) setComments(data);
+        api.get<Comment[] | ErrorResponse>(`/api/problems/${id}/comments`).then(data => {
+            if (Array.isArray(data)) setComments(data);
         });
 
-        api.get(`/api/problems/${id}/annotations`).then(rows => {
+        api.get<AnnotationRecord[] | ErrorResponse>(`/api/problems/${id}/annotations`).then(rows => {
             if (Array.isArray(rows)) {
-                setAnnotationsByUrl(Object.fromEntries(rows.map((r: { image_url: string; data: Shape[] }) => [r.image_url, r.data])));
+                setAnnotationsByUrl(Object.fromEntries(rows.map(r => [r.image_url, r.data])));
             }
         });
     }, [id]);
 
     useEffect(() => {
         if (!id || !user) return;
-        api.get(`/api/problems/${id}/send-status`).then(data => {
-            if (data && !data.error) setHasSent(data.hasSent);
+        api.get<SendStatusResponse | ErrorResponse>(`/api/problems/${id}/send-status`).then(data => {
+            if (!('error' in data)) setHasSent(data.hasSent);
         });
     }, [id, user]);
 
     useEffect(() => {
         if (!user?.id) return;
-        api.get(`/api/profiles/${user.id}`).then(data => {
-            if (data && data.title) {
+        api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
+            if (!('error' in data) && data.title) {
                 const parsed = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
                 setUserTitles(parsed || []);
             }
@@ -149,10 +129,10 @@ export default function ProblemDetailPage() {
 
     useEffect(() => {
         if (!problem?.location_name) return;
-        api.get('/api/problems').then((data) => {
+        api.get<NearbyProblem[] | ErrorResponse>('/api/problems').then((data) => {
             if (Array.isArray(data)) {
                 setNearby(
-                    data.filter((p: NearbyProblem) => p.location_name === problem.location_name && String(p.id) !== String(problem.id)).slice(0, 5)
+                    data.filter(p => p.location_name === problem.location_name && String(p.id) !== String(problem.id)).slice(0, 5)
                 );
             }
         });
@@ -162,11 +142,11 @@ export default function ProblemDetailPage() {
         if (!id) return;
         setIsTogglingSend(true);
         try {
-            const res = await api.post(`api/problems/${id}/send`, {});
-            if (res.action === 'added') {
+            const res = await api.post<ActionResponse | ErrorResponse>(`api/problems/${id}/send`, {});
+            if ('action' in res && res.action === 'added') {
                 setHasSent(true);
                 setSendCount(prev => prev + 1);
-            } else if (res.action === 'removed') {
+            } else if ('action' in res && res.action === 'removed') {
                 setHasSent(false);
                 setSendCount(prev => prev - 1);
             }
@@ -182,7 +162,7 @@ export default function ProblemDetailPage() {
         if (!id) return;
         setIsProcessing(true);
         try {
-            const data = await api.put(`/api/problems/${id}`, editForm);
+            const data = await api.put<Partial<ErrorResponse>>(`/api/problems/${id}`, editForm);
             if (data.error) {
                 showError(`Error updating: ${data.error}`);
             } else {
@@ -202,7 +182,7 @@ export default function ProblemDetailPage() {
         if (!id || !window.confirm('Are you sure you want to delete this problem?')) return;
         setIsProcessing(true);
         try {
-            const res = await api.delete(`/api/problems/${id}`);
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${id}`);
             if (res.error) {
                 showError(`Error deleting: ${res.error}`);
             } else {
@@ -220,8 +200,8 @@ export default function ProblemDetailPage() {
         if (!id || !newComment.trim()) return;
         setIsPostingComment(true);
         try {
-            const data = await api.post(`/api/problems/${id}/comments`, { content: newComment });
-            if (data.error) {
+            const data = await api.post<Comment | ErrorResponse>(`/api/problems/${id}/comments`, { content: newComment });
+            if ('error' in data) {
                 showError(data.error);
             } else {
                 setComments(prev => [...prev, data]);
@@ -239,7 +219,7 @@ export default function ProblemDetailPage() {
         if (!window.confirm('Delete this comment?')) return;
         setDeletingCommentId(commentId);
         try {
-            const res = await api.delete(`/api/comments/${commentId}`);
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/comments/${commentId}`);
             if (res.error) {
                 showError(`Error deleting: ${res.error}`);
             } else {
@@ -259,8 +239,8 @@ export default function ProblemDetailPage() {
 
         try {
             const res = reportTarget.type === 'comment'
-                ? await api.post(`/api/comments/${reportTarget.id}/report`, { reason })
-                : await api.post(`/api/problems/${id}/images/report`, { url: reportTarget.url, reason });
+                ? await api.post<Partial<ErrorResponse>>(`/api/comments/${reportTarget.id}/report`, { reason })
+                : await api.post<Partial<ErrorResponse>>(`/api/problems/${id}/images/report`, { url: reportTarget.url, reason });
 
             if (res.error) {
                 showError(`Error: ${res.error}`);

@@ -5,6 +5,7 @@ import type { ProblemRow } from '../types/problem.js';
 import ProblemDetails from '../components/ProblemDetails.js';
 import Toast from '../components/Toast.js';
 import { useAuth } from '../lib/useAuth.js';
+import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
 type Geo = { lat: number; lng: number };
@@ -151,10 +152,10 @@ export default function Landing() {
     useEffect(() => {
         async function fetchData() {
             const [problemsData, usersData] = await Promise.all([
-                api.get('/api/problems'),
-                api.get('/auth/users/count'),
+                api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
+                api.get<Partial<CountResponse>>('/auth/users/count'),
             ]);
-            if (problemsData.error) {
+            if ('error' in problemsData) {
                 console.error("Error fetching problems:", problemsData.error);
             } else {
                 setProblems(problemsData || []);

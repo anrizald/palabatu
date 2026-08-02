@@ -10,6 +10,8 @@ import ProblemDetails from '../components/ProblemDetails.js'
 import ClusterCardRail from '../components/ClusterCardRail.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { NewProblem, ProblemRow } from '../types/problem.js'
+import type { Profile as AuthProfile } from '../types/auth.js'
+import type { ErrorResponse } from '../types/apitypes.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
 import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
@@ -299,8 +301,8 @@ export default function MapPage() {
 
     useEffect(() => {
         if (user?.id) {
-            api.get(`/api/profiles/${user.id}`).then(data => {
-                if (data && data.title) {
+            api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
+                if (!('error' in data) && data.title) {
                     // Handle parsing if it comes back as a string or array
                     const parsedTitles = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
                     setUserTitles(parsedTitles || []);
@@ -314,11 +316,11 @@ export default function MapPage() {
 
     useEffect(() => {
         async function fetchProblems() {
-            const data = await api.get('/api/problems');
-            if (data.error) {
+            const data = await api.get<ProblemRow[] | ErrorResponse>('/api/problems');
+            if ('error' in data) {
                 console.error('Error fetching problems:', data.error)
             } else {
-                setProblems(data as ProblemRow[])
+                setProblems(data)
             }
         }
         fetchProblems()
@@ -531,6 +533,11 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
             })
         }
         return result
+        // tick intentionally included though unread here: it's bumped by the
+        // zoomend handler above purely to force this memo to recompute, since
+        // map.getZoom()/latLngToContainerPoint reads are imperative and not
+        // themselves reactive dependencies.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, problems, tick])
 
     const currentZoom = map?.getZoom?.() ?? 13

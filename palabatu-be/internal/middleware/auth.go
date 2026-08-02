@@ -7,6 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"palabatu-be/internal/apitypes"
 )
 
 const userContextKey = "user"
@@ -22,7 +24,7 @@ func RequireAuth(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" || parts[1] == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		c.AbortWithStatusJSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "Unauthorized"})
 		return
 	}
 	token := parts[1]
@@ -32,7 +34,7 @@ func RequireAuth(c *gin.Context) {
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Invalid token"})
+		c.AbortWithStatusJSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "Invalid token"})
 		return
 	}
 

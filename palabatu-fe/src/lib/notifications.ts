@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import type { Notification } from '../types/notification.js';
+import type { CountResponse } from '../types/apitypes.js';
 
 // Header's bell and the /notifications page each hold their own copy of read
 // state; Header never remounts on route change, so it needs to know when the
@@ -11,21 +12,21 @@ function notifyChanged(): void {
 }
 
 export async function listNotifications(): Promise<Notification[]> {
-    return api.get('/api/notifications');
+    return api.get<Notification[]>('/api/notifications');
 }
 
 export async function getUnreadCount(): Promise<number> {
-    const { count } = await api.get('/api/notifications/unread-count');
+    const { count } = await api.get<CountResponse>('/api/notifications/unread-count');
     return count;
 }
 
 export async function markRead(id: string): Promise<void> {
-    await api.post(`/api/notifications/${id}/read`, {});
+    await api.post<unknown>(`/api/notifications/${id}/read`, {});
     notifyChanged();
 }
 
 export async function markAllRead(): Promise<void> {
-    await api.post('/api/notifications/read-all', {});
+    await api.post<unknown>('/api/notifications/read-all', {});
     notifyChanged();
 }
 

@@ -2,38 +2,11 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
+import type { Analytics, DailyCount, TesterCandidate, ToggleTesterResponse } from '../types/devtools.js';
+import type { FeedbackItem } from '../types/feedback.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-
-type DailyCount = { day: string; count: number };
-
-type Analytics = {
-    signups_per_day: DailyCount[];
-    problems_per_day: DailyCount[];
-    sends_per_day: DailyCount[];
-    verification: { verified: number; unverified: number };
-    top_problems: { id: string; name: string; sends: number }[];
-    active_users: { user_id: string; username: string | null; sends: number; comments: number; problems: number }[];
-};
-
-type TesterCandidate = {
-    id: string;
-    email: string;
-    username: string;
-    slug: string;
-    is_tester: boolean;
-};
-
-type FeedbackItem = {
-    id: string;
-    user_id: string | null;
-    username: string | null;
-    email: string | null;
-    message: string;
-    page_url: string | null;
-    status: string;
-    created_at: string;
-};
 
 const EXPORT_TABLES = ['users', 'problems', 'sends', 'comments', 'reports'] as const;
 
@@ -145,16 +118,16 @@ export default function Developer() {
 
     useEffect(() => {
         if (!isOwner) return;
-        api.get('/api/dev/analytics').then(data => {
-            if (data?.error) setAnalyticsError(data.error);
+        api.get<Analytics | ErrorResponse>('/api/dev/analytics').then(data => {
+            if ('error' in data) setAnalyticsError(data.error);
             else setAnalytics(data);
         });
     }, [isOwner]);
 
     useEffect(() => {
         if (!isOwner) return;
-        api.get('/api/feedback').then(data => {
-            if (data?.error) setFeedbackError(data.error);
+        api.get<FeedbackItem[] | ErrorResponse>('/api/feedback').then(data => {
+            if (!Array.isArray(data) && 'error' in data) setFeedbackError(data.error);
             else setFeedbackItems(Array.isArray(data) ? data : []);
         });
     }, [isOwner]);
@@ -162,7 +135,7 @@ export default function Developer() {
     const markFeedbackReviewed = async (id: string) => {
         setReviewingId(id);
         try {
-            const res = await api.post(`/api/feedback/${id}/reviewed`, {});
+            const res = await api.post<Partial<ErrorResponse>>(`/api/feedback/${id}/reviewed`, {});
             if (res.error) {
                 showError(res.error);
                 return;
@@ -182,7 +155,7 @@ export default function Developer() {
         }
         setSearching(true);
         try {
-            const data = await api.get(`/api/dev/testers/search?q=${encodeURIComponent(query.trim())}`);
+            const data = await api.get<TesterCandidate[] | ErrorResponse>(`/api/dev/testers/search?q=${encodeURIComponent(query.trim())}`);
             setCandidates(Array.isArray(data) ? data : []);
         } finally {
             setSearching(false);
@@ -192,8 +165,8 @@ export default function Developer() {
     const toggleTester = async (candidate: TesterCandidate) => {
         setTogglingId(candidate.id);
         try {
-            const res = await api.post(`/api/dev/testers/${candidate.id}/toggle`, {});
-            if (res.error) {
+            const res = await api.post<ToggleTesterResponse | ErrorResponse>(`/api/dev/testers/${candidate.id}/toggle`, {});
+            if ('error' in res) {
                 showError(res.error);
                 return;
             }
