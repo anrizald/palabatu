@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.vite
+.git
+.github
+.claude
+.agents
+.impeccable
+test-results
+playwright-report
+blob-report
+palabatu/.cache
+**/.env
+**/.env.*
+!**/.env.example
+*.log
