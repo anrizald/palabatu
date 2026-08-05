@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ProblemRow } from '../types/problem.js';
 import ProblemDetails from '../components/ProblemDetails.js';
 import Toast from '../components/Toast.js';
+import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
 import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 
@@ -140,13 +141,15 @@ function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: Problem
 }
 
 export default function Landing() {
-    const { showToast, toast } = useAuth();
+    const { user, showToast, toast } = useAuth();
     const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [climberCount, setClimberCount] = useState<number | null>(null);
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>('hot');
     const [geo, setGeo] = useState<Geo | null>(null);
     const [locating, setLocating] = useState(false);
+    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -220,6 +223,24 @@ export default function Landing() {
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
+    };
+
+    const submitFeedback = async ({ message, email }: { message: string; email: string }) => {
+        setIsSubmittingFeedback(true);
+        try {
+            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { message, email, page_url: window.location.pathname });
+            if (res.error) {
+                showToast(`Error: ${res.error}`, 'error');
+            } else {
+                setIsFeedbackOpen(false);
+                showToast('Thanks for the feedback!');
+            }
+        } catch (e) {
+            console.error('Feedback submission failed', e);
+            showToast('Failed to send feedback. Check your connection.', 'error');
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
     };
 
     return (
@@ -526,14 +547,12 @@ export default function Landing() {
                             fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
                         }}>about palabatu</h1>
                         <div className="mission">
-                            <p className="eyebrow" style={{ margin: '0 0 14px' }}>The mission</p>
                             <p className="mission-line">
                                 From Sabang to Merauke.<br />All of it awaits.
                             </p>
                             <p>
                                 Every wall worth pulling on from Sumatra to Papua, mapped well enough that
-                                someone flying in from Osaka or Melbourne can find it, climb it, and leave
-                                it the way they found it.
+                                anybody can find it, climb it, and leave their mark on palabatu.
                             </p>
                             <p>
                                 And numbers are leverage. A scattered community gets ignored when someone
@@ -542,7 +561,8 @@ export default function Landing() {
                         </div>
 
                         <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
-                            Anyone can add a boulder. Anyone can log a send.{' '}
+                            Anyone can add a boulder. Anyone can log a send.<br />
+                            Join the cause —{' '}
                             <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
                                 Create your profile
                             </Link>
@@ -550,7 +570,14 @@ export default function Landing() {
 
                         <div className="about-split">
                             <div className="about-panel">
-                                <p className="eyebrow" style={{ margin: '0 0 18px' }}>Vision</p>
+                                <p className="eyebrow" style={{ margin: '0 0 6px' }}>Roadmap</p>
+                                <h3 style={{
+                                    fontFamily: "'Playfair Display', serif", fontSize: '27px',
+                                    fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
+                                }}>visi</h3>
+                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                    planned incoming features
+                                </p>
                                 <div className="about-feature">
                                     <h3 style={labelStyle}>Spot Map</h3>
                                     <p style={bodyStyle}>
@@ -570,6 +597,25 @@ export default function Landing() {
                                         See who else climbs your local spot, and what they've been getting on.
                                     </p>
                                 </div>
+                                <div className="about-feature">
+                                    <h3 style={labelStyle}>Monsoon Tracker</h3>
+                                    <p style={bodyStyle}>
+                                        Rain radar for your local crag. Don't climb when the sun isn't out.
+                                    </p>
+                                </div>
+                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '20px 0 0' }}>
+                                    Have a cool suggestion?{' '}
+                                    <button
+                                        onClick={() => setIsFeedbackOpen(true)}
+                                        style={{
+                                            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                                            color: '#c87a30', fontWeight: 600,
+                                            fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                                        }}
+                                    >
+                                        Feedback
+                                    </button>
+                                </p>
                             </div>
 
                             <div className="about-panel" id="support">
@@ -577,7 +623,7 @@ export default function Landing() {
                                 <h3 style={{
                                     fontFamily: "'Playfair Display', serif", fontSize: '27px',
                                     fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
-                                }}>patungan</h3>
+                                }}>patungan / bantuin</h3>
                                 <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
                                     everyone throws in what they've got
                                 </p>
@@ -634,6 +680,15 @@ export default function Landing() {
                         onUpdate={(updatedItem) => {
                             setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
                         }}
+                    />
+                )}
+
+                {isFeedbackOpen && (
+                    <FeedbackModal
+                        onClose={() => setIsFeedbackOpen(false)}
+                        onSubmit={submitFeedback}
+                        isSubmitting={isSubmittingFeedback}
+                        showEmailField={!user}
                     />
                 )}
             </div>

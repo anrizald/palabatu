@@ -43,7 +43,7 @@ export default function Header() {
     };
 
     const isMapActive = location.pathname === '/map';
-    const isDirectoryActive = location.pathname === '/directory';
+    const isDirectoryActive = location.pathname.startsWith('/directory');
     const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isAdmin = userTitles.includes('Council') || userTitles.includes('Associate');
     const isOwner = !!user && user.email === import.meta.env.VITE_OWNER_EMAIL;

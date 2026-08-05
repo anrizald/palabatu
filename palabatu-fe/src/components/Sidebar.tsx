@@ -19,7 +19,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
     const [unreadCount, setUnreadCount] = useState(0);
 
     const isMapActive = location.pathname === '/map';
-    const isDirectoryActive = location.pathname === '/directory';
+    const isDirectoryActive = location.pathname.startsWith('/directory');
     const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isNotificationsActive = location.pathname === '/notifications';
 

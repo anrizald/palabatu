@@ -5,7 +5,7 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon, Developer } from './pages/index.js'
+import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, AdminReports, Notifications, ComingSoon, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
 const SITE_LIVE = true
@@ -36,7 +36,8 @@ export default function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/directory" element={<ProblemList />} />
+            <Route path="/directory" element={<Directory />} />
+            <Route path="/directory/all" element={<ProblemList />} />
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/notifications" element={<Notifications />} />

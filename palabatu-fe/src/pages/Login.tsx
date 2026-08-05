@@ -9,6 +9,11 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleLogin(email, password);
+    };
+
     return (
         <>
             <style>{`
@@ -35,10 +40,11 @@ export default function Login() {
                         Log in to your Palabatu account
                     </p>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <input
                             type="email"
                             placeholder="Email"
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             style={{
@@ -54,6 +60,7 @@ export default function Login() {
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="Password"
+                                autoComplete="current-password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 style={{
@@ -85,7 +92,7 @@ export default function Login() {
                             display: 'block'
                         }}>Forgot password?</a>
                         <button
-                            onClick={() => handleLogin(email, password)}
+                            type="submit"
                             disabled={isLoading}
                             style={{
                                 background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
@@ -102,7 +109,7 @@ export default function Login() {
                             No account?{' '}
                             <a href="/signup" style={{ color: '#c87a30', textDecoration: 'none' }}>Sign up</a>
                         </p>
-                    </div>
+                    </form>
                 </div>
             </div>
         </>

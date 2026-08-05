@@ -46,10 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleSignup = async (email: string, password: string, username: string, termsAccepted: boolean) => {
+    const handleSignup = async (email: string, password: string, username: string, termsAccepted: boolean, guidelinesAccepted: boolean) => {
         setIsLoading(true);
         try {
-            const data = await api.post<Partial<ErrorResponse>>('/auth/signup', { email, password, username, terms_accepted: termsAccepted });
+            const data = await api.post<Partial<ErrorResponse>>('/auth/signup', {
+                email, password, username,
+                terms_accepted: termsAccepted,
+                guidelines_accepted: guidelinesAccepted
+            });
             if (data.error) {
                 showToast(data.error, 'error');
             } else {

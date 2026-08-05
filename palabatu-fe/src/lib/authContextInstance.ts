@@ -11,7 +11,7 @@ export type AuthContextType = {
     setToast: (toast: ToastProps | null) => void;
     showToast: (message: string, type?: "success" | "error") => void;
     handleLogin: (email: string, password: string) => Promise<void>;
-    handleSignup: (email: string, password: string, username: string, termsAccepted: boolean) => Promise<void>;
+    handleSignup: (email: string, password: string, username: string, termsAccepted: boolean, guidelinesAccepted: boolean) => Promise<void>;
     handleLogout: () => void;
 };
 

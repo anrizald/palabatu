@@ -178,6 +178,9 @@
                     "email": {
                         "type": "string"
                     },
+                    "guidelines_accepted": {
+                        "type": "boolean"
+                    },
                     "password": {
                         "type": "string"
                     },

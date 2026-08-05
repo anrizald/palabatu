@@ -2392,6 +2392,7 @@ export interface components {
         };
         "internal_auth.SignupRequest": {
             email?: string;
+            guidelines_accepted?: boolean;
             password?: string;
             terms_accepted?: boolean;
             username?: string;

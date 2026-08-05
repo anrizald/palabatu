@@ -80,7 +80,7 @@ type Profile struct {
 // The users row and its profiles row are inserted together in one
 // transaction, so a profile always exists from the moment of signup rather
 // than being created lazily on first edit (see GetProfile).
-func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string, termsAcceptedAt time.Time) (string, error) {
+func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string, termsAcceptedAt, guidelinesAcceptedAt time.Time) (string, error) {
 	const maxSlugAttempts = 5
 	for attempt := 0; attempt < maxSlugAttempts; attempt++ {
 		slug, err := generateSlug()
@@ -88,7 +88,7 @@ func createUser(ctx context.Context, email, hashedPassword, username, verificati
 			return "", err
 		}
 
-		id, err := insertUserAndProfile(ctx, email, hashedPassword, username, slug, verificationToken, termsAcceptedAt)
+		id, err := insertUserAndProfile(ctx, email, hashedPassword, username, slug, verificationToken, termsAcceptedAt, guidelinesAcceptedAt)
 		if err == nil {
 			return id, nil
 		}
@@ -109,7 +109,7 @@ func createUser(ctx context.Context, email, hashedPassword, username, verificati
 	return "", errors.New("failed to generate a unique profile slug")
 }
 
-func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, slug, verificationToken string, termsAcceptedAt time.Time) (string, error) {
+func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, slug, verificationToken string, termsAcceptedAt, guidelinesAcceptedAt time.Time) (string, error) {
 	tx, err := db.Pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -118,10 +118,10 @@ func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, 
 
 	var id string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password, username, slug, verification_token, is_verified, terms_accepted_at)
-		 VALUES ($1, $2, $3, $4, $5, false, $6)
+		`INSERT INTO users (email, password, username, slug, verification_token, is_verified, terms_accepted_at, guidelines_accepted_at)
+		 VALUES ($1, $2, $3, $4, $5, false, $6, $7)
 		 RETURNING id`,
-		email, hashedPassword, username, slug, verificationToken, termsAcceptedAt,
+		email, hashedPassword, username, slug, verificationToken, termsAcceptedAt, guidelinesAcceptedAt,
 	).Scan(&id)
 	if err != nil {
 		return "", err

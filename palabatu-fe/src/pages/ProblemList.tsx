@@ -1,13 +1,30 @@
 import { api } from '../lib/api.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, MapPin, Map as MapIcon, Mountain } from 'lucide-react';
+import { Search, ArrowLeft, RotateCcw } from 'lucide-react';
 import { GRADE_SCALES } from '../lib/constants.js';
-import FallbackImg from '../components/FallbackImg.js';
+import { ProblemCard } from '../components/ProblemCard.js';
 import type { ProblemRow } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
-type SortBy = 'name' | 'sends';
+type SortBy = 'name' | 'sends' | 'newest';
+type SentFilter = 'all' | 'unsent' | 'sent';
+
+const SENT_FILTER_OPTIONS: { value: SentFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'unsent', label: 'Unsent' },
+    { value: 'sent', label: 'Sent' },
+];
+
+// Shared look for the Grade/Status filter chips — a clickable pill using the
+// same accent-tint-when-active treatment as the grade badges on the cards
+// themselves, instead of native <select> chrome.
+function pillClass(active: boolean): string {
+    return `px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${active
+        ? 'bg-accent/15 border-accent text-accent'
+        : 'bg-transparent border-border text-text-dim hover:border-accent hover:text-text-secondary'
+        }`;
+}
 
 // Ordered scales to rank grades against, so V0-V15/5.9-5.10a/etc. sort by
 // actual difficulty instead of alphabetically. A grade is ranked by the
@@ -39,10 +56,15 @@ function compareGrades(a: string, b: string): number {
     return a.localeCompare(b);
 }
 
+// The full searchable/filterable catalog — Directory.tsx owns the curated
+// browsing experience (Spotlight/Hot/Recent/Near You) and links here via
+// its "See all problems" CTA for people who already know what they want
+// and just need search + filter + sort.
 export function ProblemList() {
     const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [search, setSearch] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('All');
+    const [sentFilter, setSentFilter] = useState<SentFilter>('all');
     const [sortBy, setSortBy] = useState<SortBy>('name');
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -68,10 +90,12 @@ export function ProblemList() {
         fetchProblems();
     }, [fetchProblems]);
 
-    const hasActiveFilters = search !== '' || selectedGrade !== 'All';
+    const hasActiveFilters = search !== '' || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
     const clearFilters = () => {
         setSearch('');
         setSelectedGrade('All');
+        setSentFilter('all');
+        setSortBy('name');
     };
 
     // Extract unique grades for our filter dropdown, ordered by difficulty within scale
@@ -80,37 +104,35 @@ export function ProblemList() {
         return ['All', ...Array.from(grades).sort(compareGrades)];
     }, [problems]);
 
-    // Filter + sort problems based on search, grade and sort choice
+    // Filter + sort problems based on search, grade, sent-status and sort choice
     const filteredProblems = useMemo(() => {
         const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                 (p.location_name || '').toLowerCase().includes(search.toLowerCase());
             const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;
-            return matchesSearch && matchesGrade;
+            const matchesSent = sentFilter === 'all'
+                || (sentFilter === 'unsent' ? (p.send_count || 0) === 0 : (p.send_count || 0) > 0);
+            return matchesSearch && matchesGrade && matchesSent;
         });
-        return filtered.sort((a, b) => (
-            sortBy === 'sends'
-                ? (b.send_count || 0) - (a.send_count || 0)
-                : a.name.localeCompare(b.name)
-        ));
-    }, [problems, search, selectedGrade, sortBy]);
-
-    const handleRowKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, problem: ProblemRow) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            navigate(`/problems/${problem.id}`);
-        }
-    };
+        return filtered.sort((a, b) => {
+            if (sortBy === 'sends') return (b.send_count || 0) - (a.send_count || 0);
+            if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            return a.name.localeCompare(b.name);
+        });
+    }, [problems, search, selectedGrade, sentFilter, sortBy]);
 
     return (
         <div className="min-h-screen bg-ink text-text font-sans pb-12">
-            <div className="max-w-[800px] mx-auto px-6 pt-20">
-                <h1 className="font-serif text-[32px] font-black text-text mb-1">Directory</h1>
-                <p className="text-text-muted mb-6">Search and filter all problems in Palabatu.</p>
+            <div className="max-w-[1100px] mx-auto px-6 pt-20">
+                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit mb-4">
+                    <ArrowLeft size={14} className="shrink-0" /> Back to Directory
+                </Link>
+
+                <h1 className="font-serif text-[32px] font-black text-text mb-1">All Problems</h1>
+                <p className="text-text-muted mb-6">Search the full catalog, filter by grade, sort however works for you.</p>
 
                 {/* Filters */}
-                <div className="flex flex-wrap gap-3 mb-3">
+                <div className="flex flex-wrap gap-3 mb-4">
                     <div className="relative flex-1 min-w-[200px]">
                         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
                         <input
@@ -122,36 +144,48 @@ export function ProblemList() {
                         />
                     </div>
                     <select
-                        value={selectedGrade}
-                        onChange={(e) => setSelectedGrade(e.target.value)}
-                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
-                    >
-                        {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                    <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortBy)}
                         className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
                     >
                         <option value="name">Sort: Name (A-Z)</option>
                         <option value="sends">Sort: Most sent</option>
+                        <option value="newest">Sort: Newest</option>
                     </select>
+                    <button
+                        onClick={clearFilters}
+                        disabled={!hasActiveFilters}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium bg-transparent border border-border text-text-dim hover:border-accent hover:text-text-secondary disabled:opacity-40 disabled:cursor-default disabled:hover:border-border disabled:hover:text-text-dim cursor-pointer transition-colors"
+                    >
+                        <RotateCcw size={14} className="shrink-0" /> Reset
+                    </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
+                    {availableGrades.map(g => (
+                        <button key={g} onClick={() => setSelectedGrade(g)} className={pillClass(selectedGrade === g)}>
+                            {g}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span className="text-xs text-text-dim shrink-0 mr-1">Status</span>
+                    {SENT_FILTER_OPTIONS.map(({ value, label }) => (
+                        <button key={value} onClick={() => setSentFilter(value)} className={pillClass(sentFilter === value)}>
+                            {label}
+                        </button>
+                    ))}
                 </div>
 
                 {!isLoading && !loadError && (
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="text-xs text-text-dim">
-                            {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
-                        </div>
-                        {hasActiveFilters && (
-                            <button onClick={clearFilters} className="bg-transparent border-none text-xs text-accent hover:underline cursor-pointer p-0">
-                                Clear filters
-                            </button>
-                        )}
+                    <div className="text-xs text-text-dim mb-3">
+                        {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
                     </div>
                 )}
 
-                {/* List */}
+                {/* Grid */}
                 {loadError ? (
                     <div className="flex flex-col items-center gap-3 text-center py-16">
                         <div className="text-text-muted">{loadError}</div>
@@ -162,69 +196,12 @@ export function ProblemList() {
                 ) : isLoading ? (
                     <div className="text-text-muted font-serif tracking-wider text-center py-16">Loading...</div>
                 ) : (
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 sm:gap-5">
                         {filteredProblems.map(problem => (
-                            <div
-                                key={problem.id}
-                                role="button"
-                                tabIndex={0}
-                                aria-label={`View details for ${problem.name}`}
-                                onClick={() => navigate(`/problems/${problem.id}`)}
-                                onKeyDown={(e) => handleRowKeyDown(e, problem)}
-                                className="bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 rounded-2xl px-5 py-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-colors"
-                            >
-                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-surface border border-border shrink-0 flex items-center justify-center">
-                                    {problem.image_urls?.[0] ? (
-                                        <FallbackImg
-                                            src={problem.image_urls[0]}
-                                            alt=""
-                                            width={56}
-                                            height={56}
-                                            className="w-full h-full object-cover"
-                                            fallback={Mountain}
-                                            fallbackColor="var(--color-text-faint)"
-                                        />
-                                    ) : (
-                                        <Mountain size={22} className="text-text-faint shrink-0" />
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-serif text-lg font-bold text-text truncate mb-1">{problem.name}</h3>
-                                    <div className="flex items-center gap-1 text-xs text-text-dim">
-                                        <MapPin size={12} className="shrink-0" /> {problem.location_name || 'Location not set'}
-                                    </div>
-                                    <div className="text-[11px] text-text-dim">
-                                        Added by{' '}
-                                        <Link
-                                            to={`/profile/${problem.creator_slug}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="text-accent font-bold no-underline hover:underline"
-                                        >
-                                            {problem.creator_name || 'unknown'}
-                                        </Link>
-                                        {' '}· {problem.send_count || 0} {problem.send_count === 1 ? 'send' : 'sends'}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-3 shrink-0">
-                                    <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-[13px] font-bold">
-                                        {problem.grade}
-                                    </span>
-
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Sends them to the map with coordinates in the URL!
-                                            navigate(`/map?lat=${problem.latitude}&lng=${problem.longitude}`);
-                                        }}
-                                        className="bg-transparent border border-text-faint text-text-muted hover:text-accent hover:border-accent px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
-                                    >
-                                        <MapIcon size={12} className="shrink-0" /> Locate
-                                    </button>
-                                </div>
-                            </div>
+                            <ProblemCard key={problem.id} problem={problem} navigate={navigate} />
                         ))}
                         {filteredProblems.length === 0 && (
-                            <div className="text-text-muted text-center py-16">
+                            <div className="col-span-full text-text-muted text-center py-16">
                                 {problems.length === 0 ? (
                                     <>No problems added yet. <Link to="/map" className="text-accent hover:underline">Add one from the map</Link>.</>
                                 ) : (
