@@ -293,6 +293,18 @@
                     "TypeMention"
                 ]
             },
+            "internal_problems.AddProblemImagesRequest": {
+                "properties": {
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
             "internal_problems.AnnotationRecord": {
                 "properties": {
                     "created_at": {
@@ -1770,6 +1782,101 @@
                 "tags": [
                     "problems"
                 ]
+            },
+            "post": {
+                "description": "Appends URLs already uploaded via POST /upload/topo to a problem's image_urls.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_problems.AddProblemImagesRequest",
+                                        "summary": "body",
+                                        "description": "Uploaded image URLs to attach"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Uploaded image URLs to attach",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_problems.ProblemRow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Add images to a problem",
+                "tags": [
+                    "problems"
+                ]
             }
         },
         "/api/problems/{id}/images/report": {
@@ -2512,6 +2619,45 @@
                 "summary": "Resolve a report",
                 "tags": [
                     "report"
+                ]
+            }
+        },
+        "/api/sends/mine": {
+            "get": {
+                "description": "Backs client-side \"sent by me\" filtering over a problem\nlisting without an N+1 per-problem send-status call.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Problem IDs the authenticated user has sent",
+                "tags": [
+                    "social"
                 ]
             }
         },

@@ -160,6 +160,30 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 	return nil
 }
 
+// AddProblemImages authorizes and appends already-uploaded image URLs (from
+// POST /upload/topo) to a problem's image_urls array — the counterpart to
+// DeleteProblemImage, for attaching photos after a problem already exists
+// rather than only at creation time.
+func AddProblemImages(ctx context.Context, userID, problemID string, imageURLs []string) (*ProblemRow, error) {
+	if len(imageURLs) == 0 {
+		return nil, ErrNoImages
+	}
+
+	createdBy, err := getProblemCreator(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+		return nil, err
+	}
+
+	return addProblemImages(ctx, problemID, imageURLs)
+}
+
 // notifyProblemEdited and notifyProblemDeleted are best-effort, mirroring
 // cloudinary.DestroyByURL's precedent elsewhere in this codebase: a failed
 // notification write must never fail the edit/delete itself. Both are

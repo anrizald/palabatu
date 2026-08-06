@@ -143,6 +143,7 @@ function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: Problem
 export default function Landing() {
     const { user, showToast, toast } = useAuth();
     const [problems, setProblems] = useState<ProblemRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [climberCount, setClimberCount] = useState<number | null>(null);
     const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>('hot');
@@ -153,17 +154,21 @@ export default function Landing() {
 
     useEffect(() => {
         async function fetchData() {
-            const [problemsData, usersData] = await Promise.all([
-                api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
-                api.get<Partial<CountResponse>>('/auth/users/count'),
-            ]);
-            if ('error' in problemsData) {
-                console.error("Error fetching problems:", problemsData.error);
-            } else {
-                setProblems(problemsData || []);
-            }
-            if (typeof usersData?.count === 'number') {
-                setClimberCount(usersData.count);
+            try {
+                const [problemsData, usersData] = await Promise.all([
+                    api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
+                    api.get<Partial<CountResponse>>('/auth/users/count'),
+                ]);
+                if ('error' in problemsData) {
+                    console.error("Error fetching problems:", problemsData.error);
+                } else {
+                    setProblems(problemsData || []);
+                }
+                if (typeof usersData?.count === 'number') {
+                    setClimberCount(usersData.count);
+                }
+            } finally {
+                setIsLoading(false);
             }
         }
         fetchData();
@@ -284,11 +289,11 @@ export default function Landing() {
         .hero-stats b { color: #f0e0c8; font-weight: 600; }
         .hero-stats .dot { width: 3px; height: 3px; border-radius: 50%; background: #2a2420; }
 
-        .scroll-cue { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
-        .scroll-cue svg { width: 18px; height: 18px; animation: cue-bounce 2.2s ease-in-out infinite; }
+        .scroll-cue { position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
+        .scroll-cue svg { width: 28px; height: 28px; animation: cue-bounce 2.2s ease-in-out infinite; }
         @keyframes cue-bounce {
             0%, 100% { transform: translateY(0); opacity: 0.5; }
-            50% { transform: translateY(6px); opacity: 1; }
+            50% { transform: translateY(9px); opacity: 1; }
         }
 
         .route-line {
@@ -520,19 +525,29 @@ export default function Landing() {
                                     {locating ? 'Locating...' : 'Use my location'}
                                 </button>
                             </div>
+                        ) : isLoading ? (
+                            <div className="card-row">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="p-card">
+                                        <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
+                                        <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
+                                        <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : problems.length === 0 ? (
+                            <div className="locked-card">
+                                <PinIcon />
+                                <p>No problems added yet. Be the first to map one.</p>
+                                <Link to="/map" className="locked-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>
+                                    Add a problem
+                                </Link>
+                            </div>
                         ) : (
                             <div className="card-row">
-                                {problems.length === 0
-                                    ? [...Array(5)].map((_, i) => (
-                                        <div key={i} className="p-card">
-                                            <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
-                                            <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
-                                            <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
-                                        </div>
-                                    ))
-                                    : activeItems.map(item => (
-                                        <ProblemCard key={item.problem.id} item={item} onSelect={setSelectedProblem} />
-                                    ))}
+                                {activeItems.map(item => (
+                                    <ProblemCard key={item.problem.id} item={item} onSelect={setSelectedProblem} />
+                                ))}
                             </div>
                         )}
                     </div>

@@ -2,18 +2,26 @@ import { api } from '../lib/api.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, ArrowLeft, RotateCcw } from 'lucide-react';
-import { GRADE_SCALES } from '../lib/constants.js';
+import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
 import { ProblemCard } from '../components/ProblemCard.js';
+import { useAuth } from '../lib/useAuth.js';
 import type { ProblemRow } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
 type SortBy = 'name' | 'sends' | 'newest';
 type SentFilter = 'all' | 'unsent' | 'sent';
+type TypeFilter = 'All' | ProblemType;
 
 const SENT_FILTER_OPTIONS: { value: SentFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'unsent', label: 'Unsent' },
     { value: 'sent', label: 'Sent' },
+];
+
+const TYPE_FILTER_OPTIONS: { value: TypeFilter; label: string }[] = [
+    { value: 'All', label: 'All' },
+    { value: 'boulder', label: 'Boulder' },
+    { value: 'rope', label: 'Rope' },
 ];
 
 // Shared look for the Grade/Status filter chips — a clickable pill using the
@@ -56,15 +64,26 @@ function compareGrades(a: string, b: string): number {
     return a.localeCompare(b);
 }
 
+// Which (type, scale) a problem's grade belongs to, for the Type/Scale quick
+// filters below. Unrecognized/legacy grades default to boulder/V-Scale,
+// mirroring ProblemEditForm's detectGrade fallback.
+function gradeMeta(grade: string): { type: ProblemType; scale: string } {
+    return detectGradeScale(grade.split('-')[0] ?? grade) ?? { type: 'boulder', scale: 'V-Scale' };
+}
+
 // The full searchable/filterable catalog — Directory.tsx owns the curated
 // browsing experience (Spotlight/Hot/Recent/Near You) and links here via
 // its "See all problems" CTA for people who already know what they want
 // and just need search + filter + sort.
 export function ProblemList() {
+    const { user } = useAuth();
     const [problems, setProblems] = useState<ProblemRow[]>([]);
     const [search, setSearch] = useState('');
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
+    const [scaleFilter, setScaleFilter] = useState('All');
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [sentFilter, setSentFilter] = useState<SentFilter>('all');
+    const [mySentIds, setMySentIds] = useState<Set<string>>(new Set());
     const [sortBy, setSortBy] = useState<SortBy>('name');
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -90,36 +109,82 @@ export function ProblemList() {
         fetchProblems();
     }, [fetchProblems]);
 
-    const hasActiveFilters = search !== '' || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
+    // Sent/Unsent is profile-respective -- it needs the logged-in user's own
+    // send list, not the aggregate send_count on each problem. Drops back to
+    // 'all' (and the Status row itself hides, see below) when logged out.
+    useEffect(() => {
+        if (!user) {
+            setMySentIds(new Set());
+            setSentFilter('all');
+            return;
+        }
+        api.get<string[] | ErrorResponse>('/api/sends/mine')
+            .then(data => { if (Array.isArray(data)) setMySentIds(new Set(data)); })
+            .catch(e => console.error('Failed to load your sends', e));
+    }, [user]);
+
+    // Type -> Scale -> Grade is a cascade: picking a type narrows which
+    // scales apply, and either narrows which grades exist to pick from.
+    // Selecting "All" at a level resets everything below it back to "All".
+    const handleTypeFilter = (t: TypeFilter) => {
+        setTypeFilter(t);
+        setScaleFilter('All');
+        setSelectedGrade('All');
+    };
+    const handleScaleFilter = (s: string) => {
+        setScaleFilter(s);
+        setSelectedGrade('All');
+    };
+
+    const scaleOptions = typeFilter === 'All' ? [] : Object.keys(GRADE_SCALES[typeFilter]);
+
+    const hasActiveFilters = search !== '' || typeFilter !== 'All' || scaleFilter !== 'All'
+        || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
     const clearFilters = () => {
         setSearch('');
+        setTypeFilter('All');
+        setScaleFilter('All');
         setSelectedGrade('All');
         setSentFilter('all');
         setSortBy('name');
     };
 
-    // Extract unique grades for our filter dropdown, ordered by difficulty within scale
+    // Grades available for the current Type/Scale selection, ordered by
+    // difficulty within scale, so the picker only ever shows grades that
+    // are actually relevant instead of every grade of every scale at once.
     const availableGrades = useMemo(() => {
-        const grades = new Set(problems.map(p => p.grade));
+        const grades = new Set(
+            problems
+                .filter(p => {
+                    const meta = gradeMeta(p.grade);
+                    if (typeFilter !== 'All' && meta.type !== typeFilter) return false;
+                    if (scaleFilter !== 'All' && meta.scale !== scaleFilter) return false;
+                    return true;
+                })
+                .map(p => p.grade)
+        );
         return ['All', ...Array.from(grades).sort(compareGrades)];
-    }, [problems]);
+    }, [problems, typeFilter, scaleFilter]);
 
-    // Filter + sort problems based on search, grade, sent-status and sort choice
+    // Filter + sort problems based on search, type/scale/grade, sent-status and sort choice
     const filteredProblems = useMemo(() => {
         const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                 (p.location_name || '').toLowerCase().includes(search.toLowerCase());
+            const meta = gradeMeta(p.grade);
+            const matchesType = typeFilter === 'All' || meta.type === typeFilter;
+            const matchesScale = scaleFilter === 'All' || meta.scale === scaleFilter;
             const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;
-            const matchesSent = sentFilter === 'all'
-                || (sentFilter === 'unsent' ? (p.send_count || 0) === 0 : (p.send_count || 0) > 0);
-            return matchesSearch && matchesGrade && matchesSent;
+            const matchesSent = !user || sentFilter === 'all'
+                || (sentFilter === 'unsent' ? !mySentIds.has(String(p.id)) : mySentIds.has(String(p.id)));
+            return matchesSearch && matchesType && matchesScale && matchesGrade && matchesSent;
         });
         return filtered.sort((a, b) => {
             if (sortBy === 'sends') return (b.send_count || 0) - (a.send_count || 0);
             if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             return a.name.localeCompare(b.name);
         });
-    }, [problems, search, selectedGrade, sentFilter, sortBy]);
+    }, [problems, search, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy]);
 
     return (
         <div className="min-h-screen bg-ink text-text font-sans pb-12">
@@ -162,22 +227,47 @@ export function ProblemList() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
-                    {availableGrades.map(g => (
-                        <button key={g} onClick={() => setSelectedGrade(g)} className={pillClass(selectedGrade === g)}>
-                            {g}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="text-xs text-text-dim shrink-0 mr-1">Status</span>
-                    {SENT_FILTER_OPTIONS.map(({ value, label }) => (
-                        <button key={value} onClick={() => setSentFilter(value)} className={pillClass(sentFilter === value)}>
+                    <span className="text-xs text-text-dim shrink-0 mr-1">Type</span>
+                    {TYPE_FILTER_OPTIONS.map(({ value, label }) => (
+                        <button key={value} onClick={() => handleTypeFilter(value)} className={pillClass(typeFilter === value)}>
                             {label}
                         </button>
                     ))}
                 </div>
+
+                {typeFilter !== 'All' && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="text-xs text-text-dim shrink-0 mr-1">Scale</span>
+                        <button onClick={() => handleScaleFilter('All')} className={pillClass(scaleFilter === 'All')}>All</button>
+                        {scaleOptions.map(s => (
+                            <button key={s} onClick={() => handleScaleFilter(s)} className={pillClass(scaleFilter === s)}>
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {typeFilter !== 'All' && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
+                        {availableGrades.map(g => (
+                            <button key={g} onClick={() => setSelectedGrade(g)} className={pillClass(selectedGrade === g)}>
+                                {g}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {user && (
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <span className="text-xs text-text-dim shrink-0 mr-1">Status</span>
+                        {SENT_FILTER_OPTIONS.map(({ value, label }) => (
+                            <button key={value} onClick={() => setSentFilter(value)} className={pillClass(sentFilter === value)}>
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {!isLoading && !loadError && (
                     <div className="text-xs text-text-dim mb-3">

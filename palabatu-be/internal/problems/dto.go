@@ -26,6 +26,13 @@ type DeleteProblemImageRequest struct {
 	URL string `json:"url"`
 }
 
+// AddProblemImagesRequest is handleAddProblemImages's request body: URLs
+// already uploaded via POST /upload/topo, to append to an existing
+// problem's image_urls.
+type AddProblemImagesRequest struct {
+	ImageURLs []string `json:"image_urls"`
+}
+
 // SaveAnnotationRequest is handleSaveAnnotation's request body.
 type SaveAnnotationRequest struct {
 	URL  string          `json:"url"`

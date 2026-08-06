@@ -29,6 +29,7 @@ const API_DOCS: { method: string; route: string; auth: string; purpose: string }
     { method: 'POST', route: '/api/problems', auth: 'Auth', purpose: 'Create a problem.' },
     { method: 'PUT', route: '/api/problems/:id', auth: 'Auth (Founder/admin)', purpose: 'Edit a problem.' },
     { method: 'DELETE', route: '/api/problems/:id', auth: 'Auth (Founder/admin)', purpose: 'Delete a problem.' },
+    { method: 'POST', route: '/api/problems/:id/images', auth: 'Auth (Founder/admin)', purpose: 'Attach already-uploaded images to a problem.' },
     { method: 'DELETE', route: '/api/problems/:id/images', auth: 'Auth (Founder/admin)', purpose: 'Remove one image from a problem.' },
     { method: 'GET', route: '/api/problems/:id/annotations', auth: 'Public', purpose: 'List topo-photo annotations.' },
     { method: 'PUT', route: '/api/problems/:id/annotations', auth: 'Auth (Founder/admin)', purpose: 'Save topo-photo annotations.' },

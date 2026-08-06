@@ -11,6 +11,22 @@ export const GRADE_SCALES = {
 
 export type ProblemType = keyof typeof GRADE_SCALES;
 
+// Finds which (type, scale) a single grade token belongs to by scanning
+// GRADE_SCALES -- shared by ProblemEditForm's grade picker (which also needs
+// from/to/isRange around this) and ProblemList's Type/Scale/Grade quick
+// filters. Returns null for unrecognized/legacy tokens; callers decide their
+// own fallback.
+export function detectGradeScale(token: string): { type: ProblemType; scale: string } | null {
+    for (const [ptype, scales] of Object.entries(GRADE_SCALES)) {
+        for (const [scaleName, gradesArray] of Object.entries(scales as Record<string, readonly string[]>)) {
+            if (gradesArray.includes(token)) {
+                return { type: ptype as ProblemType, scale: scaleName };
+            }
+        }
+    }
+    return null;
+}
+
 export const circleButtonStyle = {
     background: '#141210',
     border: '1px solid #c87a30',

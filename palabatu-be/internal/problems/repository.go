@@ -186,6 +186,28 @@ func removeProblemImage(ctx context.Context, id, url string) error {
 	return err
 }
 
+// addProblemImages appends newURLs to a problem's image_urls jsonb array.
+// The `|| $2::jsonb` concatenates two jsonb arrays; unlike
+// removeProblemImage's "-" operator this has only the one jsonb/jsonb
+// overload, so no disambiguating cast is needed on the array itself.
+func addProblemImages(ctx context.Context, id string, newURLs []string) (*ProblemRow, error) {
+	newURLsJSON, err := json.Marshal(newURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	var p ProblemRow
+	err = db.Pool.QueryRow(ctx,
+		`UPDATE problems SET image_urls = image_urls || $2::jsonb WHERE id = $1
+		 RETURNING id, name, grade, location, lat, lng, created_by, created_at, image_urls`,
+		id, string(newURLsJSON),
+	).Scan(&p.ID, &p.Name, &p.Grade, &p.Location, &p.Lat, &p.Lng, &p.CreatedBy, &p.CreatedAt, &p.ImageURLs)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 func updateProblemRow(ctx context.Context, id, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
 	var p ProblemRow
 	err := db.Pool.QueryRow(ctx,

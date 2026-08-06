@@ -63,7 +63,7 @@ function LocationSearchBox() {
         const timer = setTimeout(async () => {
             try {
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(trimmed)}`,
+                    `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(trimmed)}`,
                     { signal: controller.signal }
                 );
                 const data = await res.json();
@@ -172,7 +172,7 @@ function LocationSearchBox() {
                         if (e.key === 'Escape') setShowDropdown(false);
                         else if (e.key === 'Enter' && results.length > 0) handleSelect(results[0]!);
                     }}
-                    placeholder="Search for a place..."
+                    placeholder="Search a place or paste coordinates..."
                     style={{
                         flex: 1,
                         background: 'transparent',

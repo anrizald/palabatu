@@ -5,6 +5,7 @@ import Toast, { type ToastProps } from '../components/Toast.js';
 import HorizontalScrollCarousel from '../components/HorizontalScrollCarousel.js';
 import ProblemEditForm from '../components/ProblemEditForm.js';
 import PinpointMarker from '../components/PinpointMarker.js';
+import InfoTooltip, { ADDED_BY_DISCLAIMER } from '../components/InfoTooltip.js';
 import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import TopoImage from '../components/topo-annotations/TopoImage.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
@@ -353,11 +354,15 @@ export default function ProblemDetailPage() {
                                 </button>
                             </div>
 
-                            <div className="text-xs text-text-dim">
-                                Added by{' '}
-                                <Link to={`/profile/${problem.creator_slug}`} className="text-accent font-bold no-underline hover:underline">
-                                    {problem.creator_name || 'unknown'}
-                                </Link>
+                            <div className="text-xs text-text-dim flex items-center gap-1.5">
+                                <span>
+                                    Added by{' '}
+                                    <Link to={`/profile/${problem.creator_slug}`} className="text-accent font-bold no-underline hover:underline">
+                                        {problem.creator_name || 'unknown'}
+                                    </Link>
+                                    {' '}in Palabatu
+                                </span>
+                                <InfoTooltip text={ADDED_BY_DISCLAIMER} />
                             </div>
 
                             <div className="flex items-center gap-3 flex-wrap">
@@ -390,6 +395,7 @@ export default function ProblemDetailPage() {
 
                             {isEditing && (
                                 <ProblemEditForm
+                                    problemId={problem.id}
                                     initialGrade={problem.grade || ''}
                                     name={editForm.name}
                                     onNameChange={v => setEditForm(prev => ({ ...prev, name: v }))}
@@ -399,9 +405,12 @@ export default function ProblemDetailPage() {
                                     lng={editForm.lng}
                                     onPickLocation={() => setIsPickingLocation(true)}
                                     onGradeChange={grade => setEditForm(prev => ({ ...prev, grade }))}
+                                    images={problem.image_urls}
+                                    onImagesChange={urls => setProblem(prev => prev ? { ...prev, image_urls: urls } : prev)}
                                     onSave={handleSave}
                                     onCancel={() => { setIsEditing(false); setIsPickingLocation(false); }}
                                     isProcessing={isProcessing}
+                                    onError={showError}
                                 />
                             )}
                         </div>

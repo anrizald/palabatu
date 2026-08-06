@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
-import { GRADE_SCALES, type ProblemType } from '../lib/constants.js';
+import { api } from '../lib/api.js';
+import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
+import type { ProblemRow, TopoUploadResponse } from '../types/problem.js';
+import type { ErrorResponse } from '../types/apitypes.js';
+import { X } from 'lucide-react';
 
 type ProblemEditFormProps = {
+    problemId: string;
     initialGrade: string;
     name: string;
     onNameChange: (v: string) => void;
@@ -11,9 +16,12 @@ type ProblemEditFormProps = {
     lng: number;
     onPickLocation: () => void;
     onGradeChange: (grade: string) => void;
+    images: string[];
+    onImagesChange: (urls: string[]) => void;
     onSave: () => void;
     onCancel: () => void;
     isProcessing: boolean;
+    onError: (message: string) => void;
 };
 
 function detectGrade(grade: string): { type: ProblemType; scale: string; from: string; to: string; isRange: boolean } {
@@ -21,14 +29,8 @@ function detectGrade(grade: string): { type: ProblemType; scale: string; from: s
     const from = (isRange ? grade.split('-')[0] : grade) ?? '';
     const to = (isRange ? grade.split('-')[1] : '') ?? '';
 
-    for (const [ptype, scales] of Object.entries(GRADE_SCALES)) {
-        for (const [scaleName, gradesArray] of Object.entries(scales as Record<string, readonly string[]>)) {
-            if (gradesArray.includes(from)) {
-                return { type: ptype as ProblemType, scale: scaleName, from, to, isRange };
-            }
-        }
-    }
-    return { type: 'boulder', scale: 'V-Scale', from, to, isRange };
+    const detected = detectGradeScale(from);
+    return { type: detected?.type ?? 'boulder', scale: detected?.scale ?? 'V-Scale', from, to, isRange };
 }
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3 py-2.5 text-text-secondary text-sm outline-none box-border"
@@ -36,12 +38,19 @@ const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
 const segmentBtnClass = (active: boolean) =>
     `flex-1 py-[7px] text-xs font-sans border-0 rounded-lg cursor-pointer transition-all ${active ? 'bg-accent/15 text-accent font-bold' : 'bg-transparent text-text-dim font-normal'}`
 
-// Shared grade-picker + name/location/coords fields for editing a problem.
-// Used by both the map's ProblemDetails modal and the /problems/:id detail
-// page's inline edit block.
+// Shared grade-picker + name/location/coords/photos fields for editing a
+// problem. Used by both the map's ProblemDetails modal and the
+// /problems/:id detail page's inline edit block.
+//
+// Photos are mutated immediately (upload+attach on pick, destroy+detach on
+// remove) rather than staged until Save -- unlike AddProblemModal, the
+// problem already exists here so there's no "doesn't have an id yet"
+// reason to defer. Newly attached photos become annotatable through the
+// same TopoImage gallery used to display existing ones, so this form
+// doesn't need its own annotation UI.
 export default function ProblemEditForm({
-    initialGrade, name, onNameChange, locationName, onLocationNameChange,
-    lat, lng, onPickLocation, onGradeChange, onSave, onCancel, isProcessing,
+    problemId, initialGrade, name, onNameChange, locationName, onLocationNameChange,
+    lat, lng, onPickLocation, onGradeChange, images, onImagesChange, onSave, onCancel, isProcessing, onError,
 }: ProblemEditFormProps) {
     const [detected] = useState(() => detectGrade(initialGrade));
     const [problemType, setProblemType] = useState<ProblemType>(detected.type);
@@ -49,6 +58,9 @@ export default function ProblemEditForm({
     const [isRange, setIsRange] = useState(detected.isRange);
     const [gradeFrom, setGradeFrom] = useState(detected.from);
     const [gradeTo, setGradeTo] = useState(detected.to);
+
+    const [isUploadingImages, setIsUploadingImages] = useState(false);
+    const [removingUrl, setRemovingUrl] = useState<string | null>(null);
 
     const currentScales = GRADE_SCALES[problemType] as Record<string, readonly string[]>;
     const grades: readonly string[] = currentScales[gradeScale] || [];
@@ -77,8 +89,93 @@ export default function ProblemEditForm({
         }
     };
 
+    const handleAddPhotos = async (files: File[]) => {
+        if (files.length === 0) return;
+        setIsUploadingImages(true);
+
+        try {
+            const uploads = await Promise.all(files.map(file => {
+                const formData = new FormData();
+                formData.append('image', file);
+                return api.upload<Partial<TopoUploadResponse & ErrorResponse>>('/api/upload/topo', formData);
+            }));
+
+            const uploadedUrls = uploads.filter((r): r is TopoUploadResponse => !!r.url).map(r => r.url);
+            if (uploadedUrls.length < files.length) {
+                onError(`${files.length - uploadedUrls.length} photo(s) failed to upload`);
+            }
+            if (uploadedUrls.length === 0) return;
+
+            const res = await api.post<Partial<ProblemRow & ErrorResponse>>(`/api/problems/${problemId}/images`, { image_urls: uploadedUrls });
+            if (res.error || !res.image_urls) {
+                onError(`Failed to attach photos: ${res.error ?? 'Server error'}`);
+            } else {
+                onImagesChange(res.image_urls);
+            }
+        } catch (e) {
+            console.error('Photo upload failed', e);
+            onError('Failed to upload photos. Check your connection.');
+        } finally {
+            setIsUploadingImages(false);
+        }
+    };
+
+    const handleRemovePhoto = async (url: string) => {
+        if (!window.confirm('Remove this photo?')) return;
+        setRemovingUrl(url);
+
+        try {
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${problemId}/images`, { url });
+            if (res.error) {
+                onError(`Failed to remove photo: ${res.error}`);
+            } else {
+                onImagesChange(images.filter(u => u !== url));
+            }
+        } catch (e) {
+            console.error('Photo remove failed', e);
+            onError('Failed to remove photo. Check your connection.');
+        } finally {
+            setRemovingUrl(null);
+        }
+    };
+
     return (
         <div className="mt-4 flex flex-col gap-3">
+            {/* Photos */}
+            <div>
+                <div className={labelClass}>Topo Photos</div>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                    {images.map((url) => (
+                        <div key={url} className="relative min-w-[84px] h-[84px] rounded-[10px] overflow-hidden shrink-0">
+                            <img src={url} className="w-full h-full object-cover" alt="Topo" />
+                            <button
+                                onClick={() => handleRemovePhoto(url)}
+                                disabled={removingUrl === url}
+                                className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center disabled:opacity-50"
+                                aria-label="Remove photo"
+                            ><X size={14} className="shrink-0" /></button>
+                        </div>
+                    ))}
+
+                    <label className={`min-w-[84px] h-[84px] bg-surface border border-dashed border-text-faint rounded-[10px] flex flex-col items-center justify-center text-text-dim text-xl shrink-0 ${isUploadingImages ? 'opacity-50' : 'cursor-pointer'}`}>
+                        +
+                        <span className="text-[10px] mt-1">{isUploadingImages ? 'Uploading...' : 'Add Photo'}</span>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={isUploadingImages}
+                            className="hidden"
+                            onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                e.target.value = '';
+                                handleAddPhotos(files);
+                            }}
+                        />
+                    </label>
+                </div>
+            </div>
+
             {/* Name */}
             <div>
                 <div className={labelClass}>Problem Name</div>

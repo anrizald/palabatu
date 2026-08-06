@@ -53,6 +53,14 @@ export type ProblemDetail = {
 export type TopoUploadResponse = { url: string }
 export type AvatarUploadResponse = { avatar_url: string }
 
+// Mirrors problems.AddProblemImagesRequest (see palabatu-be/internal/problems/dto.go)
+// -- the request body for POST /api/problems/:id/images, which appends
+// already-uploaded (via /api/upload/topo) URLs to a problem's image_urls.
+// The endpoint's response reuses ProblemRow above.
+export type AddProblemImagesRequest = {
+    image_urls: string[]
+}
+
 // Mirrors problems.ProblemSummary (see palabatu-be/internal/problems/repository.go)
 // — the shape returned by POST /api/problems's RETURNING clause. Deliberately a
 // different, smaller field set than ProblemRow/ProblemDetail (no omitempty on

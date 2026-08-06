@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Marker, Popup } from 'react-leaflet'
 import { useEffect, useMemo, useRef } from 'react'
 import ClusterCardRail from './ClusterCardRail.js'
+import InfoTooltip, { ADDED_BY_DISCLAIMER } from './InfoTooltip.js'
 import type { ProblemRow } from '../types/problem.js'
 
 type Props = {
@@ -120,8 +121,11 @@ export default function PinpointMarker({ position, name, location, type = 'pinpo
                             )
                         ) : (
                             creatorName && (
-                                <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px' }}>
-                                    Added by <Link to={`/profile/${creatorSlug}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>{creatorName}</Link>
+                                <div style={{ fontSize: '11px', color: '#8a7060', borderTop: '1px solid #f0e0c8', paddingTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span>
+                                        Added by <Link to={`/profile/${creatorSlug}`} style={{ fontWeight: 600, color: '#c87a30', textDecoration: 'none' }}>{creatorName}</Link> in Palabatu
+                                    </span>
+                                    <InfoTooltip text={ADDED_BY_DISCLAIMER} style={{ color: '#8a7060' }} />
                                 </div>
                             )
                         )}

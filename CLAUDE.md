@@ -202,5 +202,4 @@ palabatu-be/
 
 ## To do
 
-1. **Minor — empty state bug on the landing page.** [Landing.tsx:504](palabatu-fe/src/pages/Landing.tsx#L504) treats `problems.length === 0` as "still loading" and renders 5 pulsing skeleton cards. Since the production DB genuinely has zero problems right now, real visitors see perpetual loading skeletons in the "Explore Problems" section forever instead of an empty-state message — the Directory page handles this correctly ("No problems added yet. Add one from the map.") but Landing doesn't.
-2. Problems need directions/patokan (local landmark reference) info so users can actually find the spot in person — beyond just the map pin.
+1. Problems need directions/patokan (local landmark reference) info so users can actually find the spot in person — beyond just the map pin.

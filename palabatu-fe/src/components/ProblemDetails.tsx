@@ -6,6 +6,7 @@ import Toast, { type ToastProps } from './Toast.js';
 import HorizontalScrollCarousel from './HorizontalScrollCarousel.js';
 import ProblemEditForm from './ProblemEditForm.js';
 import ReportModal, { type ReportTarget } from './ReportModal.js';
+import InfoTooltip, { ADDED_BY_DISCLAIMER } from './InfoTooltip.js';
 import TopoImage from './topo-annotations/TopoImage.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
 import type { ProblemRow } from '../types/problem.js';
@@ -290,8 +291,9 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                             <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
                         </button>
                     </div>
-                    <div className="mt-3 text-xs text-text-dim flex items-center gap-1">
-                        Added by <Link to={`/profile/${problem.creator_slug}`} className="text-accent no-underline font-bold">{problem.creator_name || 'unknown'}</Link>
+                    <div className="mt-3 text-xs text-text-dim flex items-center gap-1 flex-wrap">
+                        Added by <Link to={`/profile/${problem.creator_slug}`} className="text-accent no-underline font-bold">{problem.creator_name || 'unknown'}</Link> in Palabatu
+                        <InfoTooltip text={ADDED_BY_DISCLAIMER} />
                         <span>• <Flame size={11} className="inline shrink-0" /> {sendCount} {sendCount === 1 ? 'Send' : 'Sends'}</span>
                     </div>
 
@@ -306,6 +308,7 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                     {/* Edit Form */}
                     {isEditing && (
                         <ProblemEditForm
+                            problemId={String(problem.id)}
                             initialGrade={problem.grade || ''}
                             name={editForm.name}
                             onNameChange={v => setEditForm(prev => ({ ...prev, name: v }))}
@@ -315,9 +318,12 @@ export default function ProblemDetails({ problem, userTitles = [], onClose, onDe
                             lng={editForm.lng}
                             onPickLocation={() => setIsPicking?.(true)}
                             onGradeChange={grade => setEditForm(prev => ({ ...prev, grade }))}
+                            images={problem.image_urls}
+                            onImagesChange={urls => onUpdate({ ...problem, image_urls: urls })}
                             onSave={handleSave}
                             onCancel={() => setIsEditing(false)}
                             isProcessing={isProcessing}
+                            onError={showError}
                         />
                     )}
 

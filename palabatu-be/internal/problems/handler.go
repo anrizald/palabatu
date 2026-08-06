@@ -17,6 +17,7 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/problems", middleware.RequireAuth, handleCreateProblem)
 	rg.PUT("/problems/:id", middleware.RequireAuth, handleUpdateProblem)
 	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
+	rg.POST("/problems/:id/images", middleware.RequireAuth, handleAddProblemImages)
 	rg.DELETE("/problems/:id/images", middleware.RequireAuth, handleDeleteProblemImage)
 	rg.GET("/problems/:id/annotations", handleListAnnotations)
 	rg.PUT("/problems/:id/annotations", middleware.RequireAuth, handleSaveAnnotation)
@@ -202,6 +203,46 @@ func handleDeleteProblemImage(c *gin.Context) {
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
 	case errors.Is(err, ErrImageNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleAddProblemImages godoc
+// @Summary      Add images to a problem
+// @Description  Appends URLs already uploaded via POST /upload/topo to a problem's image_urls.
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                      true  "Problem ID"
+// @Param        body  body      problems.AddProblemImagesRequest  true  "Uploaded image URLs to attach"
+// @Success      200   {object}  problems.ProblemRow
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/images [post]
+func handleAddProblemImages(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	var body AddProblemImagesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	problem, err := AddProblemImages(c.Request.Context(), userID, id, body.ImageURLs)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNoImages):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "No images provided"})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
