@@ -47,20 +47,3 @@ func validateGrade(grade string) error {
 	}
 	return ErrInvalidGrade
 }
-
-// Indonesia's bounding box, padded slightly beyond the country's actual
-// extent (roughly -11.2..6.1 lat, 94.7..141.1 lng) to avoid rejecting
-// legitimate spots near the border/coastline.
-const (
-	minLat = -11.5
-	maxLat = 6.5
-	minLng = 94.5
-	maxLng = 141.5
-)
-
-func validateLatLng(lat, lng float64) error {
-	if lat < minLat || lat > maxLat || lng < minLng || lng > maxLng {
-		return ErrInvalidLocation
-	}
-	return nil
-}

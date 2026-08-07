@@ -2,35 +2,35 @@ package problems
 
 import "encoding/json"
 
-// CreateProblemRequest is handleCreateProblem's request body.
+// CreateProblemRequest is handleCreateProblem's request body. BoulderID is
+// required -- crag_id is derived from the boulder, not supplied directly
+// (handoff.md decision 5). The rest are the optional fields from decisions
+// 8-10.
 type CreateProblemRequest struct {
-	Name      string   `json:"name"`
-	Grade     string   `json:"grade"`
-	Location  string   `json:"location"`
-	Lat       float64  `json:"lat"`
-	Lng       float64  `json:"lng"`
-	ImageURLs []string `json:"image_urls"`
+	Name              string   `json:"name"`
+	Grade             string   `json:"grade"`
+	BoulderID         string   `json:"boulder_id"`
+	FirstAscensionist string   `json:"first_ascensionist"`
+	DiscoveredBy      string   `json:"discovered_by"`
+	LandingHazards    string   `json:"landing_hazards"`
+	Descent           string   `json:"descent"`
+	HeightM           *float64 `json:"height_m"`
+	Notes             string   `json:"notes"`
 }
 
-// UpdateProblemRequest is handleUpdateProblem's request body.
+// UpdateProblemRequest is handleUpdateProblem's request body. BoulderID is
+// not editable via update -- moving a problem to a different boulder isn't
+// a flow this app supports; a boulder merge (internal/boulders) is how
+// problems get reassociated with a different boulder.
 type UpdateProblemRequest struct {
-	Name         string  `json:"name"`
-	Grade        string  `json:"grade"`
-	LocationName string  `json:"location_name"`
-	Lat          float64 `json:"lat"`
-	Lng          float64 `json:"lng"`
-}
-
-// DeleteProblemImageRequest is handleDeleteProblemImage's request body.
-type DeleteProblemImageRequest struct {
-	URL string `json:"url"`
-}
-
-// AddProblemImagesRequest is handleAddProblemImages's request body: URLs
-// already uploaded via POST /upload/topo, to append to an existing
-// problem's image_urls.
-type AddProblemImagesRequest struct {
-	ImageURLs []string `json:"image_urls"`
+	Name              string   `json:"name"`
+	Grade             string   `json:"grade"`
+	FirstAscensionist string   `json:"first_ascensionist"`
+	DiscoveredBy      string   `json:"discovered_by"`
+	LandingHazards    string   `json:"landing_hazards"`
+	Descent           string   `json:"descent"`
+	HeightM           *float64 `json:"height_m"`
+	Notes             string   `json:"notes"`
 }
 
 // SaveAnnotationRequest is handleSaveAnnotation's request body.

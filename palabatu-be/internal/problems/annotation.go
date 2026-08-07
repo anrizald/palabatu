@@ -20,11 +20,13 @@ func ListAnnotations(ctx context.Context, problemID string) ([]AnnotationRecord,
 }
 
 // SaveAnnotation authorizes (Founder or admin, same rule as any other
-// problem edit) and upserts the annotation for one of the problem's images.
-// Validation is deliberately light — well-formed JSON array under a size
-// cap, not a per-shape schema check — matching the Tags/Title opaque
-// passthrough precedent in internal/auth; the write surface is already
-// gated to owner/admin only.
+// problem edit) and upserts the annotation for one of the problem's
+// boulder's images -- a problem draws its own line on a photo the boulder
+// owns (handoff.md decision 2), so the image-membership check reads the
+// boulder's image_urls, not the problem's. Validation is deliberately
+// light — well-formed JSON array under a size cap, not a per-shape schema
+// check — matching the Tags/Title opaque passthrough precedent in
+// internal/auth; the write surface is already gated to owner/admin only.
 func SaveAnnotation(ctx context.Context, userID, problemID, imageURL string, data json.RawMessage) (*AnnotationRecord, error) {
 	if len(data) > maxAnnotationBytes || !json.Valid(data) {
 		return nil, ErrInvalidAnnotation
@@ -34,7 +36,7 @@ func SaveAnnotation(ctx context.Context, userID, problemID, imageURL string, dat
 		return nil, ErrInvalidAnnotation
 	}
 
-	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
+	createdBy, imageURLs, err := getProblemOwnerAndBoulderImages(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

@@ -17,7 +17,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"palabatu-be/internal/auth"
+	"palabatu-be/internal/boulders"
 	"palabatu-be/internal/cloudinary"
+	"palabatu-be/internal/crags"
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/devtools"
 	"palabatu-be/internal/feedback"
@@ -87,6 +89,8 @@ func main() {
 
 	auth.AuthRoutes(r.Group("/auth"))
 	auth.ProfileRoutes(apiGroup)
+	crags.Routes(apiGroup)
+	boulders.Routes(apiGroup)
 	problems.Routes(apiGroup)
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)

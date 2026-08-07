@@ -371,6 +371,32 @@ func upsertProfileRow(ctx context.Context, id, username string, title, tags json
 	return &p, nil
 }
 
+// GetAdminUserIDs returns every user id whose profile title includes
+// "Council" or "Associate" -- for fanning out an admin-facing notification
+// (e.g. a boulder merge suggestion, internal/boulders) to every admin at
+// once. title is already jsonb, so no cast is needed for the containment
+// operator.
+func GetAdminUserIDs(ctx context.Context) ([]string, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id FROM profiles
+		WHERE title @> '["Council"]'::jsonb OR title @> '["Associate"]'::jsonb
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // GetUserTitles reads profiles.title for authorization checks (the
 // Council/Associate role gate on problem and comment edit/delete, applied
 // via internal/authz), mirroring palabatu-be/routes/api.ts's

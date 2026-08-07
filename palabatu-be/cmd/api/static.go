@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"palabatu-be/internal/boulders"
 	"palabatu-be/internal/problems"
 )
 
@@ -104,7 +105,12 @@ func requestBaseURL(c *gin.Context) string {
 // buildSharePreview loads the problem behind a "/problems/:id" crawler
 // request directly via problems.GetProblem (same process, no HTTP
 // round-trip) and maps it onto OG/Twitter fields, falling back to the
-// site's generic values if the problem 404s or has no photo.
+// site's generic values if the problem 404s or has no photo. The preview
+// image comes from the problem's boulder (photos live there now, not on
+// the problem itself -- see handoff.md's photo-ownership move); this is
+// the one place cmd/api imports both problems and boulders directly, which
+// is fine since main is the top of the dependency graph, not a domain
+// package either of them could import back.
 func buildSharePreview(c *gin.Context, id string) sharePreview {
 	baseURL := requestBaseURL(c)
 	preview := sharePreview{
@@ -126,8 +132,8 @@ func buildSharePreview(c *gin.Context, id string) sharePreview {
 		grade = *problem.Grade
 	}
 	location := ""
-	if problem.LocationName != nil {
-		location = *problem.LocationName
+	if problem.CragName != nil {
+		location = *problem.CragName
 	}
 	switch {
 	case grade != "" && location != "":
@@ -136,8 +142,8 @@ func buildSharePreview(c *gin.Context, id string) sharePreview {
 		preview.Description = "Boulder problem at " + location + " - palabatu"
 	}
 
-	if len(problem.ImageURLs) > 0 && problem.ImageURLs[0] != "" {
-		preview.Image = problem.ImageURLs[0]
+	if boulder, err := boulders.GetBoulder(c.Request.Context(), problem.BoulderID); err == nil && len(boulder.ImageURLs) > 0 && boulder.ImageURLs[0] != "" {
+		preview.Image = boulder.ImageURLs[0]
 	}
 
 	return preview

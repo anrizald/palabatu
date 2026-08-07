@@ -352,7 +352,7 @@ export default function MapPage() {
                 center={center}
                 zoom={5}
                 minZoom={5}
-                maxZoom={18}
+                maxZoom={20}
                 zoomControl={false}
                 maxBounds={INDONESIA_BOUNDS}
                 maxBoundsViscosity={1.0}
@@ -362,6 +362,8 @@ export default function MapPage() {
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                    maxNativeZoom={19}
+                    maxZoom={20}
                 />
                 <MapFlyTo />
                 <div

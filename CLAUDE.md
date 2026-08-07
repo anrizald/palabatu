@@ -146,8 +146,48 @@ palabatu-be/
 │   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
 │   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
-│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization,
-│   │   │                    # topo photo annotation (drawn route lines/holds)
+│   ├── crags/                # top level of the crags -> boulders -> problems hierarchy (see handoff.md at the repo
+│   │   │                     # root for the full design): the place you drive to and park at. Create is open to any
+│   │   │                     # signed-in user; edit is creator-or-admin, same authz.CanEditOwned policy as problems.
+│   │   ├── handler.go        # Routes(rg) mounted at /api — /crags, /crags/:id
+│   │   ├── service.go        # ListCrags/GetCrag/CreateCrag/UpdateCrag; authorizeCragEdit mirrors
+│   │   │                     # problems.authorizeProblemEdit exactly (per-domain helper, not shared)
+│   │   ├── repository.go     # `crags` table queries; CragListItem includes boulder_count/problem_count so a dimmed
+│   │   │                     # empty-crag UI doesn't need a second round-trip
+│   │   ├── validate.go       # Indonesia bounding-box lat/lng check, this domain's own copy (see boulders/validate.go)
+│   │   └── errors.go         # ErrNotFound, ErrForbidden, ErrInvalidLocation
+│   ├── boulders/              # middle level of the hierarchy: one rock, and the thing that actually owns the topo
+│   │   │                      # photo(s) problems on it draw their lines on (moved here from problems -- two problems
+│   │   │                      # on the same rock used to mean two uploads of the same photograph). Also owns the
+│   │   │                      # boulder-merge sub-flow (duplicate rocks are expected, not exceptional -- the backfill
+│   │   │                      # creates one boulder per pre-existing problem, and contributors standing at the same
+│   │   │                      # rock keep creating new ones): anyone signed in may suggest "these are the same rock",
+│   │   │                      # only the source/target boulder's own creator may object, only an admin executes a
+│   │   │                      # merge (choosing which boulder survives), gated by a 48h objection hold an admin can
+│   │   │                      # override. problems and boulders never import each other's Go package in either
+│   │   │                      # direction -- each reaches into the other's table with its own direct SQL instead
+│   │   │                      # (mirrors devtools/auth.getProfileStats' "own SQL, no cross-domain repository calls"
+│   │   │                      # precedent), so the dependency graph stays acyclic without a shared package.
+│   │   ├── handler.go         # Routes(rg) mounted at /api — /boulders, /crags/:id/boulders, /boulders/:id/images,
+│   │   │                      # /boulders/:id/annotations (every problem-on-this-boulder's line together)
+│   │   ├── service.go         # ListBoulders/GetBoulder/CreateBoulder/UpdateBoulder/Add|DeleteBoulderImages/
+│   │   │                      # ListAnnotationsForBoulder
+│   │   ├── repository.go      # `boulders` table queries, plus direct SQL against problems/topo_annotations for
+│   │   │                      # image-delete cascade and the annotations-by-boulder listing
+│   │   ├── merge.go / merge_repository.go / merge_handler.go
+│   │   │                      # SuggestMerge/ObjectToMerge/ListPendingMergeRequests/ResolveMergeRequest for
+│   │   │                      # `boulder_merge_requests`/`boulder_merge_objections`; requireAdmin mirrors
+│   │   │                      # report.requireAdmin (second package to call authz.IsAdmin directly, not
+│   │   │                      # authz.CanEditOwned, since resolving a merge isn't "owned" by anyone)
+│   │   ├── validate.go        # Indonesia bounding-box lat/lng check (only when both are provided -- a boulder's
+│   │   │                      # coordinates are optional, unlike a crag's)
+│   │   └── errors.go          # ErrNotFound, ErrForbidden, ErrCragNotFound, ErrHoldNotExpired, etc.
+│   ├── problems/            # bottom level of the hierarchy: one way up a rock. Problem CRUD and topo photo
+│   │   │                    # annotation (drawn route lines/holds on the *boulder's* photo); "Founder" (creator)
+│   │   │                    # authorization. crag_id is denormalized onto every problem (also reachable via
+│   │   │                    # boulder_id -> boulders.crag_id) since every hot list/filter/map query wants it without
+│   │   │                    # a two-hop join. Image upload/attach/remove live on internal/boulders now -- only the
+│   │   │                    # generic (entity-agnostic) Cloudinary-upload endpoints stay here.
 │   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar, /problems/:id/annotations
 │   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
 │   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
@@ -155,10 +195,11 @@ palabatu-be/
 │   │   ├── annotation.go / annotation_repository.go / annotation_handler.go
 │   │   │                    # ListAnnotations/SaveAnnotation for `topo_annotations` (one vector-shape overlay per
 │   │   │                    # problem image, keyed by (problem_id, image_url) since images have no per-row id — same
-│   │   │                    # precedent as `report`'s image reports); reuses authorizeProblemEdit/getProblemOwnerAndImages
-│   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
+│   │   │                    # precedent as `report`'s image reports); the image-membership check reads the problem's
+│   │   │                    # *boulder's* image_urls (getProblemOwnerAndBoulderImages), not the problem's own —
+│   │   │                    # problems don't own images anymore
 │   │   ├── repository.go    # `problems` table queries
-│   │   └── errors.go        # ErrNotFound, ErrForbidden
+│   │   └── errors.go        # ErrNotFound, ErrForbidden, ErrBoulderNotFound
 │   ├── social/               # sends (ticks) and comments today; likes/follows if those get added later
 │   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
 │   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
@@ -185,14 +226,15 @@ palabatu-be/
 - `auth.Signup` requires `email`, `username`, and `password` to be non-empty and `terms_accepted` to be `true` (`ErrMissingFields`/`ErrTermsNotAccepted`), then creates the `users` row and its `profiles` row together in one DB transaction (`insertUserAndProfile` in `repository.go`) — a profile exists from the moment of signup rather than being created lazily on first edit (see `GetProfile`'s doc comment for the pre-existing-account fallback this replaced). `createUser` distinguishes the `users_email_key` and `users_username_key` constraint violations, returning `ErrEmailExists`/`ErrUsernameExists` respectively, so a username collision no longer gets misreported as "email already exists" — that conflation was tolerable back when username was silently derived from the email's local part, but stopped being tenable once `palabatu-fe`'s signup form made username a real, user-typed, user-facing field. If the verification email fails to send, the whole signup (user + profile) is rolled back via `deleteUser`, relying on `profiles_id_fkey`'s `ON DELETE CASCADE` (migrations/0003) to take the profile row with it.
 - `users.terms_accepted_at` (migrations/0009) records ToS/privacy-policy consent at signup — relevant given Indonesia's UU PDP personal-data-protection law. Nullable at the DB level (existing pre-migration accounts have no value and were never asked); enforcement that new signups must accept happens in `auth.Signup`, not via a NOT NULL constraint.
 - `users.guidelines_accepted_at` (migrations/0013) records Community Guidelines acceptance at signup, tracked as a separate consent from `terms_accepted_at` since it's a behavioral/etiquette acknowledgment rather than the legal ToS/Privacy agreement — same nullable-at-the-DB-level, enforced-in-`auth.Signup` shape. Content lives in `LegalModal.tsx`'s `GuidelinesContent` (third tab alongside Terms/Privacy) and carries the same "draft — not yet reviewed or final" disclaimer as the other two docs.
-- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `problems.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `boulders.DeleteBoulderImage` calls it once per removed URL, best-effort (a destroy failure is logged, not fatal) — moved here from `problems.DeleteProblem` when photo ownership moved to boulders (see the crags/boulders/problems bullet below); deleting a problem no longer touches any Cloudinary images at all, since a boulder's shared photos must survive any single problem on it being deleted.
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `auth.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `auth.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
 - `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
-- Topo photo annotation (drawing route lines/holds on a problem's photo): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx`. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
+- **Crags/boulders/problems hierarchy** (backend done 2026-08-07, schema/backend only — see `handoff.md` at the repo root for the full design and `ROADMAP.md`'s Phase 1.5 entry for status): `problems` used to be flat (name/grade/free-text `location`/`lat`/`lng`/`image_urls`); it's now the bottom level of `crags -> boulders -> problems` (migrations 0014/0015). A crag is the place you park and walk in from (required `lat`/`lng`, optional `directions`/`access_notes`); a boulder is one rock (optional `lat`/`lng`, owns `image_urls` — the photo(s) every problem on it shares); a problem is one way up that rock (no location of its own — `crag_id`/`boulder_id` FKs only, `crag_id` denormalized so hot queries skip the two-hop join). `internal/crags`/`internal/boulders` are new domains; `internal/problems` was rewritten. Existing problem rows were backfilled by a one-off script (`cmd/backfill-crags`, not a versioned migration — grouped by normalized `location` string, one boulder per pre-existing problem since there's no data saying which problems shared a rock) before 0015 dropped the old columns. Duplicate boulders from that backfill (and from contributors standing at the same rock) are resolved through `internal/boulders`' merge sub-flow: anyone signed in may suggest "these are the same rock", only the two boulders' own creators may object, only an admin can execute the merge (picking which boulder survives), gated by a 48h objection hold an admin can override. **Frontend is unchanged and not yet updated for this** — the existing add/edit UI will not work against the new API shape until that separate pass lands.
+- Topo photo annotation (drawing route lines/holds on a boulder's photo, which every problem on that boulder shares — see the hierarchy bullet above): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx` — **still keyed to a problem/its old `image_urls` on the frontend as of this writing**, not yet rewired to the boulder (pending the frontend pass). Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
 - **lucide-react icons inside a `display:flex`/`inline-flex` parent can render at 0 width** (confirmed repeatedly live via `getComputedStyle` — height resolves correctly but width resolves to `0px` — despite correct SVG markup, `currentColor`, and computed `color`) — a real, reproducible rendering bug in this app's environment, not a hypothetical. Any icon that is a child of a flex-display element (inline `style={{display:'flex'}}`, Tailwind `flex`/`inline-flex` classes, or a CSS class rule) needs an explicit `flexShrink:0` (inline) / `shrink-0` (Tailwind) / `flex-shrink: 0` (CSS rule) on the icon itself. `tsc`/`eslint` passing is never sufficient evidence a new icon-in-a-flex-button actually renders — visually verify (screenshot or live) any new one.
 
 ## Known WIP rough edges
@@ -202,4 +244,4 @@ palabatu-be/
 
 ## To do
 
-1. Problems need directions/patokan (local landmark reference) info so users can actually find the spot in person — beyond just the map pin.
+1. ~~Problems need directions/patokan (local landmark reference) info so users can actually find the spot in person — beyond just the map pin.~~ Schema-level fix landed 2026-08-07 as part of the crags/boulders/problems restructure: `crags.directions` (patokan) and `crags.access_notes` now exist. Not yet surfaced in any UI — that's the frontend pass tracked in `ROADMAP.md`'s Phase 1.5 entry.
