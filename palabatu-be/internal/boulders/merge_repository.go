@@ -110,8 +110,11 @@ const mergeRequestListSelect = `
 	LEFT JOIN profiles sp ON mr.suggested_by = sp.id
 `
 
-func listPendingMergeRequests(ctx context.Context) ([]MergeRequestListItem, error) {
-	rows, err := db.Pool.Query(ctx, mergeRequestListSelect+" WHERE mr.status = 'pending' ORDER BY mr.created_at ASC")
+// queryMergeRequestList runs mergeRequestListSelect with the given WHERE
+// clause/args and scans the result -- shared by the admin-wide pending
+// listing and the boulder-scoped one below, which differ only in scope.
+func queryMergeRequestList(ctx context.Context, whereClause string, args ...any) ([]MergeRequestListItem, error) {
+	rows, err := db.Pool.Query(ctx, mergeRequestListSelect+whereClause, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +137,20 @@ func listPendingMergeRequests(ctx context.Context) ([]MergeRequestListItem, erro
 		requests = append(requests, r)
 	}
 	return requests, rows.Err()
+}
+
+func listPendingMergeRequests(ctx context.Context) ([]MergeRequestListItem, error) {
+	return queryMergeRequestList(ctx, " WHERE mr.status = 'pending' ORDER BY mr.created_at ASC")
+}
+
+// listPendingMergeRequestsForBoulder backs ListPendingMergeRequestsForBoulder
+// (merge.go) -- the boulder-creator-visible counterpart to the admin-wide
+// listing above, scoped to requests where the given boulder is either side.
+func listPendingMergeRequestsForBoulder(ctx context.Context, boulderID string) ([]MergeRequestListItem, error) {
+	return queryMergeRequestList(ctx,
+		" WHERE mr.status = 'pending' AND (mr.source_boulder_id = $1 OR mr.target_boulder_id = $1) ORDER BY mr.created_at ASC",
+		boulderID,
+	)
 }
 
 func markMergeRequestStatus(ctx context.Context, id, status, adminID string) error {

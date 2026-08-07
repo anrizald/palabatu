@@ -1,6 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
+import { useIsAdmin } from '../lib/useIsAdmin.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 import HorizontalScrollCarousel from '../components/HorizontalScrollCarousel.js';
 import ProblemEditForm from '../components/ProblemEditForm.js';
@@ -9,21 +10,24 @@ import InfoTooltip, { ADDED_BY_DISCLAIMER } from '../components/InfoTooltip.js';
 import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import TopoImage from '../components/topo-annotations/TopoImage.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
-import type { ProblemDetail } from '../types/problem.js';
-import type { Profile as AuthProfile } from '../types/auth.js';
+import type { ProblemDetail, UpdateProblemRequest } from '../types/problem.js';
+import type { BoulderListItem } from '../types/boulder.js';
+import type { CragListItem } from '../types/crag.js';
 import type { Comment, SendStatusResponse, ActionResponse } from '../types/social.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
-import { MapPin, Calendar, Share2, ArrowLeft, Flame, Map as MapIcon } from 'lucide-react';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapPin, Calendar, Share2, ArrowLeft, Flame, Compass } from 'lucide-react';
 import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
 
+const HIGHBALL_THRESHOLD_M = 4.5
+
 type NearbyProblem = {
-    id: string | number;
+    id: string;
     name: string;
     grade: string | null;
-    location_name: string | null;
+    boulder_name: string | null;
 };
 
 function formatDate(iso: string) {
@@ -32,28 +36,41 @@ function formatDate(iso: string) {
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function ClickToPick({ onPick }: { onPick: (lat: number, lng: number) => void }) {
-    useMapEvents({
-        click(e) {
-            onPick(e.latlng.lat, e.latlng.lng);
-        },
-    });
-    return null;
+// Rows for the "more details" block -- decision 10: one height field, the
+// "highball" label derived here at a threshold rather than stored as a
+// second flag that could drift out of sync with height_m.
+function detailRows(problem: ProblemDetail): { label: string; value: string }[] {
+    const rows: { label: string; value: string }[] = [];
+    if (problem.first_ascensionist) rows.push({ label: 'First ascent', value: problem.first_ascensionist });
+    if (problem.discovered_by && problem.discovered_by !== problem.first_ascensionist) {
+        rows.push({ label: 'Discovered by', value: problem.discovered_by });
+    }
+    if (problem.landing_hazards) rows.push({ label: 'Landing / spotting', value: problem.landing_hazards });
+    if (problem.descent) rows.push({ label: 'Descent', value: problem.descent });
+    if (problem.height_m != null) {
+        const highball = problem.height_m >= HIGHBALL_THRESHOLD_M ? ' -- highball' : '';
+        rows.push({ label: 'Height', value: `${problem.height_m} m${highball}` });
+    }
+    return rows;
 }
 
 export default function ProblemDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { user } = useAuth();
+    const isAdmin = useIsAdmin();
     const navigate = useNavigate();
 
     const [problem, setProblem] = useState<ProblemDetail | null>(null);
+    const [boulder, setBoulder] = useState<BoulderListItem | null>(null);
+    const [crag, setCrag] = useState<CragListItem | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [userTitles, setUserTitles] = useState<string[]>([]);
 
     const [isEditing, setIsEditing] = useState(false);
-    const [isPickingLocation, setIsPickingLocation] = useState(false);
-    const [editForm, setEditForm] = useState({ name: '', grade: '', location_name: '', lat: 0, lng: 0 });
+    const [editForm, setEditForm] = useState({
+        name: '', grade: '', first_ascensionist: '', discovered_by: '',
+        landing_hazards: '', descent: '', height_m: '', notes: '',
+    });
     const [isProcessing, setIsProcessing] = useState(false);
 
     const [sendCount, setSendCount] = useState(0);
@@ -75,28 +92,39 @@ export default function ProblemDetailPage() {
     const showOk = (message: string) => setToast({ message, type: 'success', onClose: () => setToast(null) });
 
     const isCreator = !!user && !!problem && user.id === problem.created_by;
-    const isCouncil = userTitles.includes('Council');
-    const canEdit = isCreator || isCouncil;
+    const canEdit = isCreator || isAdmin;
 
     useEffect(() => {
         if (!id) return;
         setIsLoading(true);
         setLoadError(null);
 
-        api.get<ProblemDetail | ErrorResponse>(`/api/problems/${id}`).then(data => {
-            if (!('error' in data)) {
-                setProblem(data);
-                setSendCount(data.send_count || 0);
-                setEditForm({
-                    name: data.name,
-                    grade: data.grade || '',
-                    location_name: data.location_name || '',
-                    lat: data.latitude ?? 0,
-                    lng: data.longitude ?? 0,
-                });
-            } else {
+        api.get<ProblemDetail | ErrorResponse>(`/api/problems/${id}`).then(async data => {
+            if ('error' in data) {
                 setLoadError(data.error || 'This problem could not be found.');
+                setIsLoading(false);
+                return;
             }
+            setProblem(data);
+            setSendCount(data.send_count || 0);
+            setEditForm({
+                name: data.name,
+                grade: data.grade || '',
+                first_ascensionist: data.first_ascensionist || '',
+                discovered_by: data.discovered_by || '',
+                landing_hazards: data.landing_hazards || '',
+                descent: data.descent || '',
+                height_m: data.height_m != null ? String(data.height_m) : '',
+                notes: data.notes || '',
+            });
+
+            const [boulderRes, cragRes] = await Promise.all([
+                api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${data.boulder_id}`),
+                api.get<CragListItem | ErrorResponse>(`/api/crags/${data.crag_id}`),
+            ]);
+            if (!('error' in boulderRes)) setBoulder(boulderRes);
+            if (!('error' in cragRes)) setCrag(cragRes);
+
             setIsLoading(false);
         });
 
@@ -118,26 +146,16 @@ export default function ProblemDetailPage() {
         });
     }, [id, user]);
 
+    // Real crag join now, replacing the old free-text location_name match
+    // (ROADMAP.md's Phase 1.5 note).
     useEffect(() => {
-        if (!user?.id) return;
-        api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
-            if (!('error' in data) && data.title) {
-                const parsed = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
-                setUserTitles(parsed || []);
-            }
-        });
-    }, [user]);
-
-    useEffect(() => {
-        if (!problem?.location_name) return;
-        api.get<NearbyProblem[] | ErrorResponse>('/api/problems').then((data) => {
+        if (!problem?.crag_id) return;
+        api.get<NearbyProblem[] | ErrorResponse>(`/api/problems?crag_id=${problem.crag_id}`).then((data) => {
             if (Array.isArray(data)) {
-                setNearby(
-                    data.filter(p => p.location_name === problem.location_name && String(p.id) !== String(problem.id)).slice(0, 5)
-                );
+                setNearby(data.filter(p => p.id !== problem.id).slice(0, 5));
             }
         });
-    }, [problem?.location_name, problem?.id]);
+    }, [problem?.crag_id, problem?.id]);
 
     const handleToggleSend = async () => {
         if (!id) return;
@@ -163,11 +181,18 @@ export default function ProblemDetailPage() {
         if (!id) return;
         setIsProcessing(true);
         try {
-            const data = await api.put<Partial<ErrorResponse>>(`/api/problems/${id}`, editForm);
+            const body: UpdateProblemRequest = {
+                name: editForm.name, grade: editForm.grade,
+                first_ascensionist: editForm.first_ascensionist, discovered_by: editForm.discovered_by,
+                landing_hazards: editForm.landing_hazards, descent: editForm.descent,
+                height_m: editForm.height_m.trim() ? Number(editForm.height_m) : null,
+                notes: editForm.notes,
+            };
+            const data = await api.put<Partial<ErrorResponse>>(`/api/problems/${id}`, body);
             if (data.error) {
                 showError(`Error updating: ${data.error}`);
             } else {
-                setProblem(prev => prev ? { ...prev, ...editForm, latitude: editForm.lat, longitude: editForm.lng } : prev);
+                setProblem(prev => prev ? { ...prev, ...body } : prev);
                 setIsEditing(false);
                 showOk('Problem updated!');
             }
@@ -180,14 +205,14 @@ export default function ProblemDetailPage() {
     };
 
     const handleDelete = async () => {
-        if (!id || !window.confirm('Are you sure you want to delete this problem?')) return;
+        if (!id || !problem || !window.confirm('Are you sure you want to delete this problem?')) return;
         setIsProcessing(true);
         try {
             const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${id}`);
             if (res.error) {
                 showError(`Error deleting: ${res.error}`);
             } else {
-                navigate('/directory');
+                navigate(`/boulders/${problem.boulder_id}`);
             }
         } catch (e) {
             console.error('Delete failed', e);
@@ -269,10 +294,16 @@ export default function ProblemDetailPage() {
 
     const joinDate = useMemo(() => problem ? formatDate(problem.created_at) : null, [problem]);
 
+    // A problem has no location of its own -- plot its boulder's point if
+    // set, else fall back to the crag's (always present, handoff.md
+    // decision 4).
     const markerPosition = useMemo<[number, number] | null>(() => {
-        if (problem?.latitude == null || problem?.longitude == null) return null;
-        return [editForm.lat || problem.latitude, editForm.lng || problem.longitude];
-    }, [editForm.lat, editForm.lng, problem?.latitude, problem?.longitude]);
+        if (boulder?.lat != null && boulder?.lng != null) return [boulder.lat, boulder.lng];
+        if (crag) return [crag.lat, crag.lng];
+        return null;
+    }, [boulder, crag]);
+
+    const rows = useMemo(() => problem ? detailRows(problem) : [], [problem]);
 
     if (isLoading) return (
         <div className="min-h-screen bg-ink flex items-center justify-center">
@@ -287,6 +318,8 @@ export default function ProblemDetailPage() {
             <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
         </div>
     );
+
+    const photos = boulder?.image_urls ?? [];
 
     return (
         <>
@@ -308,9 +341,9 @@ export default function ProblemDetailPage() {
 
                     {/* Hero */}
                     <div className="bg-panel border border-border rounded-2xl overflow-hidden">
-                        {problem.image_urls && problem.image_urls.length > 0 && (
-                            <HorizontalScrollCarousel itemCount={problem.image_urls.length} outerMarginX={0} paddingX={0}>
-                                {problem.image_urls.map((url, i) => (
+                        {photos.length > 0 && (
+                            <HorizontalScrollCarousel itemCount={photos.length} outerMarginX={0} paddingX={0}>
+                                {photos.map((url, i) => (
                                     <div key={i} className="shrink-0" style={{ scrollSnapAlign: 'center' }}>
                                         <TopoImage
                                             problemId={problem.id}
@@ -335,9 +368,16 @@ export default function ProblemDetailPage() {
                                         <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-[13px] font-bold">
                                             {problem.grade || 'Ungraded'}
                                         </span>
-                                        <span className="flex items-center gap-1 text-xs text-text-dim">
-                                            <MapPin size={12} className="shrink-0" /> {problem.location_name || 'Location not set'}
-                                        </span>
+                                        {problem.crag_name && (
+                                            <Link to={`/crags/${problem.crag_id}`} className="flex items-center gap-1 text-xs text-text-dim no-underline hover:text-accent">
+                                                <Compass size={12} className="shrink-0" /> {problem.crag_name}
+                                            </Link>
+                                        )}
+                                        {problem.boulder_name && (
+                                            <Link to={`/boulders/${problem.boulder_id}`} className="flex items-center gap-1 text-xs text-text-dim no-underline hover:text-accent">
+                                                <MapPin size={12} className="shrink-0" /> {problem.boulder_name}
+                                            </Link>
+                                        )}
                                         {joinDate && (
                                             <span className="flex items-center gap-1 text-xs text-text-dim">
                                                 <Calendar size={12} className="shrink-0" /> {joinDate}
@@ -365,6 +405,20 @@ export default function ProblemDetailPage() {
                                 <InfoTooltip text={ADDED_BY_DISCLAIMER} />
                             </div>
 
+                            {rows.length > 0 && (
+                                <div className="flex flex-col gap-1.5 bg-ink/50 rounded-xl border border-border p-3.5">
+                                    {rows.map(row => (
+                                        <div key={row.label} className="flex items-baseline gap-2 text-xs">
+                                            <span className="text-text-dim w-[120px] shrink-0">{row.label}</span>
+                                            <span className="text-text-secondary">{row.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {problem.notes && (
+                                <p className="text-sm text-text-secondary leading-relaxed">{problem.notes}</p>
+                            )}
+
                             <div className="flex items-center gap-3 flex-wrap">
                                 <button
                                     onClick={handleToggleSend}
@@ -377,13 +431,6 @@ export default function ProblemDetailPage() {
                                     <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
                                 </button>
                                 <span className="text-xs text-text-dim">{sendCount} {sendCount === 1 ? 'send' : 'sends'}</span>
-
-                                <button
-                                    onClick={() => navigate(`/map?lat=${problem.latitude}&lng=${problem.longitude}`)}
-                                    className="ml-auto inline-flex items-center gap-1.5 bg-transparent border border-border hover:border-accent text-text-muted hover:text-accent px-3.5 py-2 rounded-xl text-xs transition-colors cursor-pointer"
-                                >
-                                    <MapIcon size={13} className="shrink-0" /> Open in Map
-                                </button>
                             </div>
 
                             {canEdit && !isEditing && (
@@ -395,35 +442,22 @@ export default function ProblemDetailPage() {
 
                             {isEditing && (
                                 <ProblemEditForm
-                                    problemId={problem.id}
-                                    initialGrade={problem.grade || ''}
-                                    name={editForm.name}
-                                    onNameChange={v => setEditForm(prev => ({ ...prev, name: v }))}
-                                    locationName={editForm.location_name}
-                                    onLocationNameChange={v => setEditForm(prev => ({ ...prev, location_name: v }))}
-                                    lat={editForm.lat}
-                                    lng={editForm.lng}
-                                    onPickLocation={() => setIsPickingLocation(true)}
-                                    onGradeChange={grade => setEditForm(prev => ({ ...prev, grade }))}
-                                    images={problem.image_urls}
-                                    onImagesChange={urls => setProblem(prev => prev ? { ...prev, image_urls: urls } : prev)}
+                                    form={editForm}
+                                    onChange={setEditForm}
                                     onSave={handleSave}
-                                    onCancel={() => { setIsEditing(false); setIsPickingLocation(false); }}
+                                    onCancel={() => setIsEditing(false)}
                                     isProcessing={isProcessing}
-                                    onError={showError}
                                 />
                             )}
                         </div>
                     </div>
 
-                    {/* Mini map */}
+                    {/* Mini map -- a problem has no location of its own; this
+                        plots its rock's point (or the spot's, if the rock has
+                        none set). Editing location happens on the crag/boulder
+                        page now, not here. */}
                     {markerPosition && (
                         <div className="bg-panel border border-border rounded-2xl overflow-hidden">
-                            {isPickingLocation && (
-                                <div className="px-4 py-2 bg-accent/10 border-b border-accent/25 text-xs text-accent">
-                                    Click the map to set the new location
-                                </div>
-                            )}
                             <div className="h-[220px]">
                                 <MapContainer
                                     center={markerPosition}
@@ -446,21 +480,16 @@ export default function ProblemDetailPage() {
                                     <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000 }}>
                                         <RecenterButton position={markerPosition} />
                                     </div>
-                                    {isPickingLocation && (
-                                        <ClickToPick onPick={(lat, lng) => {
-                                            setEditForm(prev => ({ ...prev, lat, lng }));
-                                            setIsPickingLocation(false);
-                                        }} />
-                                    )}
                                 </MapContainer>
                             </div>
                         </div>
                     )}
 
-                    {/* Nearby problems */}
+                    {/* Nearby problems -- a real crag join now, replacing the
+                        old free-text location_name grouping. */}
                     {nearby.length > 0 && (
                         <div className="bg-panel border border-border rounded-2xl p-5">
-                            <div className="text-[11px] text-text-dim tracking-wide uppercase mb-3">Also at {problem.location_name}</div>
+                            <div className="text-[11px] text-text-dim tracking-wide uppercase mb-3">Also at {problem.crag_name}</div>
                             <div className="flex flex-col gap-2">
                                 {nearby.map(p => (
                                     <Link
@@ -468,7 +497,7 @@ export default function ProblemDetailPage() {
                                         to={`/problems/${p.id}`}
                                         className="flex items-center justify-between gap-3 text-sm no-underline px-3 py-2 rounded-lg hover:bg-surface transition-colors"
                                     >
-                                        <span className="text-text-secondary truncate">{p.name}</span>
+                                        <span className="text-text-secondary truncate">{p.name}{p.boulder_name ? ` -- ${p.boulder_name}` : ''}</span>
                                         {p.grade && <span className="text-xs text-accent shrink-0">{p.grade}</span>}
                                     </Link>
                                 ))}
@@ -507,7 +536,7 @@ export default function ProblemDetailPage() {
                                 <div className="text-sm text-text-dim italic">No beta yet. Be the first!</div>
                             ) : (
                                 comments.map(comment => {
-                                    const canDeleteComment = user && (user.id === comment.user_id || isCouncil);
+                                    const canDeleteComment = user && (user.id === comment.user_id || isAdmin);
                                     return (
                                         <div key={comment.id} className="text-sm text-text-secondary bg-ink/50 p-3 rounded-xl border border-border">
                                             <div className="flex justify-between items-center mb-1">

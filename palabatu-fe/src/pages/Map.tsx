@@ -1,19 +1,17 @@
 import 'leaflet/dist/leaflet.css'
 import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
-import { api } from '../lib/api.js'
+import { getAllCrags } from '../lib/cragCache.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
-import ProblemDetails from '../components/ProblemDetails.js'
 import ClusterCardRail from '../components/ClusterCardRail.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
-import type { NewProblem, ProblemRow } from '../types/problem.js'
-import type { Profile as AuthProfile } from '../types/auth.js'
-import type { ErrorResponse } from '../types/apitypes.js'
+import type { CragListItem } from '../types/crag.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
-import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
+import AddFlow from '../components/add-flow/AddFlow.js'
+import LocationPicker from '../components/LocationPicker.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
 import FallbackImg from '../components/FallbackImg.js'
 import { circleButtonStyle } from '../lib/constants.js'
@@ -279,51 +277,44 @@ function LocateMeButton() {
 }
 
 export default function MapPage() {
-    const [problems, setProblems] = useState<ProblemRow[]>([])
+    const [crags, setCrags] = useState<CragListItem[]>([])
     const [isPicking, setIsPicking] = useState(false)
-    const [showModal, setShowModal] = useState(false)
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
-    const [editPickedCoords, setEditPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [newProblem, setNewProblem] = useState<NewProblem>({
-        name: '',
-        grade: 'V0',
-        location: '',
-        lat: null,
-        lng: null,
-        imageFiles: [],
-        imagePreviews: []
-    })
+    const [showAddFlow, setShowAddFlow] = useState(false)
+    const [addFlowSeed, setAddFlowSeed] = useState<{ cragId?: string; boulderId?: string }>({})
+    const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
     const { user } = useAuth()
+    const navigate = useNavigate()
     // const center: [number, number] = [-7.797068, 110.370529]
     const center: [number, number] = [-2.5, 118.0]
-    const [userTitles, setUserTitles] = useState<string[]>([]);
     const [toast, setToast] = useState<ToastProps | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams()
 
-    useEffect(() => {
-        if (user?.id) {
-            api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
-                if (!('error' in data) && data.title) {
-                    // Handle parsing if it comes back as a string or array
-                    const parsedTitles = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
-                    setUserTitles(parsedTitles || []);
-                }
-            });
-        }
-    }, [user])
-
-    // const canAdd = userTitles.includes('Council') || userTitles.includes('Associate');
     const canAdd = !!user;
 
+    const loadCrags = () => {
+        getAllCrags().then(setCrags)
+    }
+
+    useEffect(() => { loadCrags() }, [])
+
+    // Deep link from a crag/boulder page's "+ Add" CTA (handoff.md's add
+    // flow re-entering pre-seeded, per UX principle 4 -- never re-ask a
+    // question already answered).
     useEffect(() => {
-        async function fetchProblems() {
-            const data = await api.get<ProblemRow[] | ErrorResponse>('/api/problems');
-            if ('error' in data) {
-                console.error('Error fetching problems:', data.error)
+        const addToCrag = searchParams.get('addToCrag')
+        const addToBoulder = searchParams.get('addToBoulder')
+        if (addToCrag || addToBoulder) {
+            if (!user) {
+                setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
             } else {
-                setProblems(data)
+                setAddFlowSeed({ ...(addToCrag ? { cragId: addToCrag } : {}), ...(addToBoulder ? { boulderId: addToBoulder } : {}) })
+                setShowAddFlow(true)
             }
+            searchParams.delete('addToCrag')
+            searchParams.delete('addToBoulder')
+            setSearchParams(searchParams, { replace: true })
         }
-        fetchProblems()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const handleFAB = () => {
@@ -332,17 +323,9 @@ export default function MapPage() {
             return;
         }
 
-        setNewProblem({
-            name: '',
-            grade: 'V0',
-            location: '',
-            lat: null,
-            lng: null,
-            imageFiles: [],
-            imagePreviews: []
-        });
-
-        setShowModal(true)
+        setPickedCoords(null)
+        setAddFlowSeed({})
+        setShowAddFlow(true)
     }
 
     return (
@@ -419,51 +402,28 @@ export default function MapPage() {
                         </button>
                     )}
                 </div>
-                <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
-                {(showModal || selectedProblem) && isPicking && (
+                <ProximityClusters
+                    crags={crags}
+                    onViewSpot={crag => navigate(`/crags/${crag.id}`)}
+                    onAddFirst={crag => { setAddFlowSeed({ cragId: crag.id }); setShowAddFlow(true) }}
+                />
+                {showAddFlow && isPicking && (
                     <LocationPicker onPick={(lat, lng) => {
-                        if (showModal) {
-                            setNewProblem(prev => ({ ...prev, lat, lng }));
-                        } else {
-                            setEditPickedCoords({ lat, lng });
-                        }
+                        setPickedCoords({ lat, lng });
                         setIsPicking(false);
                     }} />
                 )}
             </MapContainer>
 
-            {showModal && (
-                <AddProblemModal
-                    onClose={() => setShowModal(false)}
-                    onAdded={(problem) => {
-                        setProblems(prev => [...prev, problem]);
-                    }}
-                    newProblem={newProblem}
-                    setNewProblem={setNewProblem}
+            {showAddFlow && (
+                <AddFlow
+                    onClose={() => setShowAddFlow(false)}
+                    onAdded={() => { loadCrags() }}
                     isPicking={isPicking}
                     setIsPicking={setIsPicking}
-                />
-            )}
-
-            {selectedProblem && (
-                <ProblemDetails
-                    problem={selectedProblem}
-                    userTitles={userTitles}
-                    onClose={() => {
-                        setSelectedProblem(null);
-                        setEditPickedCoords(null);
-                        setIsPicking(false);
-                    }}
-                    onDelete={(id) => {
-                        setProblems(prev => prev.filter(p => p.id !== id));
-                        setSelectedProblem(null);
-                    }}
-                    onUpdate={(updatedItem) => {
-                        setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                    }}
-                    isPicking={isPicking}
-                    setIsPicking={setIsPicking}
-                    pickedCoords={editPickedCoords}
+                    pickedCoords={pickedCoords}
+                    {...(addFlowSeed.cragId ? { initialCragId: addFlowSeed.cragId } : {})}
+                    {...(addFlowSeed.boulderId ? { initialBoulderId: addFlowSeed.boulderId } : {})}
                 />
             )}
         </div>
@@ -473,10 +433,10 @@ export default function MapPage() {
 type Cluster = {
     lat: number
     lng: number
-    items: ProblemRow[]
+    items: CragListItem[]
 }
 
-function ProximityClusters({ problems, setSelectedProblem }: { problems: ProblemRow[]; setSelectedProblem: (problem: ProblemRow) => void }) {
+function ProximityClusters({ crags, onViewSpot, onAddFirst }: { crags: CragListItem[]; onViewSpot: (crag: CragListItem) => void; onAddFirst: (crag: CragListItem) => void }) {
     const map = useMap()
     const isMobile = useIsMobile()
     const [tick, setTick] = useState(0)
@@ -496,9 +456,9 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
         if (!map) return []
         const zoom = map.getZoom?.()
         const thresholdPx = computeThresholdPx(zoom)
-        const points = problems.map(p => ({
-            item: p,
-            pt: map.latLngToContainerPoint([p.latitude, p.longitude])
+        const points = crags.map(c => ({
+            item: c,
+            pt: map.latLngToContainerPoint([c.lat, c.lng])
         }))
 
         const used = new Set<number>()
@@ -508,7 +468,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
             if (used.has(i)) continue
             const base = points[i]
             if (!base) continue
-            const group: ProblemRow[] = [base.item]
+            const group: CragListItem[] = [base.item]
             used.add(i)
             for (let j = i + 1; j < points.length; j++) {
                 if (used.has(j)) continue
@@ -525,8 +485,8 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
 
             // centroid in lat/lng
             const { lat, lng } = group.reduce((acc, it) => ({
-                lat: acc.lat + it.latitude,
-                lng: acc.lng + it.longitude,
+                lat: acc.lat + it.lat,
+                lng: acc.lng + it.lng,
             }), { lat: 0, lng: 0 })
             result.push({
                 lat: lat / group.length,
@@ -540,13 +500,13 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
         // map.getZoom()/latLngToContainerPoint reads are imperative and not
         // themselves reactive dependencies.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map, problems, tick])
+    }, [map, crags, tick])
 
     const currentZoom = map?.getZoom?.() ?? 13
 
-    const focusItem = (item: ProblemRow) => {
-        map.flyTo([item.latitude, item.longitude], MAX_ZOOM, { duration: 1.2 })
-        setSelectedProblem(item)
+    const focusItem = (item: CragListItem) => {
+        map.flyTo([item.lat, item.lng], MAX_ZOOM, { duration: 1.2 })
+        onViewSpot(item)
     }
 
     return (
@@ -555,17 +515,20 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                 if (c.items.length === 1) {
                     const item = c.items[0]
                     if (!item) return null
+                    const isEmpty = item.problem_count === 0
                     return (
                         <PinpointMarker
                             key={item.id}
-                            position={[item.latitude, item.longitude]}
+                            position={[item.lat, item.lng]}
                             name={item.name}
-                            location={item.location_name}
-                            grade={item.grade}
+                            directions={item.directions}
+                            boulderCount={item.boulder_count}
+                            problemCount={item.problem_count}
                             creatorName={item.creator_name}
-                            creatorSlug={item.creator_slug}
                             zoom={currentZoom}
-                            onClickDetails={() => setSelectedProblem(item)}
+                            dimmed={isEmpty}
+                            onViewSpot={() => onViewSpot(item)}
+                            onAddFirst={() => onAddFirst(item)}
                         />
                     )
                 }
@@ -573,8 +536,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                     <PinpointMarker
                         key={`cluster-${idx}`}
                         position={[c.lat, c.lng]}
-                        name={`${c.items.length} locations`}
-                        location={c.items.slice(0, 3).map(i => i.name).join(', ')}
+                        name={`${c.items.length} spots`}
                         type="cluster"
                         zoom={currentZoom}
                         clusterItems={c.items}
@@ -595,7 +557,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
     )
 }
 
-function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: ProblemRow) => void }) {
+function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: CragListItem) => void }) {
     if (!cluster) return null
 
     return (

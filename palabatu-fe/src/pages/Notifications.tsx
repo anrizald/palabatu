@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, markRead, markAllRead, formatRelativeTime } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -14,6 +14,11 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     problem_edited: Pencil,
     problem_deleted: Trash2,
     mention: AtSign,
+    // See NotificationBell.tsx's identical map for why these render as
+    // non-navigating (problem_id is always null for a merge notification).
+    merge_suggested: GitCompare,
+    merge_objected: GitCompare,
+    merge_resolved: GitCompare,
 };
 
 export default function Notifications() {

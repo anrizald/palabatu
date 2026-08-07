@@ -2,10 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
-// Shared "Added by" attribution disclaimer, used by ProblemDetailPage, the
-// ProblemDetails panel (opened from the map), and PinpointMarker's map
-// popup — all three show a problem's creator and all three want the same
-// caveat next to it.
+// Shared "Added by" attribution disclaimer, used by ProblemDetailPage and
+// PinpointMarker's map popup — both show a problem/crag's creator and both
+// want the same caveat next to it.
 export const ADDED_BY_DISCLAIMER =
     "Being added on Palabatu doesn't mean first ascent or first discovery — outdoor climbing culture existed long before us.";
 

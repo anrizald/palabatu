@@ -1934,6 +1934,76 @@
                 ]
             }
         },
+        "/api/boulders/{id}/merge-requests": {
+            "get": {
+                "description": "Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator -- the visibility a creator needs to actually see and object to a request filed against their rock (see object, above). The admin-wide queue (list, below) stays unscoped and admin-only; this is scoped to one boulder.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.MergeRequestListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List pending merge requests filed against one boulder",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
         "/api/boulders/{id}/merge-suggestions": {
             "post": {
                 "description": "Any authenticated user may suggest a merge; executing one is admin-only (see resolve).",

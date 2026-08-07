@@ -15,6 +15,7 @@ import (
 // same split as problems' annotation_handler.go alongside handler.go.
 func registerMergeRoutes(rg *gin.RouterGroup) {
 	rg.POST("/boulders/:id/merge-suggestions", middleware.RequireAuth, handleSuggestMerge)
+	rg.GET("/boulders/:id/merge-requests", middleware.RequireAuth, handleListBoulderMergeRequests)
 	rg.POST("/boulders/merge-requests/:id/object", middleware.RequireAuth, handleObjectToMerge)
 	rg.GET("/boulders/merge-requests", middleware.RequireAuth, handleListPendingMergeRequests)
 	rg.POST("/boulders/merge-requests/:id/resolve", middleware.RequireAuth, handleResolveMergeRequest)
@@ -49,6 +50,35 @@ func handleSuggestMerge(c *gin.Context) {
 		c.JSON(http.StatusOK, request)
 	case errors.Is(err, ErrCannotMergeSelf):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Cannot suggest a boulder is the same as itself"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleListBoulderMergeRequests godoc
+// @Summary      List pending merge requests filed against one boulder
+// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator -- the visibility a creator needs to actually see and object to a request filed against their rock (see object, above). The admin-wide queue (list, below) stays unscoped and admin-only; this is scoped to one boulder.
+// @Tags         boulders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Boulder ID"
+// @Success      200  {array}   boulders.MergeRequestListItem
+// @Failure      403  {object}  apitypes.ErrorResponse
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/boulders/{id}/merge-requests [get]
+func handleListBoulderMergeRequests(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	requests, err := ListPendingMergeRequestsForBoulder(c.Request.Context(), userID, id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, requests)
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to view this boulder's merge requests."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

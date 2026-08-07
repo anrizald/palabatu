@@ -1,8 +1,8 @@
 import { api } from "../lib/api.js";
-import { Link } from "react-router-dom";
+import { enrichProblems } from "../lib/cragCache.js";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import type { ProblemRow } from '../types/problem.js';
-import ProblemDetails from '../components/ProblemDetails.js';
+import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
 import Toast from '../components/Toast.js';
 import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
@@ -10,7 +10,7 @@ import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
 type Geo = { lat: number; lng: number };
-type CardItem = { problem: ProblemRow; badge: string; icon: 'pin' | 'flame' | 'clock' };
+type CardItem = { problem: EnrichedProblem; badge: string; icon: 'pin' | 'flame' | 'clock' };
 
 const CARD_LIMIT = 10;
 
@@ -117,12 +117,12 @@ function TabIcon({ icon }: { icon: CardItem['icon'] }) {
     return <PinIcon />;
 }
 
-function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: ProblemRow) => void }) {
+function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: EnrichedProblem) => void }) {
     const { problem, badge, icon } = item;
     return (
         <div className="p-card" onClick={() => onSelect(problem)}>
             <h3 className="p-card-title">{problem.name || 'Problem Name'}</h3>
-            <p className="p-card-loc">{problem.location_name || 'Unknown Location'}</p>
+            <p className="p-card-loc">{problem.crag_name || 'Unknown Location'}</p>
             <div className="p-card-row">
                 <span className="p-card-grade">{problem.grade || '—'}</span>
                 <span className="p-card-badge"><TabIcon icon={icon} />{badge}</span>
@@ -142,10 +142,10 @@ function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: Problem
 
 export default function Landing() {
     const { user, showToast, toast } = useAuth();
-    const [problems, setProblems] = useState<ProblemRow[]>([]);
+    const navigate = useNavigate();
+    const [problems, setProblems] = useState<EnrichedProblem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [climberCount, setClimberCount] = useState<number | null>(null);
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>('hot');
     const [geo, setGeo] = useState<Geo | null>(null);
     const [locating, setLocating] = useState(false);
@@ -156,13 +156,13 @@ export default function Landing() {
         async function fetchData() {
             try {
                 const [problemsData, usersData] = await Promise.all([
-                    api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
+                    api.get<ProblemListItem[] | ErrorResponse>('/api/problems'),
                     api.get<Partial<CountResponse>>('/auth/users/count'),
                 ]);
                 if ('error' in problemsData) {
                     console.error("Error fetching problems:", problemsData.error);
                 } else {
-                    setProblems(problemsData || []);
+                    setProblems(await enrichProblems(problemsData || []));
                 }
                 if (typeof usersData?.count === 'number') {
                     setClimberCount(usersData.count);
@@ -206,8 +206,8 @@ export default function Landing() {
     const nearYouItems = useMemo<CardItem[]>(() => {
         if (!geo) return [];
         return [...problems]
-            .filter(p => p.latitude != null && p.longitude != null)
-            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.latitude, lng: problem.longitude }) }))
+            .filter(p => p.mapLat != null && p.mapLng != null)
+            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.mapLat!, lng: problem.mapLng! }) }))
             .sort((a, b) => a.distanceKm - b.distanceKm)
             .slice(0, CARD_LIMIT)
             .map(({ problem, distanceKm }) => ({ problem, badge: formatDistance(distanceKm), icon: 'pin' as const }));
@@ -546,7 +546,7 @@ export default function Landing() {
                         ) : (
                             <div className="card-row">
                                 {activeItems.map(item => (
-                                    <ProblemCard key={item.problem.id} item={item} onSelect={setSelectedProblem} />
+                                    <ProblemCard key={item.problem.id} item={item} onSelect={(p) => navigate(`/problems/${p.id}`)} />
                                 ))}
                             </div>
                         )}
@@ -683,20 +683,6 @@ export default function Landing() {
                         </div>
                     </div>
                 </section>
-
-                {selectedProblem && (
-                    <ProblemDetails
-                        problem={selectedProblem}
-                        onClose={() => setSelectedProblem(null)}
-                        onDelete={(id) => {
-                            setProblems(prev => prev.filter(p => p.id !== id));
-                            setSelectedProblem(null);
-                        }}
-                        onUpdate={(updatedItem) => {
-                            setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                        }}
-                    />
-                )}
 
                 {isFeedbackOpen && (
                     <FeedbackModal

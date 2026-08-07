@@ -100,6 +100,27 @@ func ListPendingMergeRequests(ctx context.Context, userID string) ([]MergeReques
 	return listPendingMergeRequests(ctx)
 }
 
+// ListPendingMergeRequestsForBoulder is the boulder-creator-visible
+// counterpart to ListPendingMergeRequests above: the admin-wide listing is
+// deliberately admin-only, which left a boulder's own creator with no way
+// to ever see a request filed against their rock -- and therefore no way
+// to exercise the objection right handoff.md's merge design describes.
+// Scoped to one boulder, gated the same creator-or-admin way as every other
+// per-boulder action (authorizeBoulderEdit, service.go).
+func ListPendingMergeRequestsForBoulder(ctx context.Context, userID, boulderID string) ([]MergeRequestListItem, error) {
+	createdBy, err := getBoulderCreator(ctx, boulderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := authorizeBoulderEdit(ctx, userID, createdBy); err != nil {
+		return nil, err
+	}
+	return listPendingMergeRequestsForBoulder(ctx, boulderID)
+}
+
 // ResolveMergeRequest is the admin-only step that actually executes (or
 // rejects) a suggested merge. Rejecting needs no wait; merging is blocked
 // until the 48h objection window closes, unless overrideHold is set for an

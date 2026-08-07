@@ -6,7 +6,10 @@ export type NotificationType =
     | 'reaction'
     | 'problem_edited'
     | 'problem_deleted'
-    | 'mention';
+    | 'mention'
+    | 'merge_suggested'
+    | 'merge_objected'
+    | 'merge_resolved';
 
 export type Notification = {
     id: string;

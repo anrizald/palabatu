@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, Wrench, MessageSquare, X } from 'lucide-react';
+import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, Wrench, MessageSquare, X, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 
@@ -251,6 +251,11 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                                 {isAdmin && (
                                     <Link to="/admin/reports" className="sidebar-item" onClick={onClose}>
                                         <Flag size={18} /> Reports
+                                    </Link>
+                                )}
+                                {isAdmin && (
+                                    <Link to="/admin/merge-requests" className="sidebar-item" onClick={onClose}>
+                                        <GitCompare size={18} /> Merges
                                     </Link>
                                 )}
                                 {isOwner && (

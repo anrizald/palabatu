@@ -1,11 +1,12 @@
 import { api } from '../lib/api.js';
+import { enrichProblems } from '../lib/cragCache.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, ArrowLeft, RotateCcw } from 'lucide-react';
 import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
 import { ProblemCard } from '../components/ProblemCard.js';
 import { useAuth } from '../lib/useAuth.js';
-import type { ProblemRow } from '../types/problem.js';
+import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
 type SortBy = 'name' | 'sends' | 'newest';
@@ -77,7 +78,7 @@ function gradeMeta(grade: string): { type: ProblemType; scale: string } {
 // and just need search + filter + sort.
 export function ProblemList() {
     const { user } = useAuth();
-    const [problems, setProblems] = useState<ProblemRow[]>([]);
+    const [problems, setProblems] = useState<EnrichedProblem[]>([]);
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
     const [scaleFilter, setScaleFilter] = useState('All');
@@ -93,10 +94,10 @@ export function ProblemList() {
     const fetchProblems = useCallback(() => {
         setIsLoading(true);
         setLoadError(null);
-        api.get<ProblemRow[] | ErrorResponse>('/api/problems')
-            .then(data => {
+        api.get<ProblemListItem[] | ErrorResponse>('/api/problems')
+            .then(async data => {
                 if (Array.isArray(data)) {
-                    setProblems(data);
+                    setProblems(await enrichProblems(data));
                 } else {
                     setLoadError(data.error || 'Failed to load problems.');
                 }
@@ -155,7 +156,8 @@ export function ProblemList() {
     const availableGrades = useMemo(() => {
         const grades = new Set(
             problems
-                .filter(p => {
+                .filter((p): p is EnrichedProblem & { grade: string } => {
+                    if (!p.grade) return false;
                     const meta = gradeMeta(p.grade);
                     if (typeFilter !== 'All' && meta.type !== typeFilter) return false;
                     if (scaleFilter !== 'All' && meta.scale !== scaleFilter) return false;
@@ -170,8 +172,9 @@ export function ProblemList() {
     const filteredProblems = useMemo(() => {
         const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-                (p.location_name || '').toLowerCase().includes(search.toLowerCase());
-            const meta = gradeMeta(p.grade);
+                (p.crag_name || '').toLowerCase().includes(search.toLowerCase()) ||
+                (p.boulder_name || '').toLowerCase().includes(search.toLowerCase());
+            const meta = gradeMeta(p.grade ?? '');
             const matchesType = typeFilter === 'All' || meta.type === typeFilter;
             const matchesScale = scaleFilter === 'All' || meta.scale === scaleFilter;
             const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;

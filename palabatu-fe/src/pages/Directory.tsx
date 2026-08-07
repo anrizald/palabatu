@@ -1,10 +1,11 @@
 import { api } from '../lib/api.js';
+import { enrichProblems } from '../lib/cragCache.js';
 import { Link, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { MapPin, Navigation, Mountain, Clock, Compass, Plus, ArrowRight } from 'lucide-react';
 import FallbackImg from '../components/FallbackImg.js';
 import { ProblemCard, type FooterStat } from '../components/ProblemCard.js';
-import type { ProblemRow } from '../types/problem.js';
+import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
 type Geo = { lat: number; lng: number };
@@ -43,9 +44,9 @@ function formatRelativeTime(dateStr: string): string {
 // calendar day, rotating to a new one tomorrow — no backend/curation feature
 // needed. Prefers problems with a photo (a text-only spotlight would be a
 // dull hero); falls back to the full pool if none have one yet.
-function pickSpotlight(problems: ProblemRow[]): ProblemRow | null {
+function pickSpotlight(problems: EnrichedProblem[]): EnrichedProblem | null {
     if (problems.length === 0) return null;
-    const withPhoto = problems.filter(p => p.image_urls?.length);
+    const withPhoto = problems.filter(p => p.thumbnailUrl);
     const pool = withPhoto.length > 0 ? withPhoto : problems;
     const todaySeed = new Date().toISOString().slice(0, 10);
     let hash = 0;
@@ -61,7 +62,7 @@ function pickSpotlight(problems: ProblemRow[]): ProblemRow | null {
 // all when there's neither, so an empty row never leaves a dangling heading.
 function RowSection({ title, items, navigate, emptyState }: {
     title: string;
-    items: { problem: ProblemRow; footerStat?: FooterStat }[];
+    items: { problem: EnrichedProblem; footerStat?: FooterStat }[];
     navigate: NavigateFunction;
     emptyState?: React.ReactNode;
 }) {
@@ -81,7 +82,7 @@ function RowSection({ title, items, navigate, emptyState }: {
 }
 
 export default function Directory() {
-    const [problems, setProblems] = useState<ProblemRow[]>([]);
+    const [problems, setProblems] = useState<EnrichedProblem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -94,10 +95,10 @@ export default function Directory() {
     const fetchProblems = useCallback(() => {
         setIsLoading(true);
         setLoadError(null);
-        api.get<ProblemRow[] | ErrorResponse>('/api/problems')
-            .then(data => {
+        api.get<ProblemListItem[] | ErrorResponse>('/api/problems')
+            .then(async data => {
                 if (Array.isArray(data)) {
-                    setProblems(data);
+                    setProblems(await enrichProblems(data));
                 } else {
                     setLoadError(data.error || 'Failed to load problems.');
                 }
@@ -147,15 +148,15 @@ export default function Directory() {
     const nearYouProblems = useMemo(() => {
         if (!geo) return [];
         return [...problems]
-            .filter(p => p.latitude != null && p.longitude != null)
-            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.latitude, lng: problem.longitude }) }))
+            .filter(p => p.mapLat != null && p.mapLng != null)
+            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.mapLat!, lng: problem.mapLng! }) }))
             .sort((a, b) => a.distanceKm - b.distanceKm)
             .slice(0, ROW_LIMIT)
             .map(({ problem, distanceKm }) => ({ problem, footerStat: { icon: Compass, label: formatDistance(distanceKm) } }));
     }, [problems, geo]);
 
     const totalSends = problems.reduce((sum, p) => sum + (p.send_count || 0), 0);
-    const uniqueLocations = new Set(problems.map(p => p.location_name).filter(Boolean)).size;
+    const uniqueSpots = new Set(problems.map(p => p.crag_id).filter(Boolean)).size;
 
     return (
         <div className="min-h-screen bg-ink text-text font-sans pb-12">
@@ -179,7 +180,7 @@ export default function Directory() {
                     <div className="flex items-center gap-3 text-xs text-text-dim mb-8">
                         <span><b className="text-text font-semibold">{problems.length}</b> problems</span>
                         <span className="w-[3px] h-[3px] rounded-full bg-border" />
-                        <span><b className="text-text font-semibold">{uniqueLocations}</b> spots</span>
+                        <span><b className="text-text font-semibold">{uniqueSpots}</b> spots</span>
                         <span className="w-[3px] h-[3px] rounded-full bg-border" />
                         <span><b className="text-text font-semibold">{totalSends}</b> sends logged</span>
                     </div>
@@ -226,9 +227,9 @@ export default function Directory() {
                                     className="group relative rounded-2xl overflow-hidden bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 cursor-pointer transition-colors"
                                 >
                                     <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface">
-                                        {spotlight.image_urls?.[0] ? (
+                                        {spotlight.thumbnailUrl ? (
                                             <FallbackImg
-                                                src={spotlight.image_urls[0]}
+                                                src={spotlight.thumbnailUrl}
                                                 alt=""
                                                 width={1100}
                                                 height={620}
@@ -249,7 +250,7 @@ export default function Directory() {
                                                     {spotlight.grade}
                                                 </span>
                                                 <span className="flex items-center gap-1 text-xs text-text-secondary">
-                                                    <MapPin size={12} className="shrink-0" /> {spotlight.location_name || 'Location not set'}
+                                                    <MapPin size={12} className="shrink-0" /> {spotlight.crag_name || 'Spot not set'}
                                                 </span>
                                             </div>
                                             <h3 className="font-serif text-3xl sm:text-4xl font-bold text-text mb-2">{spotlight.name}</h3>
@@ -266,17 +267,19 @@ export default function Directory() {
                                             </div>
                                         </div>
 
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/map?lat=${spotlight.latitude}&lng=${spotlight.longitude}`);
-                                            }}
-                                            aria-label={`Locate ${spotlight.name} on the map`}
-                                            title="Locate on map"
-                                            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-ink border border-border text-text-muted hover:text-accent hover:border-accent rounded-full cursor-pointer transition-colors"
-                                        >
-                                            <Navigation size={15} className="shrink-0" />
-                                        </button>
+                                        {spotlight.mapLat != null && spotlight.mapLng != null && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/map?lat=${spotlight.mapLat}&lng=${spotlight.mapLng}`);
+                                                }}
+                                                aria-label={`Locate ${spotlight.name} on the map`}
+                                                title="Locate on map"
+                                                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-ink border border-border text-text-muted hover:text-accent hover:border-accent rounded-full cursor-pointer transition-colors"
+                                            >
+                                                <Navigation size={15} className="shrink-0" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </section>

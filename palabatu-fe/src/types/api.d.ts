@@ -611,6 +611,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/boulders/{id}/merge-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending merge requests filed against one boulder
+         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator -- the visibility a creator needs to actually see and object to a request filed against their rock (see object, above). The admin-wide queue (list, below) stays unscoped and admin-only; this is scoped to one boulder.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Boulder ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_boulders.MergeRequestListItem"][];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/boulders/{id}/merge-suggestions": {
         parameters: {
             query?: never;

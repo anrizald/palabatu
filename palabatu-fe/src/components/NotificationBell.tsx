@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, getUnreadCount, markRead, markAllRead, formatRelativeTime, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -14,6 +14,14 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     problem_edited: Pencil,
     problem_deleted: Trash2,
     mention: AtSign,
+    // All three carry problem_id: null server-side (a merge concerns two
+    // boulders, not a problem), so they render as non-navigating buttons
+    // below, same as `reaction` -- the actionable surface is the boulder
+    // page's own pending-request banner (BoulderDetailPage.tsx), reached
+    // by visiting the rock directly rather than from the notification.
+    merge_suggested: GitCompare,
+    merge_objected: GitCompare,
+    merge_resolved: GitCompare,
 };
 
 type NotificationBellProps = {

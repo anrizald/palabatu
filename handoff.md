@@ -1,20 +1,23 @@
 # Problem Add/Edit addendum — design handoff
 
-Status: **schema + backend implemented and verified locally (2026-08-07
-(c)); frontend not started.** Migrations 0014/0015 are applied to the local
+Status: **schema, backend, and frontend all implemented and verified
+locally (2026-08-08 (d)).** Migrations 0014/0015 are applied to the local
 Docker DB, the one-off backfill has run and been hand-checked, and
 `internal/crags`/`internal/boulders` (including the merge sub-flow) plus a
 rewritten `internal/problems` are live and smoke-tested end to end —
 crag/boulder/problem CRUD, image add/remove, per-boulder annotation
 listing, and the full suggest → object → resolve merge flow (including the
 48h hold and its admin override) all work against the real DB. The
-**existing frontend does not build a problem successfully yet** — every
-page that touches `lat`/`lng`/`location_name`/`image_urls` on a problem
-(`AddProblemModal`, `ProblemDetails`, `ProblemDetailPage`, `Map.tsx`,
-`ClusterCardRail`, `Directory.tsx`, `ProblemList.tsx`, `ProblemCard`, the
-topo-annotation components) still assumes the old flat shape and is a
-separate, not-yet-started pass. See `ROADMAP.md`'s Phase 1.5 entry for
-current status and `CLAUDE.md`'s Architecture section for the new
+frontend has been rebuilt against this API and smoke-tested live against
+the local backend + DB: the multi-step add wizard (spot search/create →
+photo-grid rock picker, auto-skipped when there's nothing to choose →
+climb details), the map's one-pin-per-crag view with dimmed empty-crag
+markers, dedicated crag/boulder pages (boulder photo grid, combined
+per-boulder annotation view, "these are the same rock" suggest CTA), the
+admin same-rock review queue, and every list/card surface (Directory,
+ProblemList, Landing, ProblemCard) rejoined to crag/boulder data instead
+of the old free-text `location_name`. See `ROADMAP.md`'s Phase 1.5 entry
+for current status and `CLAUDE.md`'s Architecture section for the
 `internal/crags`/`internal/boulders` domains. Continue editing this file
 directly as the design changes; it's the source of truth for this effort,
 not the chat log.
@@ -38,6 +41,28 @@ Revision history:
   updated (not called out below, but real blast radius) since it validated
   against `problems.ImageURLs`, which no longer exists. Frontend
   application code is unchanged and is the next pass.
+- **2026-08-08 (d)** — frontend implemented: the add wizard
+  (`components/add-flow/`), the map rewritten for crag pins
+  (`Map.tsx`/`PinpointMarker.tsx`/`ClusterCardRail.tsx`), new
+  `CragDetailPage`/`BoulderDetailPage` routes, `ProblemDetailPage`/
+  `ProblemEditForm` rewritten for the new field set, every list/card
+  surface rejoined to crag/boulder data via a small client-side
+  `cragCache.ts` helper (no backend denormalization needed — "near you"
+  distance and card thumbnails resolve through the existing
+  crag/boulder-list endpoints), `MergeSuggestModal` plus an admin
+  same-rock review page, and the three merge notification types wired
+  into the existing bell/page icon maps. One small additive backend
+  endpoint landed alongside it: `GET /boulders/:id/merge-requests`
+  (creator-or-admin gated), needed because the admin-wide merge-request
+  listing left a boulder's own creator with no way to see a request filed
+  against their rock and therefore no way to exercise the objection right
+  this doc describes. The old `ProblemDetails` modal and `AddProblemModal`
+  were deleted outright rather than ported — both were superseded (the
+  modal by `ProblemDetailPage`, now the only problem-detail surface; the
+  modal by the new wizard). tsc/eslint/go vet all clean; smoke-tested live
+  (not just typechecked) against the local Docker DB: map → crag → boulder
+  → problem navigation, the add wizard including the single-rock
+  auto-skip, and the full suggest → admin-resolve merge cycle.
 
 ## Background — what exists today
 
