@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Compass, Layers, MapPin, Pencil, Plus } from 'lucide-react'
+import { Compass, Layers, MapPin, Pencil, Plus, Footprints } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
 import { invalidateCragCache } from '../lib/cragCache.js'
 import type { CragListItem, CragRequest } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
+import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 
@@ -26,6 +27,7 @@ export default function CragDetailPage() {
 
     const [crag, setCrag] = useState<CragListItem | null>(null)
     const [boulders, setBoulders] = useState<BoulderListItem[]>([])
+    const [approaches, setApproaches] = useState<ApproachListItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [notFound, setNotFound] = useState(false)
 
@@ -43,13 +45,15 @@ export default function CragDetailPage() {
         Promise.all([
             api.get<CragListItem | ErrorResponse>(`/api/crags/${id}`),
             api.get<BoulderListItem[] | ErrorResponse>(`/api/crags/${id}/boulders`),
-        ]).then(([cragRes, boulderRes]) => {
+            api.get<ApproachListItem[] | ErrorResponse>(`/api/crags/${id}/approaches`),
+        ]).then(([cragRes, boulderRes, approachRes]) => {
             if ('error' in cragRes) { setNotFound(true); setIsLoading(false); return }
             setCrag(cragRes)
             setEditName(cragRes.name)
             setEditDirections(cragRes.directions ?? '')
             setEditAccessNotes(cragRes.access_notes ?? '')
             setBoulders('error' in boulderRes ? [] : boulderRes)
+            setApproaches('error' in approachRes ? [] : approachRes)
             setIsLoading(false)
         })
     }
@@ -154,13 +158,57 @@ export default function CragDetailPage() {
                     )}
                 </div>
 
+                <div className="flex flex-col gap-3">
+                    <h2 className="font-serif text-lg font-black text-text">Jalan masuk</h2>
+                    {approaches.length === 0 ? (
+                        <div className="bg-panel border border-dashed border-text-faint rounded-2xl p-6 flex flex-col items-center gap-2.5 text-center">
+                            <Footprints size={22} className="shrink-0 text-text-faint" />
+                            <p className="text-sm text-text-secondary">Nobody has mapped the walk in yet.</p>
+                            <p className="text-xs text-text-muted max-w-[360px]">If you've been, your photos are the difference between someone finding this place and giving up at a junction.</p>
+                            <button
+                                onClick={() => navigate(`/crags/${crag.id}/approaches/new`)}
+                                className="w-full mt-1.5 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-[10px] border-0 text-on-accent font-sans text-sm font-medium cursor-pointer bg-[linear-gradient(145deg,var(--color-accent),var(--color-accent-dark))]"
+                            >
+                                <Plus size={15} className="shrink-0" /> Add the way in
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            {approaches.map(a => (
+                                <Link
+                                    key={a.id}
+                                    to={`/approaches/${a.id}`}
+                                    className="flex items-center gap-3 bg-panel border border-border rounded-xl px-4 py-3 no-underline hover:border-accent"
+                                >
+                                    <div className="w-11 h-14 rounded-lg overflow-hidden border border-border bg-surface shrink-0">
+                                        {a.first_photo_url && <img src={a.first_photo_url} alt="" className="w-full h-full object-cover" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-medium text-text truncate">{a.name ?? `dari ${START_TYPE_LABELS[a.start_type].toLowerCase()}`}</div>
+                                        <div className="text-xs text-text-muted mt-0.5">
+                                            {a.duration_minutes ? `${a.duration_minutes} menit · ` : ''}{a.step_count} langkah{a.creator_name ? ` · oleh ${a.creator_name}` : ''}
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                            <button
+                                onClick={() => navigate(`/crags/${crag.id}/approaches/new`)}
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer"
+                            >
+                                <Plus size={13} className="shrink-0" /> Add another way in
+                            </button>
+                            <p className="text-xs text-text-muted">More than one is fine &mdash; people arrive from different directions.</p>
+                        </>
+                    )}
+                </div>
+
                 {boulders.length === 0 ? (
                     <div className="bg-panel border border-border rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
                         <Layers size={28} className="shrink-0 text-text-faint" />
                         <div className="font-serif text-lg font-black text-text">No problems yet</div>
                         <p className="text-sm text-text-dim max-w-[360px]">Someone marked this spot, but nobody's documented a rock here yet.</p>
                         <button
-                            onClick={() => navigate(`/map?addToCrag=${crag.id}`)}
+                            onClick={() => navigate(`/map?addToCrag=${crag.id}&addIntent=problem`)}
                             className="flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] border-0 text-on-accent font-sans text-sm font-medium cursor-pointer bg-[linear-gradient(145deg,var(--color-accent),var(--color-accent-dark))]"
                         >
                             <Plus size={15} className="shrink-0" /> Add the first one
@@ -171,7 +219,7 @@ export default function CragDetailPage() {
                         <div className="flex items-center justify-between">
                             <h2 className="font-serif text-lg font-black text-text">Rocks</h2>
                             <button
-                                onClick={() => navigate(`/map?addToCrag=${crag.id}`)}
+                                onClick={() => navigate(`/map?addToCrag=${crag.id}&addIntent=rock`)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
                             >
                                 <Plus size={13} className="shrink-0" /> Add a rock

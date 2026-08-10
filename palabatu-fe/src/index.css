@@ -48,7 +48,7 @@ body,
 
   --color-text: #f0e0c8;
   --color-text-secondary: #d8c8b8;
-  --color-text-muted: #8a7060;
+  --color-text-muted: #967b6a; /* raised 2026-08-09 for WCAG AA; see DESIGN.md's Sentence Rule */
   --color-text-dim: #6a5848;
   --color-text-faint: #4a3c30;
 
@@ -96,9 +96,16 @@ body,
     transition: border-color 0.25s;
   }
 
-  button:focus,
-  button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
+  /* The accent-colored ring is this system's own signature move applied to
+     keyboard focus (DESIGN.md's "Signature: the accent glow" -- depth and
+     state are expressed in the accent hue, not gray). Buttons/links have no
+     other focus treatment (unlike inputs, which shift border-color via
+     Tailwind's focus: variant), so this is their only visible affordance
+     for keyboard, switch-access, and Bluetooth-keyboard use. */
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid #c87a30;
+    outline-offset: 2px;
   }
 }
 

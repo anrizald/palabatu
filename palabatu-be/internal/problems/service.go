@@ -14,9 +14,11 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/notification"
 )
 
@@ -42,6 +44,7 @@ func CreateProblem(
 	ctx context.Context,
 	createdBy, name, grade, boulderID, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
 	heightM *float64,
+	imageURLs []string,
 ) (*ProblemSummary, error) {
 	if err := validateGrade(grade); err != nil {
 		return nil, err
@@ -55,19 +58,25 @@ func CreateProblem(
 		return nil, err
 	}
 
-	return createProblem(ctx, name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM, createdBy)
+	return createProblem(ctx, name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM, imageURLs, createdBy)
 }
 
+// UpdateProblem also re-parents the problem to a different boulder when
+// boulderID is non-empty and differs from its current one (handoff.md
+// decision 13) -- the missing inverse of "not sure which rock". Doing so
+// drops every annotation this problem had (reparentProblem, repository.go):
+// a line drawn on the old rock's photo means nothing on the new one, and
+// silently keeping it pointed at the wrong photo is worse than losing it.
 func UpdateProblem(
 	ctx context.Context,
-	userID, problemID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
+	userID, problemID, boulderID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
 	heightM *float64,
 ) (*ProblemRow, error) {
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}
 
-	createdBy, err := getProblemCreator(ctx, problemID)
+	createdBy, currentBoulderID, err := getProblemOwnerAndBoulder(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -79,6 +88,19 @@ func UpdateProblem(
 		return nil, err
 	}
 
+	if boulderID != "" && boulderID != currentBoulderID {
+		if err := reparentProblem(ctx, problemID, boulderID); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.ConstraintName == "problems_boulder_id_fkey" {
+				return nil, ErrBoulderNotFound
+			}
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrBoulderNotFound
+			}
+			return nil, err
+		}
+	}
+
 	row, err := updateProblemRow(ctx, problemID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM)
 	if err != nil {
 		return nil, err
@@ -87,6 +109,72 @@ func UpdateProblem(
 	notifyProblemEdited(ctx, createdBy, userID, problemID, row.Name)
 
 	return row, nil
+}
+
+// AddProblemImages authorizes and appends already-uploaded image URLs (from
+// POST /upload/topo) to a problem's image_urls array -- beta/action shots,
+// never the topo base (that stays on the boulder). Gated through
+// authz.CanContribute rather than authorizeProblemEdit directly (handoff.md
+// decision 22: adding a photo is additive, so it's the mechanism that can
+// later widen past creator-or-admin without touching this call site).
+func AddProblemImages(ctx context.Context, userID, problemID string, imageURLs []string) (*ProblemRow, error) {
+	if len(imageURLs) == 0 {
+		return nil, ErrNoImages
+	}
+
+	createdBy, _, err := getProblemOwnerAndImages(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	titles, err := auth.GetUserTitles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !authz.CanContribute(userID, authz.KindAddPhoto, createdBy, titles) {
+		return nil, ErrForbidden
+	}
+
+	return addProblemImages(ctx, problemID, imageURLs)
+}
+
+// DeleteProblemImage authorizes and removes a single beta/action photo from
+// a problem (the problem's creator or an admin), best-effort destroying its
+// Cloudinary asset -- mirrors boulders.DeleteBoulderImage minus the
+// annotation cleanup (problem photos aren't annotatable, so nothing else
+// can be pointing at one).
+func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string) error {
+	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+		return err
+	}
+
+	found := false
+	for _, url := range imageURLs {
+		if url == imageURL {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrImageNotFound
+	}
+
+	if err := cloudinary.DestroyByURL(ctx, imageURL); err != nil {
+		log.Printf("failed to delete image from Cloudinary: %v", err)
+	}
+
+	return removeProblemImage(ctx, problemID, imageURL)
 }
 
 // DeleteProblem authorizes and removes a problem row. Unlike before the

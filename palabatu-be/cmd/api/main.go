@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"palabatu-be/internal/approaches"
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/boulders"
 	"palabatu-be/internal/cloudinary"
@@ -92,6 +93,7 @@ func main() {
 	crags.Routes(apiGroup)
 	boulders.Routes(apiGroup)
 	problems.Routes(apiGroup)
+	approaches.Routes(apiGroup)
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)

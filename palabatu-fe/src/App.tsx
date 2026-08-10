@@ -5,7 +5,7 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
-import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, AdminReports, AdminMergeRequests, Notifications, ComingSoon, Developer } from './pages/index.js'
+import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, Notifications, ComingSoon, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
 const SITE_LIVE = true
@@ -40,6 +40,8 @@ export default function App() {
             <Route path="/directory/all" element={<ProblemList />} />
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
             <Route path="/crags/:id" element={<CragDetailPage />} />
+            <Route path="/crags/:id/approaches/new" element={<ApproachCaptureView />} />
+            <Route path="/approaches/:id" element={<ApproachReadingPage />} />
             <Route path="/boulders/:id" element={<BoulderDetailPage />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/merge-requests" element={<AdminMergeRequests />} />

@@ -17,6 +17,7 @@ type Boulder struct {
 	CragID     string    `json:"crag_id"`
 	Name       *string   `json:"name"`
 	ImageURLs  []string  `json:"image_urls"`
+	Type       string    `json:"type"`
 	RockType   *string   `json:"rock_type"`
 	Lat        *float64  `json:"lat"`
 	Lng        *float64  `json:"lng"`
@@ -29,27 +30,33 @@ type Boulder struct {
 // GET /boulders/:id -- Boulder plus a creator name and how many problems
 // are on it, so the future photo-grid boulder picker and the dimmed
 // empty-boulder state (handoff.md open item 1) don't need a second
-// round-trip.
+// round-trip. SampleProblemName backs UX principle 3's photoless-rock
+// fallback -- "a photoless tile must identify itself by the problems on
+// it... falling back to a bare index is not acceptable" -- the oldest
+// problem on the rock, or nil if it has none yet.
 type BoulderListItem struct {
-	ID           string    `json:"id"`
-	CragID       string    `json:"crag_id"`
-	Name         *string   `json:"name"`
-	ImageURLs    []string  `json:"image_urls"`
-	RockType     *string   `json:"rock_type"`
-	Lat          *float64  `json:"lat"`
-	Lng          *float64  `json:"lng"`
-	MergedInto   *string   `json:"merged_into"`
-	CreatedBy    *string   `json:"created_by"`
-	CreatorName  *string   `json:"creator_name"`
-	ProblemCount int       `json:"problem_count"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	CragID            string    `json:"crag_id"`
+	Name              *string   `json:"name"`
+	ImageURLs         []string  `json:"image_urls"`
+	Type              string    `json:"type"`
+	RockType          *string   `json:"rock_type"`
+	Lat               *float64  `json:"lat"`
+	Lng               *float64  `json:"lng"`
+	MergedInto        *string   `json:"merged_into"`
+	CreatedBy         *string   `json:"created_by"`
+	CreatorName       *string   `json:"creator_name"`
+	ProblemCount      int       `json:"problem_count"`
+	SampleProblemName *string   `json:"sample_problem_name"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 const boulderListSelect = `
 	SELECT
-		b.id, b.crag_id, b.name, b.image_urls, b.rock_type, b.lat, b.lng,
+		b.id, b.crag_id, b.name, b.image_urls, b.type, b.rock_type, b.lat, b.lng,
 		b.merged_into, b.created_by, pr.username AS creator_name,
 		COALESCE((SELECT COUNT(*) FROM problems WHERE boulder_id = b.id), 0)::int AS problem_count,
+		(SELECT name FROM problems WHERE boulder_id = b.id ORDER BY created_at ASC LIMIT 1) AS sample_problem_name,
 		b.created_at
 	FROM boulders b
 	LEFT JOIN profiles pr ON b.created_by = pr.id
@@ -66,8 +73,8 @@ func listBoulders(ctx context.Context, cragID string) ([]BoulderListItem, error)
 	for rows.Next() {
 		var b BoulderListItem
 		if err := rows.Scan(
-			&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.RockType, &b.Lat, &b.Lng,
-			&b.MergedInto, &b.CreatedBy, &b.CreatorName, &b.ProblemCount, &b.CreatedAt,
+			&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.Type, &b.RockType, &b.Lat, &b.Lng,
+			&b.MergedInto, &b.CreatedBy, &b.CreatorName, &b.ProblemCount, &b.SampleProblemName, &b.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -79,8 +86,8 @@ func listBoulders(ctx context.Context, cragID string) ([]BoulderListItem, error)
 func getBoulder(ctx context.Context, id string) (*BoulderListItem, error) {
 	var b BoulderListItem
 	err := db.Pool.QueryRow(ctx, boulderListSelect+" WHERE b.id = $1", id).Scan(
-		&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.RockType, &b.Lat, &b.Lng,
-		&b.MergedInto, &b.CreatedBy, &b.CreatorName, &b.ProblemCount, &b.CreatedAt,
+		&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.Type, &b.RockType, &b.Lat, &b.Lng,
+		&b.MergedInto, &b.CreatedBy, &b.CreatorName, &b.ProblemCount, &b.SampleProblemName, &b.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -88,7 +95,7 @@ func getBoulder(ctx context.Context, id string) (*BoulderListItem, error) {
 	return &b, nil
 }
 
-func createBoulder(ctx context.Context, cragID, name, rockType string, lat, lng *float64, imageURLs []string, createdBy string) (*Boulder, error) {
+func createBoulder(ctx context.Context, cragID, name, boulderType, rockType string, lat, lng *float64, imageURLs []string, createdBy string) (*Boulder, error) {
 	if imageURLs == nil {
 		imageURLs = []string{}
 	}
@@ -99,11 +106,11 @@ func createBoulder(ctx context.Context, cragID, name, rockType string, lat, lng 
 
 	var b Boulder
 	err = db.Pool.QueryRow(ctx,
-		`INSERT INTO boulders (crag_id, name, image_urls, rock_type, lat, lng, created_by)
-		 VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7)
-		 RETURNING id, crag_id, name, image_urls, rock_type, lat, lng, merged_into, created_by, created_at`,
-		cragID, name, string(imageURLsJSON), rockType, lat, lng, createdBy,
-	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
+		`INSERT INTO boulders (crag_id, name, image_urls, type, rock_type, lat, lng, created_by)
+		 VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
+		 RETURNING id, crag_id, name, image_urls, type, rock_type, lat, lng, merged_into, created_by, created_at`,
+		cragID, name, string(imageURLsJSON), boulderType, rockType, lat, lng, createdBy,
+	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.Type, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -129,17 +136,41 @@ func getBoulderOwnerAndImages(ctx context.Context, id string) (createdBy *string
 	return createdBy, imageURLs, nil
 }
 
-func updateBoulderRow(ctx context.Context, id, name, rockType string, lat, lng *float64) (*Boulder, error) {
+func updateBoulderRow(ctx context.Context, id, name, boulderType, rockType string, lat, lng *float64) (*Boulder, error) {
 	var b Boulder
 	err := db.Pool.QueryRow(ctx,
-		`UPDATE boulders SET name = $1, rock_type = $2, lat = $3, lng = $4 WHERE id = $5
-		 RETURNING id, crag_id, name, image_urls, rock_type, lat, lng, merged_into, created_by, created_at`,
-		name, rockType, lat, lng, id,
-	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
+		`UPDATE boulders SET name = $1, type = $2, rock_type = $3, lat = $4, lng = $5 WHERE id = $6
+		 RETURNING id, crag_id, name, image_urls, type, rock_type, lat, lng, merged_into, created_by, created_at`,
+		name, boulderType, rockType, lat, lng, id,
+	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.Type, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &b, nil
+}
+
+// reparentBoulder moves a boulder to a different crag and cascades the
+// denormalized crag_id onto every problem already on it (handoff.md
+// decision 13 -- "anything can be re-parented"; problems.crag_id is
+// denormalized off boulder_id specifically so hot queries skip a join, and
+// that denormalization is exactly what has to stay consistent here). Both
+// writes happen in one transaction. The new crag's existence is enforced by
+// the boulders_crag_id_fkey constraint -- callers translate that violation
+// to ErrCragNotFound, same pattern as createBoulder.
+func reparentBoulder(ctx context.Context, id, newCragID string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `UPDATE boulders SET crag_id = $1 WHERE id = $2`, newCragID, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE problems SET crag_id = $1 WHERE boulder_id = $2`, newCragID, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // addBoulderImages appends newURLs to a boulder's image_urls jsonb array --
@@ -154,9 +185,9 @@ func addBoulderImages(ctx context.Context, id string, newURLs []string) (*Boulde
 	var b Boulder
 	err = db.Pool.QueryRow(ctx,
 		`UPDATE boulders SET image_urls = image_urls || $2::jsonb WHERE id = $1
-		 RETURNING id, crag_id, name, image_urls, rock_type, lat, lng, merged_into, created_by, created_at`,
+		 RETURNING id, crag_id, name, image_urls, type, rock_type, lat, lng, merged_into, created_by, created_at`,
 		id, string(newURLsJSON),
-	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
+	).Scan(&b.ID, &b.CragID, &b.Name, &b.ImageURLs, &b.Type, &b.RockType, &b.Lat, &b.Lng, &b.MergedInto, &b.CreatedBy, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

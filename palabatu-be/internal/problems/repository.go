@@ -2,6 +2,7 @@ package problems
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ type ProblemListItem struct {
 	Descent           *string   `json:"descent"`
 	HeightM           *float64  `json:"height_m"`
 	Notes             *string   `json:"notes"`
+	ImageURLs         []string  `json:"image_urls"`
 	CreatedBy         *string   `json:"created_by"`
 	CreatorName       *string   `json:"creator_name"`
 	CreatorSlug       *string   `json:"creator_slug"`
@@ -38,11 +40,12 @@ type ProblemListItem struct {
 
 // ProblemSummary is the shape returned by POST /problems's RETURNING clause.
 type ProblemSummary struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Grade     *string `json:"grade"`
-	CragID    string  `json:"crag_id"`
-	BoulderID string  `json:"boulder_id"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Grade     *string  `json:"grade"`
+	CragID    string   `json:"crag_id"`
+	BoulderID string   `json:"boulder_id"`
+	ImageURLs []string `json:"image_urls"`
 }
 
 // ProblemRow is the shape returned by PUT /problems/:id's RETURNING *.
@@ -58,6 +61,7 @@ type ProblemRow struct {
 	Descent           *string   `json:"descent"`
 	HeightM           *float64  `json:"height_m"`
 	Notes             *string   `json:"notes"`
+	ImageURLs         []string  `json:"image_urls"`
 	CreatedBy         *string   `json:"created_by"`
 	CreatedAt         time.Time `json:"created_at"`
 }
@@ -77,6 +81,7 @@ type ProblemDetail struct {
 	Descent           *string   `json:"descent"`
 	HeightM           *float64  `json:"height_m"`
 	Notes             *string   `json:"notes"`
+	ImageURLs         []string  `json:"image_urls"`
 	CreatedBy         *string   `json:"created_by"`
 	CreatorName       *string   `json:"creator_name"`
 	CreatorSlug       *string   `json:"creator_slug"`
@@ -87,7 +92,7 @@ type ProblemDetail struct {
 const problemListSelect = `
 	SELECT
 		p.id, p.name, p.grade, p.crag_id, c.name AS crag_name, p.boulder_id, b.name AS boulder_name,
-		p.first_ascensionist, p.discovered_by, p.landing_hazards, p.descent, p.height_m, p.notes,
+		p.first_ascensionist, p.discovered_by, p.landing_hazards, p.descent, p.height_m, p.notes, p.image_urls,
 		p.created_by, pr.username AS creator_name, u.slug AS creator_slug,
 		COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count,
 		p.created_at
@@ -128,7 +133,7 @@ func listProblems(ctx context.Context, cragID, boulderID string) ([]ProblemListI
 		var p ProblemListItem
 		if err := rows.Scan(
 			&p.ID, &p.Name, &p.Grade, &p.CragID, &p.CragName, &p.BoulderID, &p.BoulderName,
-			&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes,
+			&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs,
 			&p.CreatedBy, &p.CreatorName, &p.CreatorSlug, &p.SendCount, &p.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -142,7 +147,7 @@ func getProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 	var p ProblemDetail
 	err := db.Pool.QueryRow(ctx, problemListSelect+" WHERE p.id = $1", id).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.CragName, &p.BoulderID, &p.BoulderName,
-		&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes,
+		&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs,
 		&p.CreatedBy, &p.CreatorName, &p.CreatorSlug, &p.SendCount, &p.CreatedAt,
 	)
 	if err != nil {
@@ -166,17 +171,26 @@ func createProblem(
 	ctx context.Context,
 	name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
 	heightM *float64,
+	imageURLs []string,
 	createdBy string,
 ) (*ProblemSummary, error) {
+	if imageURLs == nil {
+		imageURLs = []string{}
+	}
+	imageURLsJSON, err := json.Marshal(imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
 	var p ProblemSummary
-	err := db.Pool.QueryRow(ctx,
+	err = db.Pool.QueryRow(ctx,
 		`INSERT INTO problems (
 			name, grade, boulder_id, crag_id, first_ascensionist, discovered_by,
-			landing_hazards, descent, height_m, notes, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		 RETURNING id, name, grade, crag_id, boulder_id`,
-		name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, heightM, notes, createdBy,
-	).Scan(&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID)
+			landing_hazards, descent, height_m, notes, image_urls, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
+		 RETURNING id, name, grade, crag_id, boulder_id, image_urls`,
+		name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, heightM, notes, string(imageURLsJSON), createdBy,
+	).Scan(&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.ImageURLs)
 	if err != nil {
 		return nil, err
 	}
@@ -192,9 +206,58 @@ func getProblemCreator(ctx context.Context, id string) (*string, error) {
 	return createdBy, nil
 }
 
+// getProblemOwnerAndBoulder backs UpdateProblem's re-parent check -- the
+// problem's current boulder_id, so the service layer can tell whether a
+// non-empty BoulderID in the request is actually a change.
+func getProblemOwnerAndBoulder(ctx context.Context, id string) (createdBy *string, boulderID string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT created_by, boulder_id FROM problems WHERE id = $1`, id).Scan(&createdBy, &boulderID)
+	if err != nil {
+		return nil, "", err
+	}
+	return createdBy, boulderID, nil
+}
+
+// getProblemOwnerAndImages backs AddProblemImages/DeleteProblemImage's
+// authorization check, mirroring boulders.getBoulderOwnerAndImages.
+func getProblemOwnerAndImages(ctx context.Context, id string) (createdBy *string, imageURLs []string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT created_by, image_urls FROM problems WHERE id = $1`, id).Scan(&createdBy, &imageURLs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return createdBy, imageURLs, nil
+}
+
 func deleteProblemRow(ctx context.Context, id string) error {
 	_, err := db.Pool.Exec(ctx, `DELETE FROM problems WHERE id = $1`, id)
 	return err
+}
+
+// reparentProblem moves a problem to a different boulder, resolving the new
+// boulder's crag_id (denormalized onto problems -- see getBoulderCragID)
+// and dropping every annotation this problem had, since a line drawn on the
+// old rock's photo means nothing on the new one (handoff.md decision 13:
+// "dropping them is acceptable; silently keeping a line pointed at a photo
+// of a different rock is not"). One transaction. The new boulder's
+// existence is enforced by problems_boulder_id_fkey -- callers translate
+// that violation to ErrBoulderNotFound, same pattern as createProblem.
+func reparentProblem(ctx context.Context, id, newBoulderID string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var newCragID string
+	if err := tx.QueryRow(ctx, `SELECT crag_id FROM boulders WHERE id = $1`, newBoulderID).Scan(&newCragID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE problems SET boulder_id = $1, crag_id = $2 WHERE id = $3`, newBoulderID, newCragID, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM topo_annotations WHERE problem_id = $1`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func updateProblemRow(
@@ -209,14 +272,46 @@ func updateProblemRow(
 			landing_hazards = $5, descent = $6, height_m = $7, notes = $8
 		 WHERE id = $9
 		 RETURNING id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by,
-			landing_hazards, descent, height_m, notes, created_by, created_at`,
+			landing_hazards, descent, height_m, notes, image_urls, created_by, created_at`,
 		name, grade, firstAscensionist, discoveredBy, landingHazards, descent, heightM, notes, id,
 	).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy,
-		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.CreatedBy, &p.CreatedAt,
+		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.CreatedBy, &p.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+// addProblemImages appends newURLs to a problem's image_urls jsonb array --
+// same `|| $2::jsonb` pattern as boulders.addBoulderImages.
+func addProblemImages(ctx context.Context, id string, newURLs []string) (*ProblemRow, error) {
+	newURLsJSON, err := json.Marshal(newURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	var p ProblemRow
+	err = db.Pool.QueryRow(ctx,
+		`UPDATE problems SET image_urls = image_urls || $2::jsonb WHERE id = $1
+		 RETURNING id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by,
+			landing_hazards, descent, height_m, notes, image_urls, created_by, created_at`,
+		id, string(newURLsJSON),
+	).Scan(
+		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy,
+		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.CreatedBy, &p.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// removeProblemImage drops one URL from a problem's image_urls jsonb array.
+// The ::text cast disambiguates jsonb's overloaded "-" operator, same as
+// boulders.removeBoulderImage.
+func removeProblemImage(ctx context.Context, id, url string) error {
+	_, err := db.Pool.Exec(ctx, `UPDATE problems SET image_urls = image_urls - $2::text WHERE id = $1`, id, url)
+	return err
 }

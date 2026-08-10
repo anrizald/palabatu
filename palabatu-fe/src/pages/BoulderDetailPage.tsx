@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare } from 'lucide-react'
+import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
-import { invalidateCragCache } from '../lib/cragCache.js'
+import { getAllCrags, invalidateCragCache } from '../lib/cragCache.js'
 import type { CragListItem } from '../types/crag.js'
 import type { BoulderListItem, BoulderAnnotation, UpdateBoulderRequest, MergeRequestListItem } from '../types/boulder.js'
 import type { ProblemListItem, TopoUploadResponse } from '../types/problem.js'
@@ -59,8 +59,14 @@ export default function BoulderDetailPage() {
     const [objectionDrafts, setObjectionDrafts] = useState<Record<string, string>>({})
     const [objectingId, setObjectingId] = useState<string | null>(null)
 
+    const [showMoveSpot, setShowMoveSpot] = useState(false)
+    const [isMovingSpot, setIsMovingSpot] = useState(false)
+    const [moveSpotQuery, setMoveSpotQuery] = useState('')
+    const [allCrags, setAllCrags] = useState<CragListItem[]>([])
+
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
+    const showOk = (message: string) => setToast({ message, type: 'success', onClose: () => setToast(null) })
 
     const load = () => {
         if (!id) return
@@ -111,10 +117,35 @@ export default function BoulderDetailPage() {
         setObjectionDrafts(prev => ({ ...prev, [requestId]: '' }))
     }
 
+    useEffect(() => {
+        if (!showMoveSpot) return
+        getAllCrags().then(setAllCrags)
+    }, [showMoveSpot])
+
+    // "Move to another spot" -- the other half of decision 13's
+    // re-parenting: a rock filed at the wrong spot (not the wrong-rock
+    // case ProblemDetailPage's "move to another rock" covers).
+    const handleMoveToSpot = async (target: CragListItem) => {
+        if (!boulder) return
+        if (!window.confirm(`Move this rock to ${target.name}? Every problem on it moves with it.`)) return
+        setIsMovingSpot(true)
+        try {
+            const body: UpdateBoulderRequest = { crag_id: target.id, name: boulder.name ?? '', type: boulder.type, rock_type: boulder.rock_type ?? '', lat: boulder.lat, lng: boulder.lng }
+            const res = await api.put<BoulderListItem | ErrorResponse>(`/api/boulders/${boulder.id}`, body)
+            if ('error' in res) { showError(res.error); return }
+            invalidateCragCache()
+            setShowMoveSpot(false)
+            showOk(`Moved to ${target.name}.`)
+            load()
+        } finally {
+            setIsMovingSpot(false)
+        }
+    }
+
     const handleSave = async () => {
         if (!boulder) return
         setIsSaving(true)
-        const body: UpdateBoulderRequest = { name: editName, rock_type: editRockType, lat: boulder.lat, lng: boulder.lng }
+        const body: UpdateBoulderRequest = { crag_id: '', name: editName, type: boulder.type, rock_type: editRockType, lat: boulder.lat, lng: boulder.lng }
         const res = await api.put<BoulderListItem | ErrorResponse>(`/api/boulders/${boulder.id}`, body)
         setIsSaving(false)
         if ('error' in res) { showError(res.error); return }
@@ -261,6 +292,11 @@ export default function BoulderDetailPage() {
                                     </button>
                                 )}
                                 {canEdit && (
+                                    <button onClick={() => setShowMoveSpot(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
+                                        <Compass size={13} className="shrink-0" /> Move to another spot
+                                    </button>
+                                )}
+                                {canEdit && (
                                     <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
                                         <Pencil size={13} className="shrink-0" /> Edit
                                     </button>
@@ -314,7 +350,7 @@ export default function BoulderDetailPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="font-serif text-lg font-black text-text">Problems on this rock</h2>
                         <button
-                            onClick={() => navigate(`/map?addToBoulder=${boulder.id}`)}
+                            onClick={() => navigate(`/map?addToBoulder=${boulder.id}&addIntent=problem`)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
                         >
                             <Plus size={13} className="shrink-0" /> Add a problem
@@ -345,6 +381,49 @@ export default function BoulderDetailPage() {
                     onClose={() => setShowMergeModal(false)}
                     onSuggested={() => setToast({ message: 'Flagged for review. Thanks for the heads up.', type: 'success', onClose: () => setToast(null) })}
                 />
+            )}
+
+            {showMoveSpot && (
+                <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
+                    <div className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] max-h-[85vh] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+                        <div className="shrink-0 flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-border">
+                            <h2 className="font-serif text-lg font-bold text-text">Move to another spot</h2>
+                            <button onClick={() => setShowMoveSpot(false)} aria-label="Close" disabled={isMovingSpot} className="w-11 h-11 -m-1.5 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
+                                <X size={20} className="shrink-0" />
+                            </button>
+                        </div>
+                        <p className="px-5 pt-3 text-xs text-text-muted">Filed at the wrong spot? Every problem on this rock moves with it -- pick the right one.</p>
+                        <div className="shrink-0 px-5 pt-3">
+                            <div className="relative">
+                                <Search size={14} className="shrink-0 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                                <input
+                                    value={moveSpotQuery}
+                                    onChange={e => setMoveSpotQuery(e.target.value)}
+                                    placeholder="Search spots"
+                                    className={inputClass + ' pl-9'}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-5 pb-4 pt-2">
+                            {allCrags
+                                .filter(c => c.id !== boulder.crag_id && (!moveSpotQuery.trim() || c.name.toLowerCase().includes(moveSpotQuery.trim().toLowerCase())))
+                                .map(c => (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => handleMoveToSpot(c)}
+                                        disabled={isMovingSpot}
+                                        className="flex items-center gap-2.5 w-full min-h-11 px-3 py-2.5 bg-surface border border-border rounded-[10px] cursor-pointer text-left mt-2 hover:border-accent disabled:opacity-50"
+                                    >
+                                        <Compass size={15} className="shrink-0 text-accent" />
+                                        <div className="min-w-0">
+                                            <div className="text-sm text-text truncate">{c.name}</div>
+                                            <div className="text-[11px] text-text-muted">{c.boulder_count} rock{c.boulder_count === 1 ? '' : 's'} &middot; {c.problem_count} problem{c.problem_count === 1 ? '' : 's'}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

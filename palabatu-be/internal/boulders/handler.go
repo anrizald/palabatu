@@ -91,12 +91,14 @@ func handleCreateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.RockType, body.Lat, body.Lng, body.ImageURLs)
+	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.ImageURLs)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
+	case errors.Is(err, ErrInvalidType):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Type must be boulder or wall"})
 	case errors.Is(err, ErrCragNotFound):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Crag not found"})
 	default:
@@ -106,7 +108,7 @@ func handleCreateBoulder(c *gin.Context) {
 
 // handleUpdateBoulder godoc
 // @Summary      Update a boulder
-// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator.
+// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.
 // @Tags         boulders
 // @Accept       json
 // @Produce      json
@@ -129,12 +131,16 @@ func handleUpdateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body.Name, body.RockType, body.Lat, body.Lng)
+	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
+	case errors.Is(err, ErrInvalidType):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Type must be boulder or wall"})
+	case errors.Is(err, ErrCragNotFound):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Crag not found"})
 	case errors.Is(err, ErrNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):

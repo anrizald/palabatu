@@ -1,18 +1,26 @@
 package boulders
 
-// CreateBoulderRequest is handleCreateBoulder's request body.
+// CreateBoulderRequest is handleCreateBoulder's request body. Type is
+// "boulder" or "wall" (handoff.md decision 1: cliffs are in scope) -- empty
+// defaults to "boulder" at the service layer.
 type CreateBoulderRequest struct {
 	CragID    string   `json:"crag_id"`
 	Name      string   `json:"name"`
+	Type      string   `json:"type"`
 	RockType  string   `json:"rock_type"`
 	Lat       *float64 `json:"lat"`
 	Lng       *float64 `json:"lng"`
 	ImageURLs []string `json:"image_urls"`
 }
 
-// UpdateBoulderRequest is handleUpdateBoulder's request body.
+// UpdateBoulderRequest is handleUpdateBoulder's request body. CragID
+// re-parents the boulder to a different spot when non-empty (handoff.md
+// decision 13) -- empty string means "leave as is", mirroring every other
+// plain-string field's already-established convention in this codebase.
 type UpdateBoulderRequest struct {
+	CragID   string   `json:"crag_id"`
 	Name     string   `json:"name"`
+	Type     string   `json:"type"`
 	RockType string   `json:"rock_type"`
 	Lat      *float64 `json:"lat"`
 	Lng      *float64 `json:"lng"`

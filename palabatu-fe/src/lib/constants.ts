@@ -11,6 +11,15 @@ export const GRADE_SCALES = {
 
 export type ProblemType = keyof typeof GRADE_SCALES;
 
+// The grade scale follows the rock's type (handoff.md decision 1): V-scale
+// for a boulder, rope scales for a wall. boulders.BoulderType ('boulder' |
+// 'wall') and this module's own ProblemType ('boulder' | 'rope') are two
+// different vocabularies for the same switch -- this is the one place that
+// translates between them.
+export function boulderTypeToGradeType(type: 'boulder' | 'wall'): ProblemType {
+    return type === 'wall' ? 'rope' : 'boulder';
+}
+
 // Finds which (type, scale) a single grade token belongs to by scanning
 // GRADE_SCALES -- shared by ProblemEditForm's grade picker (which also needs
 // from/to/isRange around this) and ProblemList's Type/Scale/Grade quick

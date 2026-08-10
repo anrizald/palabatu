@@ -7,6 +7,7 @@ var (
 	ErrForbidden       = errors.New("forbidden")
 	ErrCragNotFound    = errors.New("crag not found")
 	ErrInvalidLocation = errors.New("invalid location")
+	ErrInvalidType     = errors.New("invalid type")
 	ErrImageNotFound   = errors.New("image not found")
 	ErrNoImages        = errors.New("no images provided")
 	ErrCannotMergeSelf = errors.New("cannot merge a boulder with itself")

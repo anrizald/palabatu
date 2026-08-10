@@ -4,6 +4,190 @@
  */
 
 export interface paths {
+    "/api/approaches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an approach guide
+         * @description Creates the approach and every step in one call. Requires at least one step, each with a photo and a caption. Gated by authz.CanContribute (creator-or-admin today, see handoff.md decision 22).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New approach */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_approaches.CreateApproachRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_approaches.Approach"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approaches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an approach guide, with its ordered steps
+         * @description The reading view's one call -- every step, in order, ready for offline caching.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Approach ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_approaches.Approach"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete an approach guide
+         * @description Allowed for admins (Council/Associate title), or the approach's own creator.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Approach ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/boulders": {
         parameters: {
             query?: never;
@@ -349,7 +533,7 @@ export interface paths {
         };
         /**
          * Update a boulder
-         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator.
+         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.
          */
         put: {
             parameters: {
@@ -1109,6 +1293,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/crags/{id}/approaches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a crag's approach guides
+         * @description "Jalan masuk" -- the walk in, photographed step by step. A crag may have several; each is a genuinely different walk.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_approaches.ApproachListItem"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/crags/{id}/boulders": {
         parameters: {
             query?: never;
@@ -1152,6 +1387,144 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crags/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add images to a crag
+         * @description Appends URLs already uploaded via POST /upload/topo to a crag's image_urls -- the approach shot.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Uploaded image URLs to attach */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_crags.AddCragImagesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_crags.Crag"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /** Remove one image from a crag */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Image URL to remove */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_crags.DeleteCragImageRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description crag or image not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1502,7 +1875,7 @@ export interface paths {
         };
         /**
          * Update a problem
-         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. boulder_id is not editable here -- a boulder merge is how a problem changes boulders.
+         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).
          */
         put: {
             parameters: {
@@ -1841,6 +2214,144 @@ export interface paths {
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add images to a problem
+         * @description Appends URLs already uploaded via POST /upload/topo to a problem's image_urls -- beta/action shots, never the topo base.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Uploaded image URLs to attach */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_problems.AddProblemImagesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_problems.ProblemRow"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /** Remove one image from a problem */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Image URL to remove */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_problems.DeleteProblemImageRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description problem or image not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -3324,6 +3835,56 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "internal_approaches.Approach": {
+            crag_id?: string;
+            created_at?: string;
+            created_by?: string;
+            creator_name?: string;
+            duration_minutes?: number;
+            id?: string;
+            name?: string;
+            start_type?: string;
+            steps?: components["schemas"]["internal_approaches.ApproachStep"][];
+        };
+        "internal_approaches.ApproachListItem": {
+            crag_id?: string;
+            created_at?: string;
+            created_by?: string;
+            creator_name?: string;
+            duration_minutes?: number;
+            first_photo_url?: string;
+            id?: string;
+            name?: string;
+            start_lat?: number;
+            start_lng?: number;
+            start_type?: string;
+            step_count?: number;
+        };
+        "internal_approaches.ApproachStep": {
+            approach_id?: string;
+            caption?: string;
+            careful_flag?: boolean;
+            created_at?: string;
+            id?: string;
+            lat?: number;
+            lng?: number;
+            photo_url?: string;
+            position?: number;
+        };
+        "internal_approaches.CreateApproachRequest": {
+            crag_id?: string;
+            duration_minutes?: number;
+            name?: string;
+            start_type?: string;
+            steps?: components["schemas"]["internal_approaches.CreateApproachStepInput"][];
+        };
+        "internal_approaches.CreateApproachStepInput": {
+            caption?: string;
+            careful_flag?: boolean;
+            lat?: number;
+            lng?: number;
+            photo_url?: string;
+        };
         "internal_auth.ChangePasswordRequest": {
             current_password?: string;
             new_password?: string;
@@ -3415,6 +3976,7 @@ export interface components {
             merged_into?: string;
             name?: string;
             rock_type?: string;
+            type?: string;
         };
         "internal_boulders.BoulderAnnotation": {
             created_at?: string;
@@ -3438,6 +4000,8 @@ export interface components {
             name?: string;
             problem_count?: number;
             rock_type?: string;
+            sample_problem_name?: string;
+            type?: string;
         };
         "internal_boulders.CreateBoulderRequest": {
             crag_id?: string;
@@ -3446,6 +4010,7 @@ export interface components {
             lng?: number;
             name?: string;
             rock_type?: string;
+            type?: string;
         };
         "internal_boulders.DeleteBoulderImageRequest": {
             url?: string;
@@ -3495,10 +4060,15 @@ export interface components {
             target_boulder_id?: string;
         };
         "internal_boulders.UpdateBoulderRequest": {
+            crag_id?: string;
             lat?: number;
             lng?: number;
             name?: string;
             rock_type?: string;
+            type?: string;
+        };
+        "internal_crags.AddCragImagesRequest": {
+            image_urls?: string[];
         };
         "internal_crags.Crag": {
             access_notes?: string;
@@ -3506,6 +4076,7 @@ export interface components {
             created_by?: string;
             directions?: string;
             id?: string;
+            image_urls?: string[];
             lat?: number;
             lng?: number;
             name?: string;
@@ -3518,6 +4089,7 @@ export interface components {
             creator_name?: string;
             directions?: string;
             id?: string;
+            image_urls?: string[];
             lat?: number;
             lng?: number;
             name?: string;
@@ -3526,9 +4098,13 @@ export interface components {
         "internal_crags.CreateCragRequest": {
             access_notes?: string;
             directions?: string;
+            image_urls?: string[];
             lat?: number;
             lng?: number;
             name?: string;
+        };
+        "internal_crags.DeleteCragImageRequest": {
+            url?: string;
         };
         "internal_crags.UpdateCragRequest": {
             access_notes?: string;
@@ -3549,6 +4125,9 @@ export interface components {
         };
         /** @enum {string} */
         "internal_notification.Type": "comment" | "send" | "report_resolved" | "content_removed" | "reaction" | "problem_edited" | "problem_deleted" | "mention" | "merge_suggested" | "merge_objected" | "merge_resolved";
+        "internal_problems.AddProblemImagesRequest": {
+            image_urls?: string[];
+        };
         "internal_problems.AnnotationRecord": {
             created_at?: string;
             data?: number[];
@@ -3568,9 +4147,13 @@ export interface components {
             first_ascensionist?: string;
             grade?: string;
             height_m?: number;
+            image_urls?: string[];
             landing_hazards?: string;
             name?: string;
             notes?: string;
+        };
+        "internal_problems.DeleteProblemImageRequest": {
+            url?: string;
         };
         "internal_problems.ProblemDetail": {
             boulder_id?: string;
@@ -3587,6 +4170,7 @@ export interface components {
             grade?: string;
             height_m?: number;
             id?: string;
+            image_urls?: string[];
             landing_hazards?: string;
             name?: string;
             notes?: string;
@@ -3607,6 +4191,7 @@ export interface components {
             grade?: string;
             height_m?: number;
             id?: string;
+            image_urls?: string[];
             landing_hazards?: string;
             name?: string;
             notes?: string;
@@ -3623,6 +4208,7 @@ export interface components {
             grade?: string;
             height_m?: number;
             id?: string;
+            image_urls?: string[];
             landing_hazards?: string;
             name?: string;
             notes?: string;
@@ -3632,6 +4218,7 @@ export interface components {
             crag_id?: string;
             grade?: string;
             id?: string;
+            image_urls?: string[];
             name?: string;
         };
         "internal_problems.SaveAnnotationRequest": {
@@ -3642,6 +4229,7 @@ export interface components {
             url?: string;
         };
         "internal_problems.UpdateProblemRequest": {
+            boulder_id?: string;
             descent?: string;
             discovered_by?: string;
             first_ascensionist?: string;

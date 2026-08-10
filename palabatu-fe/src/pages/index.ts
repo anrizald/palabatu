@@ -11,6 +11,8 @@ export { default as NotFound } from './NotFound.js';
 export { default as ProblemDetailPage } from './ProblemDetailPage.js';
 export { default as CragDetailPage } from './CragDetailPage.js';
 export { default as BoulderDetailPage } from './BoulderDetailPage.js';
+export { default as ApproachReadingPage } from './ApproachReadingPage.js';
+export { default as ApproachCaptureView } from './ApproachCaptureView.js';
 export { default as AdminReports } from './AdminReports.js';
 export { default as AdminMergeRequests } from './AdminMergeRequests.js';
 export { default as Notifications } from './Notifications.js';

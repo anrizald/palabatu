@@ -9,8 +9,10 @@ import PinpointMarker from '../components/PinpointMarker.js';
 import InfoTooltip, { ADDED_BY_DISCLAIMER } from '../components/InfoTooltip.js';
 import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import TopoImage from '../components/topo-annotations/TopoImage.js';
+import RockPicker from '../components/add-sheet/RockPicker.js';
+import { invalidateCragCache } from '../lib/cragCache.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
-import type { ProblemDetail, UpdateProblemRequest } from '../types/problem.js';
+import type { ProblemDetail, ProblemRow, UpdateProblemRequest, TopoUploadResponse } from '../types/problem.js';
 import type { BoulderListItem } from '../types/boulder.js';
 import type { CragListItem } from '../types/crag.js';
 import type { Comment, SendStatusResponse, ActionResponse } from '../types/social.js';
@@ -18,7 +20,7 @@ import type { ErrorResponse } from '../types/apitypes.js';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import { MapPin, Calendar, Share2, ArrowLeft, Flame, Compass } from 'lucide-react';
+import { MapPin, Calendar, Share2, ArrowLeft, Flame, Compass, X, GitCompare } from 'lucide-react';
 import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
 
 const HIGHBALL_THRESHOLD_M = 4.5
@@ -86,6 +88,12 @@ export default function ProblemDetailPage() {
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
     const [nearby, setNearby] = useState<NearbyProblem[]>([]);
+
+    const [showMoveRock, setShowMoveRock] = useState(false);
+    const [isMoving, setIsMoving] = useState(false);
+
+    const [isUploadingBeta, setIsUploadingBeta] = useState(false);
+    const [removingBetaUrl, setRemovingBetaUrl] = useState<string | null>(null);
 
     const [toast, setToast] = useState<ToastProps | null>(null);
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) });
@@ -182,6 +190,7 @@ export default function ProblemDetailPage() {
         setIsProcessing(true);
         try {
             const body: UpdateProblemRequest = {
+                boulder_id: '',
                 name: editForm.name, grade: editForm.grade,
                 first_ascensionist: editForm.first_ascensionist, discovered_by: editForm.discovered_by,
                 landing_hazards: editForm.landing_hazards, descent: editForm.descent,
@@ -202,6 +211,73 @@ export default function ProblemDetailPage() {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    // "Move to another rock" -- the missing inverse of "not sure which
+    // rock" (handoff.md decision 13): filed against the wrong rock at the
+    // right spot is a real, common error, and until now the only fix was
+    // delete-and-recreate, which loses sends/comments/annotations. Only
+    // offered within the problem's own crag (its motivating case is a
+    // same-spot misfile, not a cross-spot move -- that's the boulder-level
+    // "move to another spot" on BoulderDetailPage).
+    const handleMoveToRock = async (target: BoulderListItem) => {
+        if (!id || !problem) return;
+        if (!window.confirm(`Move "${problem.name}" to ${target.name ?? 'this rock'}? Any line drawn on the old rock's photo will be dropped -- it wouldn't mean anything on the new one.`)) return;
+        setIsMoving(true);
+        try {
+            const body: UpdateProblemRequest = {
+                boulder_id: target.id,
+                name: problem.name, grade: problem.grade ?? '',
+                first_ascensionist: problem.first_ascensionist ?? '', discovered_by: problem.discovered_by ?? '',
+                landing_hazards: problem.landing_hazards ?? '', descent: problem.descent ?? '',
+                height_m: problem.height_m, notes: problem.notes ?? '',
+            };
+            const res = await api.put<ProblemDetail | Partial<ErrorResponse>>(`/api/problems/${id}`, body);
+            if ('error' in res && res.error) {
+                showError(res.error);
+            } else {
+                invalidateCragCache();
+                setShowMoveRock(false);
+                showOk('Moved to the new rock.');
+                setAnnotationsByUrl({});
+                setBoulder(target);
+                setProblem(prev => prev ? { ...prev, boulder_id: target.id, boulder_name: target.name ?? null } : prev);
+            }
+        } finally {
+            setIsMoving(false);
+        }
+    };
+
+    // Beta/action shots (handoff.md decision 2, amended) -- the crux hold,
+    // the start position, someone on it. Never the topo base (that's the
+    // rock's, above) and never annotatable: a line on an action shot would
+    // be a second, competing representation of the same route.
+    const handleAddBetaPhotos = async (files: File[]) => {
+        if (!id || files.length === 0) return;
+        setIsUploadingBeta(true);
+        try {
+            const uploads = await Promise.all(files.map(file => {
+                const formData = new FormData();
+                formData.append('image', file);
+                return api.upload<Partial<TopoUploadResponse & ErrorResponse>>('/api/upload/topo', formData);
+            }));
+            const uploadedUrls = uploads.filter((r): r is TopoUploadResponse => !!r.url).map(r => r.url);
+            if (uploadedUrls.length === 0) return;
+            const res = await api.post<ProblemRow | ErrorResponse>(`/api/problems/${id}/images`, { image_urls: uploadedUrls });
+            if ('error' in res) { showError(res.error); return; }
+            setProblem(prev => prev ? { ...prev, image_urls: res.image_urls } : prev);
+        } finally {
+            setIsUploadingBeta(false);
+        }
+    };
+
+    const handleRemoveBetaPhoto = async (url: string) => {
+        if (!id || !window.confirm('Remove this photo?')) return;
+        setRemovingBetaUrl(url);
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${id}/images`, { url });
+        setRemovingBetaUrl(null);
+        if (res.error) { showError(res.error); return; }
+        setProblem(prev => prev ? { ...prev, image_urls: prev.image_urls.filter(u => u !== url) } : prev);
     };
 
     const handleDelete = async () => {
@@ -333,6 +409,28 @@ export default function ProblemDetailPage() {
                 />
             )}
 
+            {showMoveRock && problem && (
+                <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
+                    <div className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] max-h-[85vh] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+                        <div className="shrink-0 flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-border">
+                            <h2 className="font-serif text-lg font-bold text-text">Move to another rock</h2>
+                            <button onClick={() => setShowMoveRock(false)} aria-label="Close" disabled={isMoving} className="w-11 h-11 -m-1.5 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
+                                <X size={20} className="shrink-0" />
+                            </button>
+                        </div>
+                        <p className="px-5 pt-3 text-xs text-text-muted">Filed against the wrong rock at {crag?.name ?? 'this spot'}? Pick the right one -- any drawn line is dropped, not moved.</p>
+                        <div className="flex-1 overflow-y-auto px-5 pb-4">
+                            <RockPicker
+                                cragId={problem.crag_id}
+                                excludeBoulderId={problem.boulder_id}
+                                onPick={handleMoveToRock}
+                                onNewRock={() => showError('Add a new rock from the map first, then move this problem to it.')}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
                 <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                     <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit">
@@ -419,6 +517,45 @@ export default function ProblemDetailPage() {
                                 <p className="text-sm text-text-secondary leading-relaxed">{problem.notes}</p>
                             )}
 
+                            {(problem.image_urls.length > 0 || canEdit) && (
+                                <div className="flex flex-col gap-2">
+                                    <div className="text-[11px] text-text-dim tracking-[0.1em] uppercase">Beta &amp; action shots</div>
+                                    <div className="flex gap-2 overflow-x-auto pb-1">
+                                        {problem.image_urls.map(url => (
+                                            <div key={url} className="relative min-w-[110px] h-[110px] rounded-lg overflow-hidden shrink-0 border border-border">
+                                                <img src={url} className="w-full h-full object-cover" alt="Beta" />
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleRemoveBetaPhoto(url)}
+                                                        disabled={removingBetaUrl === url}
+                                                        className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center disabled:opacity-50"
+                                                        aria-label="Remove photo"
+                                                    ><X size={13} className="shrink-0" /></button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {canEdit && (
+                                            <label className={`min-w-[110px] h-[110px] bg-surface border border-dashed border-text-faint rounded-lg cursor-pointer flex flex-col items-center justify-center text-text-dim text-xl shrink-0 ${isUploadingBeta ? 'opacity-50' : ''}`}>
+                                                +
+                                                <span className="text-[10px] mt-1">{isUploadingBeta ? 'Uploading...' : 'Add photo'}</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    disabled={isUploadingBeta}
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const files = Array.from(e.target.files || []);
+                                                        e.target.value = '';
+                                                        handleAddBetaPhotos(files);
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3 flex-wrap">
                                 <button
                                     onClick={handleToggleSend}
@@ -434,8 +571,11 @@ export default function ProblemDetailPage() {
                             </div>
 
                             {canEdit && !isEditing && (
-                                <div className="flex gap-3 pt-1 border-t border-border">
+                                <div className="flex gap-3 pt-1 border-t border-border flex-wrap">
                                     <button onClick={() => setIsEditing(true)} className="flex-1 mt-3 py-2 bg-accent/10 border border-accent/25 text-accent rounded-lg text-xs cursor-pointer hover:bg-accent/15 transition-colors">Edit Details</button>
+                                    <button onClick={() => setShowMoveRock(true)} className="flex-1 mt-3 py-2 bg-transparent border border-border text-text-muted rounded-lg text-xs cursor-pointer hover:bg-white/5 transition-colors inline-flex items-center justify-center gap-1.5">
+                                        <GitCompare size={13} className="shrink-0" /> Move to another rock
+                                    </button>
                                     <button onClick={handleDelete} disabled={isProcessing} className="flex-1 mt-3 py-2 bg-danger/10 border border-danger/40 text-danger rounded-lg text-xs cursor-pointer hover:bg-danger/15 transition-colors disabled:opacity-50">Delete</button>
                                 </div>
                             )}

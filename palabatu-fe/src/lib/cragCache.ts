@@ -2,6 +2,7 @@ import { api } from './api.js'
 import type { CragListItem } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js'
+import type { ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 
 // Joins problem cards back to their crag's coordinates and their boulder's
@@ -15,6 +16,7 @@ import type { ErrorResponse } from '../types/apitypes.js'
 
 let cragsPromise: Promise<CragListItem[]> | null = null
 const boulderListCache = new Map<string, Promise<BoulderListItem[]>>()
+const approachListCache = new Map<string, Promise<ApproachListItem[]>>()
 
 export function getAllCrags(): Promise<CragListItem[]> {
     if (!cragsPromise) {
@@ -46,11 +48,26 @@ export function getBouldersForCrag(cragId: string): Promise<BoulderListItem[]> {
     return cached
 }
 
-// Called after any crag/boulder create or edit so the next read reflects
-// it, rather than serving stale cached data for the rest of the session.
+// Cached per crag, mirroring getBouldersForCrag -- the map's close-zoom
+// layer (handoff.md open item 13) fetches a visible crag's approaches
+// lazily and repeatedly as the user pans, so this avoids refetching on
+// every render.
+export function getApproachesForCrag(cragId: string): Promise<ApproachListItem[]> {
+    let cached = approachListCache.get(cragId)
+    if (!cached) {
+        cached = api.get<ApproachListItem[] | ErrorResponse>(`/api/crags/${cragId}/approaches`).then(data => 'error' in data ? [] : data)
+        approachListCache.set(cragId, cached)
+    }
+    return cached
+}
+
+// Called after any crag/boulder/approach create or edit so the next read
+// reflects it, rather than serving stale cached data for the rest of the
+// session.
 export function invalidateCragCache() {
     cragsPromise = null
     boulderListCache.clear()
+    approachListCache.clear()
 }
 
 // Resolves a problem's map point via its crag -- always present since a

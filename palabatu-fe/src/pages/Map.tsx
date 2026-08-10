@@ -4,19 +4,25 @@ import { getAllCrags } from '../lib/cragCache.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
 import ClusterCardRail from '../components/ClusterCardRail.js'
+import CragDetailLayer from '../components/CragDetailLayer.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { CragListItem } from '../types/crag.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
-import AddFlow from '../components/add-flow/AddFlow.js'
-import LocationPicker from '../components/LocationPicker.js'
+import AddSheet from '../components/add-sheet/AddSheet.js'
+import type { AddIntent } from '../components/add-sheet/types.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
 import FallbackImg from '../components/FallbackImg.js'
 import { circleButtonStyle } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
+// Below this, individual rocks/approach-starts would be too close together
+// to tell apart from the crag pin they share a neighbourhood with -- these
+// two layers (handoff.md open item 13) only earn their keep once zoomed
+// in past roughly "walking around the crag" scale.
+const DETAIL_ZOOM = 15
 // Padded bounding box around Indonesia (Sabang to Merauke) — keeps panning within the country.
 const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
     [-14.5, 89.5],
@@ -278,10 +284,8 @@ function LocateMeButton() {
 
 export default function MapPage() {
     const [crags, setCrags] = useState<CragListItem[]>([])
-    const [isPicking, setIsPicking] = useState(false)
-    const [showAddFlow, setShowAddFlow] = useState(false)
-    const [addFlowSeed, setAddFlowSeed] = useState<{ cragId?: string; boulderId?: string }>({})
-    const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
+    const [showAddSheet, setShowAddSheet] = useState(false)
+    const [addSheetSeed, setAddSheetSeed] = useState<{ cragId?: string; boulderId?: string; intent?: AddIntent }>({})
     const { user } = useAuth()
     const navigate = useNavigate()
     // const center: [number, number] = [-7.797068, 110.370529]
@@ -298,20 +302,26 @@ export default function MapPage() {
     useEffect(() => { loadCrags() }, [])
 
     // Deep link from a crag/boulder page's "+ Add" CTA (handoff.md's add
-    // flow re-entering pre-seeded, per UX principle 4 -- never re-ask a
+    // sheet re-entering pre-seeded, per UX principle 4 -- never re-ask a
     // question already answered).
     useEffect(() => {
         const addToCrag = searchParams.get('addToCrag')
         const addToBoulder = searchParams.get('addToBoulder')
+        const addIntent = searchParams.get('addIntent') as AddIntent | null
         if (addToCrag || addToBoulder) {
             if (!user) {
                 setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
             } else {
-                setAddFlowSeed({ ...(addToCrag ? { cragId: addToCrag } : {}), ...(addToBoulder ? { boulderId: addToBoulder } : {}) })
-                setShowAddFlow(true)
+                setAddSheetSeed({
+                    ...(addToCrag ? { cragId: addToCrag } : {}),
+                    ...(addToBoulder ? { boulderId: addToBoulder } : {}),
+                    ...(addIntent ? { intent: addIntent } : {}),
+                })
+                setShowAddSheet(true)
             }
             searchParams.delete('addToCrag')
             searchParams.delete('addToBoulder')
+            searchParams.delete('addIntent')
             setSearchParams(searchParams, { replace: true })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,9 +333,8 @@ export default function MapPage() {
             return;
         }
 
-        setPickedCoords(null)
-        setAddFlowSeed({})
-        setShowAddFlow(true)
+        setAddSheetSeed({})
+        setShowAddSheet(true)
     }
 
     return (
@@ -405,25 +414,17 @@ export default function MapPage() {
                 <ProximityClusters
                     crags={crags}
                     onViewSpot={crag => navigate(`/crags/${crag.id}`)}
-                    onAddFirst={crag => { setAddFlowSeed({ cragId: crag.id }); setShowAddFlow(true) }}
+                    onAddFirst={crag => { setAddSheetSeed({ cragId: crag.id }); setShowAddSheet(true) }}
                 />
-                {showAddFlow && isPicking && (
-                    <LocationPicker onPick={(lat, lng) => {
-                        setPickedCoords({ lat, lng });
-                        setIsPicking(false);
-                    }} />
-                )}
             </MapContainer>
 
-            {showAddFlow && (
-                <AddFlow
-                    onClose={() => setShowAddFlow(false)}
+            {showAddSheet && (
+                <AddSheet
+                    onClose={() => setShowAddSheet(false)}
                     onAdded={() => { loadCrags() }}
-                    isPicking={isPicking}
-                    setIsPicking={setIsPicking}
-                    pickedCoords={pickedCoords}
-                    {...(addFlowSeed.cragId ? { initialCragId: addFlowSeed.cragId } : {})}
-                    {...(addFlowSeed.boulderId ? { initialBoulderId: addFlowSeed.boulderId } : {})}
+                    {...(addSheetSeed.intent ? { initialIntent: addSheetSeed.intent } : {})}
+                    {...(addSheetSeed.cragId ? { initialCragId: addSheetSeed.cragId } : {})}
+                    {...(addSheetSeed.boulderId ? { initialBoulderId: addSheetSeed.boulderId } : {})}
                 />
             )}
         </div>
@@ -517,19 +518,26 @@ function ProximityClusters({ crags, onViewSpot, onAddFirst }: { crags: CragListI
                     if (!item) return null
                     const isEmpty = item.problem_count === 0
                     return (
-                        <PinpointMarker
-                            key={item.id}
-                            position={[item.lat, item.lng]}
-                            name={item.name}
-                            directions={item.directions}
-                            boulderCount={item.boulder_count}
-                            problemCount={item.problem_count}
-                            creatorName={item.creator_name}
-                            zoom={currentZoom}
-                            dimmed={isEmpty}
-                            onViewSpot={() => onViewSpot(item)}
-                            onAddFirst={() => onAddFirst(item)}
-                        />
+                        <Fragment key={item.id}>
+                            <PinpointMarker
+                                position={[item.lat, item.lng]}
+                                name={item.name}
+                                directions={item.directions}
+                                boulderCount={item.boulder_count}
+                                problemCount={item.problem_count}
+                                creatorName={item.creator_name}
+                                zoom={currentZoom}
+                                dimmed={isEmpty}
+                                onViewSpot={() => onViewSpot(item)}
+                                onAddFirst={() => onAddFirst(item)}
+                            />
+                            {/* Close-zoom layers (handoff.md open item 13):
+                                a crag's own rocks and its approaches' start
+                                points, each at their own coordinate --
+                                distinct from this far-out "there's climbing
+                                here" pin. */}
+                            {currentZoom >= DETAIL_ZOOM && <CragDetailLayer cragId={item.id} />}
+                        </Fragment>
                     )
                 }
                 return (

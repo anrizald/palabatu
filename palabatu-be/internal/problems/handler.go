@@ -22,6 +22,8 @@ func Routes(rg *gin.RouterGroup) {
 	rg.DELETE("/problems/:id", middleware.RequireAuth, handleDeleteProblem)
 	rg.GET("/problems/:id/annotations", handleListAnnotations)
 	rg.PUT("/problems/:id/annotations", middleware.RequireAuth, handleSaveAnnotation)
+	rg.POST("/problems/:id/images", middleware.RequireAuth, handleAddProblemImages)
+	rg.DELETE("/problems/:id/images", middleware.RequireAuth, handleDeleteProblemImage)
 
 	rg.POST("/upload/topo", middleware.RequireAuth, handleUploadTopo)
 	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
@@ -96,6 +98,7 @@ func handleCreateProblem(c *gin.Context) {
 	problem, err := CreateProblem(
 		c.Request.Context(), userID, body.Name, body.Grade, body.BoulderID,
 		body.FirstAscensionist, body.DiscoveredBy, body.LandingHazards, body.Descent, body.Notes, body.HeightM,
+		body.ImageURLs,
 	)
 	switch {
 	case err == nil:
@@ -111,7 +114,7 @@ func handleCreateProblem(c *gin.Context) {
 
 // handleUpdateProblem godoc
 // @Summary      Update a problem
-// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. boulder_id is not editable here -- a boulder merge is how a problem changes boulders.
+// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).
 // @Tags         problems
 // @Accept       json
 // @Produce      json
@@ -135,7 +138,7 @@ func handleUpdateProblem(c *gin.Context) {
 	}
 
 	problem, err := UpdateProblem(
-		c.Request.Context(), userID, id, body.Name, body.Grade,
+		c.Request.Context(), userID, id, body.BoulderID, body.Name, body.Grade,
 		body.FirstAscensionist, body.DiscoveredBy, body.LandingHazards, body.Descent, body.Notes, body.HeightM,
 	)
 	switch {
@@ -143,6 +146,8 @@ func handleUpdateProblem(c *gin.Context) {
 		c.JSON(http.StatusOK, problem)
 	case errors.Is(err, ErrInvalidGrade):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
+	case errors.Is(err, ErrBoulderNotFound):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Boulder not found"})
 	case errors.Is(err, ErrNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
@@ -176,6 +181,84 @@ func handleDeleteProblem(c *gin.Context) {
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to delete this problem."})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleAddProblemImages godoc
+// @Summary      Add images to a problem
+// @Description  Appends URLs already uploaded via POST /upload/topo to a problem's image_urls -- beta/action shots, never the topo base.
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                             true  "Problem ID"
+// @Param        body  body      problems.AddProblemImagesRequest  true  "Uploaded image URLs to attach"
+// @Success      200   {object}  problems.ProblemRow
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      403   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/images [post]
+func handleAddProblemImages(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	var body AddProblemImagesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	problem, err := AddProblemImages(c.Request.Context(), userID, id, body.ImageURLs)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNoImages):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "No images provided"})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleDeleteProblemImage godoc
+// @Summary      Remove one image from a problem
+// @Tags         problems
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                               true  "Problem ID"
+// @Param        body  body      problems.DeleteProblemImageRequest  true  "Image URL to remove"
+// @Success      200   {object}  apitypes.SuccessResponse
+// @Failure      403   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse  "problem or image not found"
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/images [delete]
+func handleDeleteProblemImage(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	var body DeleteProblemImageRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	err := DeleteProblemImage(c.Request.Context(), userID, id, body.URL)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this problem."})
+	case errors.Is(err, ErrImageNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

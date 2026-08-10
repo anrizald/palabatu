@@ -34,14 +34,34 @@ func GetBoulder(ctx context.Context, id string) (*BoulderListItem, error) {
 	return b, nil
 }
 
+// validBoulderTypes are the only values boulders.type accepts (handoff.md
+// decision 1: the middle level is a rock *or* a wall). Empty defaults to
+// "boulder" so every pre-existing caller (and every migrated row) keeps
+// working unchanged.
+var validBoulderTypes = map[string]bool{"boulder": true, "wall": true}
+
+func normalizeBoulderType(t string) (string, error) {
+	if t == "" {
+		return "boulder", nil
+	}
+	if !validBoulderTypes[t] {
+		return "", ErrInvalidType
+	}
+	return t, nil
+}
+
 // CreateBoulder has no role gate: any signed-in user may add a boulder to
 // any crag, including someone else's (handoff.md decision 6).
-func CreateBoulder(ctx context.Context, createdBy, cragID, name, rockType string, lat, lng *float64, imageURLs []string) (*Boulder, error) {
+func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, rockType string, lat, lng *float64, imageURLs []string) (*Boulder, error) {
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}
+	normalizedType, err := normalizeBoulderType(boulderType)
+	if err != nil {
+		return nil, err
+	}
 
-	b, err := createBoulder(ctx, cragID, name, rockType, lat, lng, imageURLs, createdBy)
+	b, err := createBoulder(ctx, cragID, name, normalizedType, rockType, lat, lng, imageURLs, createdBy)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.ConstraintName == "boulders_crag_id_fkey" {
@@ -52,12 +72,21 @@ func CreateBoulder(ctx context.Context, createdBy, cragID, name, rockType string
 	return b, nil
 }
 
-func UpdateBoulder(ctx context.Context, userID, boulderID, name, rockType string, lat, lng *float64) (*Boulder, error) {
+// UpdateBoulder also re-parents the boulder to a different crag when cragID
+// is non-empty and differs from its current one (handoff.md decision 13) --
+// the missing inverse of "not sure which rock", now real. Re-parenting
+// cascades the denormalized crag_id onto every problem already on this
+// boulder (reparentBoulder, repository.go).
+func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulderType, rockType string, lat, lng *float64) (*Boulder, error) {
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}
+	normalizedType, err := normalizeBoulderType(boulderType)
+	if err != nil {
+		return nil, err
+	}
 
-	createdBy, err := getBoulderCreator(ctx, boulderID)
+	current, err := getBoulder(ctx, boulderID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -65,17 +94,30 @@ func UpdateBoulder(ctx context.Context, userID, boulderID, name, rockType string
 		return nil, err
 	}
 
-	if err := authorizeBoulderEdit(ctx, userID, createdBy); err != nil {
+	if err := authorizeBoulderEdit(ctx, userID, current.CreatedBy); err != nil {
 		return nil, err
 	}
 
-	return updateBoulderRow(ctx, boulderID, name, rockType, lat, lng)
+	if cragID != "" && cragID != current.CragID {
+		if err := reparentBoulder(ctx, boulderID, cragID); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.ConstraintName == "boulders_crag_id_fkey" {
+				return nil, ErrCragNotFound
+			}
+			return nil, err
+		}
+	}
+
+	return updateBoulderRow(ctx, boulderID, name, normalizedType, rockType, lat, lng)
 }
 
 // AddBoulderImages authorizes and appends already-uploaded image URLs (from
 // POST /upload/topo) to a boulder's image_urls array -- moved here
 // verbatim from problems.AddProblemImages now that the photo belongs to
-// the boulder, not the problem.
+// the boulder, not the problem. Gated through authz.CanContribute rather
+// than authorizeBoulderEdit directly (handoff.md decision 22: adding a
+// photo is additive, so it's the mechanism that can later widen past
+// creator-or-admin without touching this call site).
 func AddBoulderImages(ctx context.Context, userID, boulderID string, imageURLs []string) (*Boulder, error) {
 	if len(imageURLs) == 0 {
 		return nil, ErrNoImages
@@ -89,8 +131,12 @@ func AddBoulderImages(ctx context.Context, userID, boulderID string, imageURLs [
 		return nil, err
 	}
 
-	if err := authorizeBoulderEdit(ctx, userID, createdBy); err != nil {
+	titles, err := auth.GetUserTitles(ctx, userID)
+	if err != nil {
 		return nil, err
+	}
+	if !authz.CanContribute(userID, authz.KindAddPhoto, createdBy, titles) {
+		return nil, ErrForbidden
 	}
 
 	return addBoulderImages(ctx, boulderID, imageURLs)

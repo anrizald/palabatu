@@ -3,7 +3,9 @@
 // top level of the crags -> boulders -> problems hierarchy, see handoff.md at
 // the repo root: the place you drive to and park at. Lat/Lng are non-pointer
 // on the Go side (required, unlike a boulder's optional point), so they're
-// plain numbers here, never null.
+// plain numbers here, never null. ImageURLs is the approach shot -- "park
+// here, the trail starts at this tree" -- never annotatable, unlike a
+// boulder's.
 export type Crag = {
     id: string
     name: string
@@ -11,6 +13,7 @@ export type Crag = {
     lng: number
     directions: string | null
     access_notes: string | null
+    image_urls: string[]
     created_by: string | null
     created_at: string
 }
@@ -25,10 +28,11 @@ export type CragListItem = Crag & {
     problem_count: number
 }
 
-// Mirrors crags.CreateCragRequest / UpdateCragRequest (see
-// palabatu-be/internal/crags/dto.go) -- identical shapes on the Go side,
+// Mirrors crags.UpdateCragRequest (see palabatu-be/internal/crags/dto.go) --
 // plain (non-pointer) strings/numbers throughout since the whole form is
-// always submitted at once, never partially.
+// always submitted at once, never partially. No image_urls -- images mutate
+// only via the dedicated add/delete endpoints below, same split as
+// boulders.
 export type CragRequest = {
     name: string
     lat: number
@@ -36,3 +40,12 @@ export type CragRequest = {
     directions: string
     access_notes: string
 }
+
+// Mirrors crags.CreateCragRequest -- CragRequest plus the approach shot,
+// uploadable at spot-creation time since the person is often standing right
+// there (mirrors boulder.ts's CreateBoulderRequest.image_urls).
+export type CreateCragRequest = CragRequest & { image_urls: string[] }
+
+// Mirrors crags.AddCragImagesRequest / DeleteCragImageRequest.
+export type AddCragImagesRequest = { image_urls: string[] }
+export type DeleteCragImageRequest = { url: string }

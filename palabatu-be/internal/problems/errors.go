@@ -12,4 +12,5 @@ var (
 	// identically-named error for its own image-removal endpoint.
 	ErrImageNotFound     = errors.New("image not found")
 	ErrInvalidAnnotation = errors.New("invalid annotation data")
+	ErrNoImages          = errors.New("no images provided")
 )
