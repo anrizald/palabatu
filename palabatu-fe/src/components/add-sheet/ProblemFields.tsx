@@ -97,7 +97,32 @@ export default function ProblemFields({
                                 </button>
                             </div>
                         </div>
-                        <p className="text-xs text-text-muted mt-1.5">Another angle is welcome, but the line goes on the shot above.</p>
+                        {/* A photo staged before the rock resolved to one with an
+                            existing topo moves with it as a small afterthought --
+                            never dropped silently, never the line-drawing base
+                            (handoff-add-sheet.md B7/B8, decision 18/19). */}
+                        {draft.photoPreview ? (
+                            <div className="flex items-center gap-2.5 mt-2">
+                                <img src={draft.photoPreview} alt="Extra angle" className="w-[52px] h-[52px] rounded-lg object-cover border border-border shrink-0" />
+                                <p className="flex-1 text-xs text-text-muted">Your photo moves with it &mdash; goes up as another angle, not on the line.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => set({ photoFile: null, photoPreview: null })}
+                                    className="shrink-0 text-xs text-text-muted underline bg-transparent border-0 cursor-pointer"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="inline-flex items-center gap-1.5 mt-2 text-[13px] font-medium text-accent cursor-pointer hover:underline">
+                                + add another angle
+                                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                    const file = e.target.files?.[0]
+                                    if (!file) return
+                                    set({ photoFile: file, photoPreview: URL.createObjectURL(file) })
+                                }} />
+                            </label>
+                        )}
                     </>
                 ) : draft.photoPreview ? (
                     <>

@@ -53,10 +53,18 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
     const [intent, setIntent] = useState<AddIntent>(initialIntent ?? 'problem')
     const bodyRef = useRef<HTMLDivElement>(null)
+    const panelRef = useRef<HTMLDivElement>(null)
 
     const [crags, setCrags] = useState<CragListItem[]>([])
     const [myLoc, setMyLoc] = useState<Geo | null>(null)
-    const didInit = useRef(false)
+    // Two separate one-shots (handoff-add-sheet.md A2): the initialCragId/
+    // initialBoulderId branches are genuinely one-shot the moment crags load,
+    // but the nearest-spot default has to wait for myLoc, which resolves
+    // later (after a permission prompt) -- sharing one guard between them
+    // meant the guard burned itself on the first (empty) run and the
+    // nearest-spot branch never got a second chance.
+    const didResolveContext = useRef(false)
+    const didResolveNearest = useRef(false)
 
     // Resolved context, shared across the problem/rock intents.
     const [cragId, setCragId] = useState<string | null>(initialCragId ?? null)
@@ -97,32 +105,37 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     // nearest spot (handoff.md decision 19: "the breadcrumb arrives
     // answered"). Runs once, after crags have loaded.
     useEffect(() => {
-        if (crags.length === 0 || didInit.current) return
-        didInit.current = true
-        void (async () => {
-            if (initialBoulderId) {
-                const b = await api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${initialBoulderId}`)
-                if (!('error' in b)) { setResolvedBoulder(b); setBoulderId(b.id); setCragId(b.crag_id) }
-                return
-            }
-            if (initialCragId) {
-                if (intent === 'problem') {
+        if (crags.length === 0) return
+        if (initialBoulderId || initialCragId) {
+            if (didResolveContext.current) return
+            didResolveContext.current = true
+            void (async () => {
+                if (initialBoulderId) {
+                    const b = await api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${initialBoulderId}`)
+                    if (!('error' in b)) { setResolvedBoulder(b); setBoulderId(b.id); setCragId(b.crag_id) }
+                    return
+                }
+                if (initialCragId && intent === 'problem') {
                     const list = await fetchBouldersForCrag(initialCragId)
                     if (list.length === 1 && list[0]) { setBoulderId(list[0].id); setResolvedBoulder(list[0]) }
                 }
-                return
-            }
-            if (myLoc && crags.length > 0) {
-                const nearest = [...crags].sort((a, b) => haversineKm(myLoc, { lat: a.lat, lng: a.lng }) - haversineKm(myLoc, { lat: b.lat, lng: b.lng }))[0]
-                if (nearest) {
-                    setCragId(nearest.id)
-                    const list = await fetchBouldersForCrag(nearest.id)
-                    if (list.length === 1 && list[0]) { setBoulderId(list[0].id); setResolvedBoulder(list[0]) }
-                }
+            })()
+            return
+        }
+        // No pre-answered context -- wait for myLoc (arrives after a
+        // permission prompt, later than crags) before defaulting to nearest.
+        if (didResolveNearest.current || !myLoc) return
+        didResolveNearest.current = true
+        void (async () => {
+            const nearest = [...crags].sort((a, b) => haversineKm(myLoc, { lat: a.lat, lng: a.lng }) - haversineKm(myLoc, { lat: b.lat, lng: b.lng }))[0]
+            if (nearest) {
+                setCragId(nearest.id)
+                const list = await fetchBouldersForCrag(nearest.id)
+                if (list.length === 1 && list[0]) { setBoulderId(list[0].id); setResolvedBoulder(list[0]) }
             }
         })()
-        // Re-runs when myLoc resolves after crags -- guarded by didInit so
-        // it only ever does real work once.
+        // Re-runs when myLoc resolves after crags -- guarded by
+        // didResolveNearest so it only ever does real work once.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crags, myLoc])
 
@@ -169,10 +182,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     )
 
     // ------------------------------------------------------------------ submit
-    async function resolveCragId(): Promise<string | null> {
-        if (!isNewSpot) return cragId
+    async function resolveCragId(): Promise<{ id: string; name: string } | null> {
+        if (!isNewSpot) return cragId ? { id: cragId, name: resolvedCrag?.name ?? '' } : null
         if (!newSpotDraft.name.trim() || newSpotDraft.lat == null || newSpotDraft.lng == null) return null
         const imageUrls = newSpotDraft.photoFile ? await uploadPhotos([newSpotDraft.photoFile]) : []
+        if (newSpotDraft.photoFile && imageUrls.length === 0) showError('The spot photo did not upload -- saved without it')
         const body: CreateCragRequest = {
             name: newSpotDraft.name, lat: newSpotDraft.lat, lng: newSpotDraft.lng,
             directions: newSpotDraft.directions, access_notes: newSpotDraft.access_notes, image_urls: imageUrls,
@@ -180,7 +194,17 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         const res = await api.post<Crag | ErrorResponse>('/api/crags', body)
         if ('error' in res) { showError(res.error); return null }
         await refreshCrags()
-        return res.id
+        // Commit immediately, not just on the caller's eventual success --
+        // a later step in submitRock/submitProblem (boulder or problem POST)
+        // failing must not leave isNewSpot true, or retrying re-POSTs a
+        // second crag at the same pin (handoff-add-sheet.md A3). Committing
+        // here also means a second "Add problem" after this one takes the
+        // already-resolved branch instead of trying to recreate the spot
+        // (A1).
+        setCragId(res.id)
+        setIsNewSpot(false)
+        setNewSpotDraft(blankSpot)
+        return { id: res.id, name: res.name }
     }
 
     async function submitSpot() {
@@ -188,6 +212,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         setSubmitting(true)
         try {
             const imageUrls = newSpotDraft.photoFile ? await uploadPhotos([newSpotDraft.photoFile]) : []
+            if (newSpotDraft.photoFile && imageUrls.length === 0) showError('The photo did not upload -- saved without it')
             const body: CreateCragRequest = {
                 name: newSpotDraft.name, lat: newSpotDraft.lat, lng: newSpotDraft.lng!,
                 directions: newSpotDraft.directions, access_notes: newSpotDraft.access_notes, image_urls: imageUrls,
@@ -207,11 +232,14 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         if (!hasPhotoOrName) { showError('Add a photo or a name, so people can find it again'); return }
         setSubmitting(true)
         try {
-            const resolvedCragId = await resolveCragId()
-            if (!resolvedCragId) { showError('Please finish adding the new spot first'); return }
+            const resolved = await resolveCragId()
+            if (!resolved) { showError('Please finish adding the new spot first'); return }
             const imageUrls = newRockDraft.imageFiles.length ? await uploadPhotos(newRockDraft.imageFiles) : []
+            if (newRockDraft.imageFiles.length && imageUrls.length < newRockDraft.imageFiles.length) {
+                showError(imageUrls.length === 0 ? 'The photo did not upload -- saved without it' : 'One of the photos did not upload')
+            }
             const body: CreateBoulderRequest = {
-                crag_id: resolvedCragId, name: newRockDraft.name, type: newRockDraft.type,
+                crag_id: resolved.id, name: newRockDraft.name, type: newRockDraft.type,
                 rock_type: newRockDraft.rock_type, lat: null, lng: null, image_urls: imageUrls,
             }
             const res = await api.post<Boulder | ErrorResponse>('/api/boulders', body)
@@ -219,7 +247,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             await refreshCrags()
             setRockBanner({ name: res.name ?? (res.type === 'wall' ? 'The wall' : 'The rock') })
             setNewRockDraft(blankRock)
-            setCragId(resolvedCragId); setIsNewSpot(false)
+            // The rock just made becomes the resolved context -- the obvious
+            // next act is the first line on it, not re-finding it in the
+            // picker (handoff-add-sheet.md B5).
+            const fresh = await api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${res.id}`)
+            if (!('error' in fresh)) { setResolvedBoulder(fresh); setBoulderId(fresh.id) }
             onAdded?.()
         } finally { setSubmitting(false) }
     }
@@ -228,8 +260,8 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         if (!problemDraft.name.trim()) { showError('Give it a name first'); return }
         setSubmitting(true)
         try {
-            const resolvedCragId = await resolveCragId()
-            if (!resolvedCragId) { showError('Please finish adding the new spot first'); return }
+            const resolved = await resolveCragId()
+            if (!resolved) { showError('Please finish adding the new spot first'); return }
 
             let resolvedBoulderId = boulderId
             let targetPhotoUrl: string | null = resolvedBoulder?.image_urls[0] ?? null
@@ -241,9 +273,20 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 // (handoff.md's prototype: identical handlers, different
                 // narrative only) -- a bare boulder, named/photographed only
                 // if the user happened to stage a photo here.
+                // The "not sure" narrative is real but unrecorded
+                // (handoff-add-sheet.md C11) -- once open item 9 is decided,
+                // the fix is a nullable marker written here at creation
+                // time (e.g. an `uncertain_at`/`suggested_duplicate` column),
+                // not inferring it after the fact from an unnamed,
+                // photoless, single-problem boulder. Deliberately not built
+                // yet: don't add the admin surface until item 9 lands.
                 const imageUrls = stagedFile ? await uploadPhotos([stagedFile]) : []
-                if (imageUrls[0]) targetPhotoUrl = imageUrls[0]
-                const body: CreateBoulderRequest = { crag_id: resolvedCragId, name: '', type: 'boulder', rock_type: '', lat: null, lng: null, image_urls: imageUrls }
+                if (imageUrls[0]) {
+                    targetPhotoUrl = imageUrls[0]
+                } else if (stagedFile) {
+                    showError('The photo did not upload -- the rock was saved without it, and your line was not saved')
+                }
+                const body: CreateBoulderRequest = { crag_id: resolved.id, name: '', type: 'boulder', rock_type: '', lat: null, lng: null, image_urls: imageUrls }
                 const res = await api.post<Boulder | ErrorResponse>('/api/boulders', body)
                 if ('error' in res) { showError(res.error); return }
                 resolvedBoulderId = res.id
@@ -252,7 +295,22 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 const url = await uploadPhoto(stagedFile)
                 if (url) {
                     targetPhotoUrl = url
-                    await api.post<unknown>(`/api/boulders/${resolvedBoulderId}/images`, { image_urls: [url] }).catch(() => {})
+                    const attachRes = await api.post<Partial<ErrorResponse>>(`/api/boulders/${resolvedBoulderId}/images`, { image_urls: [url] })
+                    if (attachRes.error) showError('The photo uploaded but did not attach to the rock')
+                } else {
+                    showError('The photo did not upload -- the problem was saved without it, and your line was not saved')
+                }
+            } else if (stagedFile) {
+                // The chosen rock already has a topo -- a staged shot moves
+                // with it as an extra angle rather than being silently
+                // dropped (handoff-add-sheet.md B7), and never replaces the
+                // photo lines get drawn on.
+                const url = await uploadPhoto(stagedFile)
+                if (url) {
+                    const attachRes = await api.post<Partial<ErrorResponse>>(`/api/boulders/${resolvedBoulderId}/images`, { image_urls: [url] })
+                    if (attachRes.error) showError('The extra photo did not attach to the rock')
+                } else {
+                    showError('The extra photo did not upload')
                 }
             }
 
@@ -268,8 +326,12 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
             let savedLine = false
             if (targetPhotoUrl && annotationShapes.length > 0) {
-                await api.put<unknown>(`/api/problems/${res.id}/annotations`, { url: targetPhotoUrl, data: annotationShapes }).catch(() => {})
-                savedLine = true
+                const annotationRes = await api.put<Partial<ErrorResponse>>(`/api/problems/${res.id}/annotations`, { url: targetPhotoUrl, data: annotationShapes })
+                if (annotationRes.error) {
+                    showError('Your line did not save -- redraw it from the problem page')
+                } else {
+                    savedLine = true
+                }
             }
 
             await refreshCrags()
@@ -277,7 +339,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
             setProblemBanner({
                 name: res.name, problemId: res.id,
-                spotName: resolvedCrag?.name ?? newSpotDraft.name,
+                spotName: resolvedCrag?.name ?? resolved.name,
                 rockName: resolvedBoulder?.name ?? resolvedBoulder?.sample_problem_name ?? 'a new rock',
                 photoUrl: targetPhotoUrl, lineDrawn: savedLine,
             })
@@ -288,7 +350,6 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             setProblemDraft(blankProblem)
             setAnnotationShapes([])
             setLineDrawn(false)
-            setIsNewSpot(false)
             if (resolvedBoulderId) {
                 const fresh = await api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${resolvedBoulderId}`)
                 if (!('error' in fresh)) { setResolvedBoulder(fresh); setBoulderId(fresh.id) }
@@ -303,6 +364,51 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         return submitProblem()
     }
 
+    // -------------------------------------------------------------- modal basics
+    // Typed content is never silently discarded (decision 18) -- closing
+    // with an in-progress draft confirms first (handoff-add-sheet.md C12).
+    function hasUnsavedInput(): boolean {
+        const spotDirty = newSpotDraft.name.trim() !== '' || newSpotDraft.lat != null
+            || newSpotDraft.directions.trim() !== '' || newSpotDraft.access_notes.trim() !== '' || !!newSpotDraft.photoFile
+        const rockDirty = newRockDraft.name.trim() !== '' || newRockDraft.rock_type.trim() !== '' || newRockDraft.imageFiles.length > 0
+        const problemDirty = problemDraft.name.trim() !== '' || problemDraft.grade !== ''
+            || problemDraft.first_ascensionist.trim() !== '' || problemDraft.discovered_by.trim() !== ''
+            || problemDraft.landing_hazards.trim() !== '' || problemDraft.descent.trim() !== ''
+            || problemDraft.height_m.trim() !== '' || problemDraft.notes.trim() !== '' || !!problemDraft.photoFile
+        return spotDirty || rockDirty || problemDirty
+    }
+    function handleClose() {
+        if (hasUnsavedInput() && !window.confirm('Discard what you typed?')) return
+        onClose()
+    }
+
+    // Focus the dialog on open, Escape closes the overlay first then the
+    // sheet, and Tab is trapped inside the panel -- the overlay is a DOM
+    // child of the same panel (see the portal below), so one trap covers
+    // both (handoff-add-sheet.md C12).
+    useEffect(() => { panelRef.current?.focus() }, [])
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            if (e.key === 'Escape') {
+                if (overlayOpen) { setOverlayOpen(false); return }
+                handleClose()
+                return
+            }
+            if (e.key === 'Tab' && panelRef.current) {
+                const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                )
+                if (focusable.length === 0) return
+                const first = focusable[0] as HTMLElement
+                const last = focusable[focusable.length - 1] as HTMLElement
+                if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+            }
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+    })
+
     // -------------------------------------------------------------------- gate
     let submitLabel: string
     let ok: boolean
@@ -312,7 +418,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         ok = newSpotDraft.name.trim() !== '' && newSpotDraft.lat != null
         hint = ok ? 'Saves on its own. Rocks and problems whenever you like.' : 'Give the place a name and drop a pin'
     } else if (intent === 'rock') {
-        submitLabel = boulderType === 'wall' ? 'Add wall' : 'Add rock'
+        // Reads the tab's own draft, not boulderType (which is the
+        // previously-selected *existing* rock's type) -- otherwise picking
+        // "Tebing" here leaves the button reading "Add rock"
+        // (handoff-add-sheet.md B6).
+        submitLabel = newRockDraft.type === 'wall' ? 'Add wall' : 'Add rock'
         ok = (newRockDraft.imageFiles.length > 0 || newRockDraft.name.trim() !== '') && (cragId != null || (isNewSpot && !!newSpotDraft.name.trim() && newSpotDraft.lat != null))
         hint = ok ? 'Saves on its own. A rock with no problems yet is fine.' : 'Add a photo or a name, so people can find it again'
     } else {
@@ -391,7 +501,15 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             <>
                 {rockBanner && (
                     <div className="border border-associate/35 bg-associate/[0.06] rounded-[10px] px-3.5 py-3 mb-4">
-                        <p className="text-sm text-text"><b>{rockBanner.name}</b> is up. The next one's ready below.</p>
+                        <p className="text-sm text-text"><b>{rockBanner.name}</b> is up.</p>
+                        <button
+                            type="button"
+                            onClick={() => { setIntent('problem'); setRockBanner(null) }}
+                            className="w-full min-h-11 mt-2.5 rounded-lg border border-accent bg-accent/10 text-accent font-medium text-sm cursor-pointer hover:bg-accent/[0.18]"
+                        >
+                            Add the first {noun} on it
+                        </button>
+                        <p className="text-xs text-text-muted mt-2">Or another rock &mdash; the form below's ready whenever you like.</p>
                     </div>
                 )}
                 <Breadcrumb />
@@ -448,7 +566,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         )
     }
 
-    const title = intent === 'spot' ? 'Add a spot' : intent === 'rock' ? (boulderType === 'wall' ? 'Add a wall' : 'Add a rock') : `Add a ${noun}`
+    const title = intent === 'spot' ? 'Add a spot' : intent === 'rock' ? (newRockDraft.type === 'wall' ? 'Add a wall' : 'Add a rock') : `Add a ${noun}`
 
     // Portaled to document.body, same pattern as InfoTooltip.tsx -- the
     // Footer is also position:fixed at the page root and would otherwise
@@ -457,10 +575,17 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     return createPortal((
         <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
             {toast && <Toast {...toast} />}
-            <div className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] h-[92vh] sm:h-auto sm:max-h-[calc(100vh-48px)] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-sheet-title"
+                tabIndex={-1}
+                className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] h-[92vh] sm:h-auto sm:max-h-[calc(100vh-48px)] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans outline-none"
+            >
                 <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-4">
-                    <h2 className="font-serif text-[21px] font-bold text-text">{title}</h2>
-                    <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-11 h-11 -m-1.5 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
+                    <h2 id="add-sheet-title" className="font-serif text-[21px] font-bold text-text">{title}</h2>
+                    <button type="button" onClick={handleClose} aria-label="Close" className="shrink-0 w-11 h-11 -m-1.5 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
                         <X size={20} className="shrink-0" />
                     </button>
                 </div>
@@ -469,9 +594,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                     {(['problem', 'spot', 'rock'] as AddIntent[]).map(i => (
                         <button
                             key={i}
+                            id={`add-sheet-tab-${i}`}
                             type="button"
                             role="tab"
                             aria-selected={intent === i}
+                            aria-controls="add-sheet-tabpanel"
                             onClick={() => { setIntent(i); setProblemBanner(null); setSpotBanner(null); setRockBanner(null) }}
                             className={`flex-1 min-h-[38px] rounded-lg text-[13px] font-medium cursor-pointer border-0 whitespace-nowrap px-1 ${intent === i ? 'bg-panel text-text shadow-sm' : 'bg-transparent text-text-muted'}`}
                         >
@@ -480,7 +607,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                     ))}
                 </div>
 
-                <div ref={bodyRef} className="flex-1 overflow-y-auto px-5 pt-3.5 pb-5">
+                <div ref={bodyRef} role="tabpanel" id="add-sheet-tabpanel" aria-labelledby={`add-sheet-tab-${intent}`} className="flex-1 overflow-y-auto px-5 pt-3.5 pb-5">
                     {body}
                 </div>
 

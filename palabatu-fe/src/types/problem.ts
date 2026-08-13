@@ -1,21 +1,3 @@
-// The add wizard's in-progress problem-level draft ("Tell us about the
-// climb" step) -- not a 1:1 backend mirror (grade is built up interactively
-// by the wizard's grade picker before becoming CreateProblemRequest's
-// single `grade` string; height_m stays a free-typed string here and is
-// parsed to number|null on submit), same role NewProblem played
-// pre-restructure. Crag/boulder selection lives in the wizard's own
-// orchestration state, not here -- this is only the problem's own fields.
-export type NewProblem = {
-    name: string
-    grade: string
-    first_ascensionist: string
-    discovered_by: string
-    landing_hazards: string
-    descent: string
-    height_m: string
-    notes: string
-}
-
 // Mirrors problems.CreateProblemRequest (see
 // palabatu-be/internal/problems/dto.go) -- POST /api/problems's request
 // body. boulder_id is required; crag_id is derived server-side from the

@@ -226,8 +226,13 @@ export default function CragDetailPage() {
                             </button>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {boulders.map((b, idx) => {
+                            {boulders.map(b => {
                                 const isEmpty = b.problem_count === 0
+                                // A photoless, unnamed rock identifies itself by a
+                                // problem on it, not a bare index (UX principle 3;
+                                // handoff-add-sheet.md C13 -- RockPicker.tsx already
+                                // gets this right, this page didn't).
+                                const label = b.name ?? (b.sample_problem_name ? `${b.sample_problem_name}${b.problem_count > 1 ? ', and more' : ''}` : 'No name yet')
                                 return (
                                     <Link
                                         key={b.id}
@@ -235,7 +240,7 @@ export default function CragDetailPage() {
                                         className={`relative aspect-square rounded-2xl overflow-hidden border border-border block no-underline ${isEmpty ? 'opacity-60' : ''}`}
                                     >
                                         {b.image_urls[0] ? (
-                                            <img src={b.image_urls[0]} className="w-full h-full object-cover" alt={b.name ?? `Rock ${idx + 1}`} />
+                                            <img src={b.image_urls[0]} className="w-full h-full object-cover" alt={label} />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-surface">
                                                 <Layers size={26} className="shrink-0 text-text-faint" />
@@ -243,7 +248,7 @@ export default function CragDetailPage() {
                                         )}
                                         <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(15,12,10,0.9),rgba(15,12,10,0.1)_60%,transparent)]" />
                                         <div className="absolute left-2.5 right-2.5 bottom-2.5">
-                                            <div className="font-serif text-sm font-bold text-white truncate">{b.name ?? `Rock ${idx + 1}`}</div>
+                                            <div className="font-serif text-sm font-bold text-white truncate">{label}</div>
                                             <div className="text-[10.5px] text-white/75">
                                                 {isEmpty ? 'No problems yet' : `${b.problem_count} problem${b.problem_count === 1 ? '' : 's'}`}
                                             </div>

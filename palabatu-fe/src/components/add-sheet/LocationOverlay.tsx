@@ -76,9 +76,14 @@ export default function LocationOverlay({
 
     return (
         <div className="absolute inset-0 z-10 bg-black/55 backdrop-blur-[3px] flex flex-col justify-end">
-            <div className="bg-panel border border-border border-b-0 rounded-t-[20px] max-h-[88%] flex flex-col overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.6)]">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="location-overlay-title"
+                className="bg-panel border border-border border-b-0 rounded-t-[20px] max-h-[88%] flex flex-col overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.6)]"
+            >
                 <div className="shrink-0 px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-3 border-b border-border">
-                    <h3 className="font-serif font-bold text-[17px] text-text">{intent === 'rock' ? 'Which spot?' : 'Where is it?'}</h3>
+                    <h3 id="location-overlay-title" className="font-serif font-bold text-[17px] text-text">{intent === 'rock' ? 'Which spot?' : 'Where is it?'}</h3>
                     <button type="button" onClick={onClose} aria-label="Close" className="w-11 h-11 -m-2 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
                         <X size={20} className="shrink-0" />
                     </button>

@@ -191,6 +191,34 @@ Revision history:
   `ApproachReadingPage`, and `ApproachCaptureView`'s sticky footer all fix
   this the same way: `createPortal(..., document.body)`, the same pattern
   `InfoTooltip.tsx` already used.
+- **2026-08-13 (i)** — review pass over the shipped sheet, plus the read
+  surfaces this whole restructure left behind. **No decision in this file
+  changes**; both outputs are separate documents so this one stays the
+  design record rather than becoming a bug tracker.
+  - `handoff-add-sheet.md` — 13 findings against `components/add-sheet/`.
+    Three break a path this document treats as load-bearing: the
+    new-spot → problem → "add another" loop (decisions 11 and 20) dead-ends
+    because `submitProblem` never writes the created crag's id back to
+    state; the nearest-spot default (decision 19, "the breadcrumb arrives
+    answered") never fires unless a cached GPS fix already exists, because
+    its once-only guard is set before the branch that needs `myLoc`; and a
+    failed save re-POSTs the new crag on retry, making the app itself a
+    source of the duplicate spots open item 8 has no cure for. The rest are
+    friction and housekeeping, including two places where shipped copy or
+    behaviour contradicts decisions 18 and 19 outright. Static review —
+    nothing was reproduced live; repro steps are in the file.
+  - `handoff-directory.md` — `Directory.tsx`/`ProblemList.tsx` were only
+    mechanically rejoined to the hierarchy (via `cragCache.enrichProblems`)
+    and still express the flat model they were designed for. Notably,
+    decision 2 giving the photo to the rock means a row of problem cards
+    from one boulder is now the same photograph repeated, and decision 20's
+    repeat-adding makes that the common case. Adds a spots index (the top
+    level of the hierarchy has a detail page and no list anywhere), regroups
+    each row to the level its question is asked at, and proposes drawing the
+    problem's own topo line on its card as the thing that gives a card back
+    its subject. Open item 9 is explicitly *not* closed by its
+    contribution-gap row — that's a community-facing invitation, not the
+    admin needs-attention surface.
 
 ## Background — what existed before this effort (as of 2026-08-07)
 
