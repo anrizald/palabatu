@@ -105,12 +105,33 @@ in-progress sheet continuously, so there is nothing left to confirm away.
    sheet's current mount points is naturally easier once that's true, so
    this is a soft dependency, not a hard blocker for M1.
 
-9. **No automatic expiry in M1 or M2 v1.** The list shows age; the person
-   cleans up manually. A TTL-based sweep needs cron-like infrastructure this
-   backend doesn't have yet (migrations are applied by hand, there is no
-   scheduled-job runner), and building one just for draft cleanup is scope
-   this feature doesn't need to pay for until draft volume is actually a
-   storage-cost problem. Revisit if/when it is.
+9. **No automatic deletion, ever — by design, not a placeholder.**
+   *(Sharpened 2026-08-14 after discussion — the original version of this
+   decision hedged "revisit if/when it's a problem", which was weaker than
+   the reasoning actually supports.)* A calendar TTL is the wrong shape for
+   this domain, not just an unbuilt convenience: outdoor bouldering is
+   weather-, money-, and logistics-gated, not weekly-habit gated, and
+   `handoff.md` decision 20 already treats "gone for months" as this app's
+   own normal cadence for unfinished work at a rock, not an edge case —
+   someone who scouts a spot right before the wet season may not physically
+   get back to finish that draft for 6-10 months. Any fixed number
+   (30/90/180 days) is a guess that will eventually delete real,
+   still-wanted fieldwork with no warning, and decision 18 already forbids
+   exactly that for the sheet itself ("typed content is never discarded,
+   ever") — a timed auto-delete is that same silent discard, just deferred.
+
+   So: the only thing that ever deletes a draft is the owner's own tap on
+   "Remove", or submitting it for real (decision 5). The list shows age
+   (`now() - updated_at`, computed at read time) so the person can judge for
+   themselves — it never triggers deletion on its own. If M2's Cloudinary
+   cost from abandoned draft photos ever becomes a real operational number
+   (not a hypothetical), the lever is a passive, honest nudge in the list
+   UI — "this one's over a year old — still working on it?" — never a
+   background sweep. **This means the feature likely never needs cron-like
+   infrastructure at all**, which this backend doesn't have today (no
+   scheduled-job runner; migrations are applied by hand) — the only thing a
+   scheduler could ever justify here is silent auto-delete, which this
+   decision rules out on purpose.
 
 10. **M2's staged photos upload eagerly, same as they do on final submit
     today.** The only way a photo survives to another device is if it's
