@@ -5,16 +5,24 @@ export type ToastProps = {
     message: string;
     type: "success" | "error" | "info";
     onClose: () => void;
+    /** Optional reversible-action button (e.g. "Undo") rendered inline with
+     * the message. Firing it does not by itself dismiss the toast -- call
+     * onClose from within onAction if that's also wanted. */
+    actionLabel?: string;
+    onAction?: () => void;
+    /** Auto-close delay in ms. Defaults to 3000; a reversible-action toast
+     * usually wants longer so there's time to actually tap the action. */
+    duration?: number;
 };
 
-export default function Toast({ message, type = "success", onClose }: ToastProps) {
+export default function Toast({ message, type = "success", onClose, actionLabel, onAction, duration = 3000 }: ToastProps) {
     useEffect(() => {
         const timer = setTimeout(() => {
             onClose();
-        }, 3000); // Auto close after 3 seconds
+        }, duration);
 
         return () => clearTimeout(timer);
-    }, [onClose]);
+    }, [onClose, duration]);
 
     const color = type === "error"
         ? { background: 'rgba(180,60,50,0.95)', border: '1px solid #e07060' }
@@ -36,9 +44,23 @@ export default function Toast({ message, type = "success", onClose }: ToastProps
                         color: '#f0e0c8', zIndex: 999,
                         backdropFilter: 'blur(8px)',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                        display: 'flex', alignItems: 'center', gap: '12px',
                         ...color
                     }}>
-                    {message}
+                    <span>{message}</span>
+                    {actionLabel && onAction && (
+                        <button
+                            type="button"
+                            onClick={onAction}
+                            style={{
+                                background: 'transparent', border: 'none', padding: 0,
+                                color: 'inherit', font: 'inherit', fontWeight: 600,
+                                textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {actionLabel}
+                        </button>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>

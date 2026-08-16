@@ -13,9 +13,11 @@ import type { ErrorResponse } from '../../types/apitypes.js'
 import Toast, { type ToastProps } from '../Toast.js'
 import TopoAnnotationEditor from '../topo-annotations/TopoAnnotationEditor.js'
 import LocationOverlay from './LocationOverlay.js'
+import DraftsOverlay from './DraftsOverlay.js'
 import ProblemFields from './ProblemFields.js'
 import SpotFields from './SpotFields.js'
 import RockFields from './RockFields.js'
+import { putDraft, getAllDrafts, deleteDraft, type AddSheetDraft } from './drafts.js'
 import {
     NEAR_M, haversineKm, formatDistanceM, blankSpot, blankRock, blankProblem,
     type AddIntent, type Geo, type NewSpotDraft, type NewRockDraft, type NewProblemDraft,
@@ -91,7 +93,25 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const [rockBanner, setRockBanner] = useState<{ name: string } | null>(null)
     const [spotBanner, setSpotBanner] = useState<{ id: string; name: string } | null>(null)
 
+    // Drafts (handoff-drafts.md M1, client-only IndexedDB autosave).
+    // draftId/draftCreatedAtRef track the one draft this open-to-close
+    // session is writing to -- lazily assigned on the first real keystroke,
+    // not on open (decision 3). `drafts` is the full list, used both for
+    // the "N drafts saved" affordance and the overlay's contents.
+    const [draftId, setDraftId] = useState<string | null>(null)
+    const draftCreatedAtRef = useRef<number | null>(null)
+    const draftTimerRef = useRef<number | null>(null)
+    const [drafts, setDrafts] = useState<AddSheetDraft[]>([])
+    const [draftsOverlayOpen, setDraftsOverlayOpen] = useState(false)
+    // Set only while handleClose is showing the "Saved as a draft" toast in
+    // place of the sheet itself (decision 4) -- see the early return below.
+    const [closingToast, setClosingToast] = useState<{ draftId: string } | null>(null)
+
     useEffect(() => { getAllCrags().then(setCrags) }, [])
+    useEffect(() => { void refreshDrafts() }, [])
+    async function refreshDrafts() {
+        try { setDrafts(await getAllDrafts()) } catch { /* IndexedDB unavailable -- drafts feature fails soft */ }
+    }
     useEffect(() => {
         if (!navigator.geolocation) return
         navigator.geolocation.getCurrentPosition(
@@ -224,6 +244,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             setNewSpotDraft(blankSpot)
             setCragId(res.id); setIsNewSpot(false); clearRockSelection()
             onAdded?.()
+            await clearActiveDraft()
         } finally { setSubmitting(false) }
     }
 
@@ -253,6 +274,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             const fresh = await api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${res.id}`)
             if (!('error' in fresh)) { setResolvedBoulder(fresh); setBoulderId(fresh.id) }
             onAdded?.()
+            await clearActiveDraft()
         } finally { setSubmitting(false) }
     }
 
@@ -336,6 +358,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
             await refreshCrags()
             onAdded?.()
+            await clearActiveDraft()
 
             setProblemBanner({
                 name: res.name, problemId: res.id,
@@ -365,8 +388,10 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     }
 
     // -------------------------------------------------------------- modal basics
-    // Typed content is never silently discarded (decision 18) -- closing
-    // with an in-progress draft confirms first (handoff-add-sheet.md C12).
+    // Typed content is never silently discarded (decision 18). Closing used
+    // to block on a window.confirm (handoff-add-sheet.md C12); now that
+    // every keystroke is autosaved (below), there is nothing left to
+    // confirm away -- see handleClose (handoff-drafts.md decision 4).
     function hasUnsavedInput(): boolean {
         const spotDirty = newSpotDraft.name.trim() !== '' || newSpotDraft.lat != null
             || newSpotDraft.directions.trim() !== '' || newSpotDraft.access_notes.trim() !== '' || !!newSpotDraft.photoFile
@@ -377,21 +402,115 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             || problemDraft.height_m.trim() !== '' || problemDraft.notes.trim() !== '' || !!problemDraft.photoFile
         return spotDirty || rockDirty || problemDirty
     }
-    function handleClose() {
-        if (hasUnsavedInput() && !window.confirm('Discard what you typed?')) return
+
+    // ------------------------------------------------------------- drafts (M1)
+    // A draft snapshots the sheet's *entire* live state, not just the active
+    // tab -- intent just records which tab was showing when it was saved
+    // (handoff-drafts.md's data model mirrors AddSheet's own state shape
+    // one-for-one, so there's no parallel model to keep in sync).
+    function computeDraftLabel(): string {
+        const spotLabel = resolvedCrag?.name || (isNewSpot ? newSpotDraft.name.trim() : '') || null
+        if (intent === 'rock') {
+            if (newRockDraft.name.trim()) return newRockDraft.name.trim()
+            return spotLabel ? `New rock · ${spotLabel}` : 'New rock'
+        }
+        if (intent === 'spot') return newSpotDraft.name.trim() || 'New spot'
+        if (problemDraft.name.trim()) return problemDraft.name.trim()
+        const rockLabel = resolvedBoulder?.name || resolvedBoulder?.sample_problem_name || null
+        if (rockLabel) return spotLabel ? `${rockLabel} · ${spotLabel}` : rockLabel
+        return spotLabel ? `New problem · ${spotLabel}` : 'New problem'
+    }
+
+    // Upserts the active draft and returns its id, or null if there is
+    // nothing worth saving. Idempotent -- safe to call from the debounce
+    // timer and from handleClose without double-creating a row.
+    async function saveDraftNow(): Promise<string | null> {
+        if (!hasUnsavedInput()) return null
+        const id = draftId ?? crypto.randomUUID()
+        const now = Date.now()
+        if (draftCreatedAtRef.current == null) draftCreatedAtRef.current = now
+        const draft: AddSheetDraft = {
+            id, intent, label: computeDraftLabel(),
+            createdAt: draftCreatedAtRef.current, updatedAt: now,
+            cragId, boulderId, isNewSpot, newSpotDraft, newRockDraft, problemDraft,
+        }
+        try {
+            await putDraft(draft)
+        } catch {
+            return null // IndexedDB unavailable -- fail soft, nothing to resume/undo
+        }
+        if (!draftId) setDraftId(id)
+        void refreshDrafts()
+        return id
+    }
+
+    // Debounced ~800ms after the last edit (handoff-drafts.md decision 3).
+    // Only starts once hasUnsavedInput() is true, so opening and closing
+    // the sheet without typing anything never manufactures a junk draft.
+    useEffect(() => {
+        if (!hasUnsavedInput()) return
+        if (draftTimerRef.current) window.clearTimeout(draftTimerRef.current)
+        draftTimerRef.current = window.setTimeout(() => { void saveDraftNow() }, 800)
+        return () => { if (draftTimerRef.current) window.clearTimeout(draftTimerRef.current) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [intent, cragId, boulderId, isNewSpot, newSpotDraft, newRockDraft, problemDraft])
+
+    // A draft is deleted the moment it's submitted for real, and only then
+    // or on the owner's own "Remove" tap (decision 5) -- never on a timer
+    // (decision 9).
+    async function clearActiveDraft() {
+        if (!draftId) return
+        try { await deleteDraft(draftId) } catch { /* best-effort */ }
+        setDraftId(null)
+        draftCreatedAtRef.current = null
+        void refreshDrafts()
+    }
+
+    // Loads a saved draft back into the sheet's live state. Stored preview
+    // URLs don't survive a reload (object URLs are per-page-load), so
+    // they're regenerated from the persisted File/Blob here rather than
+    // trusted as-is.
+    function loadDraft(d: AddSheetDraft) {
+        setIntent(d.intent)
+        setCragId(d.cragId)
+        setBoulderId(d.boulderId)
+        setIsNewSpot(d.isNewSpot)
+        setResolvedBoulder(null)
+        setNewSpotDraft({ ...d.newSpotDraft, photoPreview: d.newSpotDraft.photoFile ? URL.createObjectURL(d.newSpotDraft.photoFile) : null })
+        setNewRockDraft({ ...d.newRockDraft, imagePreviews: d.newRockDraft.imageFiles.map(f => URL.createObjectURL(f)) })
+        setProblemDraft({ ...d.problemDraft, photoPreview: d.problemDraft.photoFile ? URL.createObjectURL(d.problemDraft.photoFile) : null })
+        setDraftId(d.id)
+        draftCreatedAtRef.current = d.createdAt
+        if (d.boulderId) {
+            void api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${d.boulderId}`).then(b => {
+                if (!('error' in b)) setResolvedBoulder(b)
+            })
+        }
+        setDraftsOverlayOpen(false)
+    }
+
+    // Flushes any pending autosave, then either hands off to the "Saved as
+    // a draft" toast (decision 4) or closes outright if there was nothing
+    // to save this session.
+    async function handleClose() {
+        if (draftTimerRef.current) { window.clearTimeout(draftTimerRef.current); draftTimerRef.current = null }
+        const savedId = await saveDraftNow()
+        if (savedId) { setClosingToast({ draftId: savedId }); return }
         onClose()
     }
 
-    // Focus the dialog on open, Escape closes the overlay first then the
-    // sheet, and Tab is trapped inside the panel -- the overlay is a DOM
-    // child of the same panel (see the portal below), so one trap covers
-    // both (handoff-add-sheet.md C12).
+    // Focus the dialog on open, Escape closes the drafts overlay, then the
+    // location overlay, then the sheet, and Tab is trapped inside the panel
+    // -- both overlays are DOM children of the same panel (see the portal
+    // below), so one trap covers all of it (handoff-add-sheet.md C12).
     useEffect(() => { panelRef.current?.focus() }, [])
     useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {
+            if (closingToast) return
             if (e.key === 'Escape') {
                 if (overlayOpen) { setOverlayOpen(false); return }
-                handleClose()
+                if (draftsOverlayOpen) { setDraftsOverlayOpen(false); return }
+                void handleClose()
                 return
             }
             if (e.key === 'Tab' && panelRef.current) {
@@ -408,6 +527,24 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         document.addEventListener('keydown', onKeyDown)
         return () => document.removeEventListener('keydown', onKeyDown)
     })
+
+    // The sheet itself is gone; only the non-blocking "Saved as a draft"
+    // toast remains on screen until it auto-dismisses (or Undo is tapped),
+    // at which point the real onClose fires (handoff-drafts.md decision 4).
+    if (closingToast) {
+        return createPortal((
+            <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
+                <Toast
+                    message="Saved as a draft"
+                    type="success"
+                    duration={4000}
+                    actionLabel="Undo"
+                    onAction={() => { void deleteDraft(closingToast.draftId); onClose() }}
+                    onClose={onClose}
+                />
+            </div>
+        ), document.body)
+    }
 
     // -------------------------------------------------------------------- gate
     let submitLabel: string
@@ -607,6 +744,17 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                     ))}
                 </div>
 
+                {drafts.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setDraftsOverlayOpen(true)}
+                        className="shrink-0 flex items-center justify-between gap-2 mx-5 mt-3 px-1 py-1 text-[13px] text-text-muted bg-transparent border-0 cursor-pointer hover:text-text-secondary"
+                    >
+                        <span>{drafts.length} draft{drafts.length === 1 ? '' : 's'} saved</span>
+                        <ChevronRight size={14} className="shrink-0" />
+                    </button>
+                )}
+
                 <div ref={bodyRef} role="tabpanel" id="add-sheet-tabpanel" aria-labelledby={`add-sheet-tab-${intent}`} className="flex-1 overflow-y-auto px-5 pt-3.5 pb-5">
                     {body}
                 </div>
@@ -624,6 +772,14 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 </div>
 
                 {overlay}
+                {draftsOverlayOpen && (
+                    <DraftsOverlay
+                        drafts={drafts}
+                        onLoad={loadDraft}
+                        onRemove={id => { void deleteDraft(id).then(refreshDrafts) }}
+                        onClose={() => setDraftsOverlayOpen(false)}
+                    />
+                )}
             </div>
 
             {annotatingUrl && (

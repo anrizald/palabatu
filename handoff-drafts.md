@@ -1,15 +1,33 @@
 # Add-sheet drafts — design handoff
 
-Status: **proposed, not built.** Written 2026-08-14, same session as the
-`handoff-add-sheet.md` fixes, before starting `handoff-directory.md`. This
-is a design doc in the shape of `handoff.md`, not a punch list — it's new
-build, not a review of shipped code.
+Status: **Milestone 1 built 2026-08-17. Milestone 2 still proposed, not
+built.** Written 2026-08-14, same session as the `handoff-add-sheet.md`
+fixes, before starting `handoff-directory.md`. This is a design doc in the
+shape of `handoff.md`, not a punch list — it's new build, not a review of
+shipped code (M1's section now describes what actually shipped).
 
 **Two milestones, one doc.** Milestone 1 is client-side only (no backend
 change at all) and is the one that actually matters: it covers the failure
 mode this feature exists for. Milestone 2 is backend sync, which buys
 cross-device/reinstall survival at real schema-and-endpoint cost. Build M1
 first and ship it; M2 is a deliberate second pass, not a prerequisite.
+
+**M1, as shipped.** `palabatu-fe/src/components/add-sheet/drafts.ts` (a
+small promise-based wrapper over the `palabatu-add-sheet-drafts` IndexedDB
+database) plus `DraftsOverlay.tsx` (the "Your drafts" full-sheet overlay),
+wired into `AddSheet.tsx`: a debounced (800ms) autosave effect keyed off
+`hasUnsavedInput()`, lazy draft creation on the first real edit, the "N
+drafts saved" affordance and resume-into-sheet flow, `clearActiveDraft()`
+called from all three submit paths (decision 5), and `handleClose` replacing
+C12's `window.confirm` with the toast-plus-undo from decision 4 (`Toast.tsx`
+gained optional `actionLabel`/`onAction`/`duration` props for this). Verified
+live against the local Docker DB: type past the debounce, close, reopen,
+resume with fields pre-filled, and the Undo path deleting the just-created
+draft, all confirmed working. `tsc`/`eslint` clean. Not yet exercised: the
+spot/rock tabs' draft paths specifically (only the problem tab was driven
+live), and the submit-clears-the-draft path was verified by code review of
+the three call sites rather than a live submit (submitting requires a
+resolved crag, which means driving the location-picker overlay).
 
 ## Motivation
 
