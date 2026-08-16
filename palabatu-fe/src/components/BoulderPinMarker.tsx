@@ -1,18 +1,16 @@
-import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { Marker, Popup } from 'react-leaflet'
+import { buildBadgeIcon } from '../lib/mapIcons.js'
 import type { BoulderListItem } from '../types/boulder.js'
 
 // Close-zoom map layer (handoff.md open item 13): a crag's individual
 // rocks, each at their own lat/lng -- only drawn when a rock actually has
-// one (many won't; never invented). Visually distinct from the crag pin
-// (PinpointMarker) so the two layers don't read as the same kind of thing.
-const ICON = L.divIcon({
-    html: '<div style="width:14px;height:14px;border-radius:9999px;background:#8b4a18;border:2px solid #fef3e6;box-shadow:0 1px 4px rgba(0,0,0,0.5);"></div>',
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    className: '',
-})
+// one (many won't; never invented). A tailless badge, not a pin -- a
+// boulder isn't a destination you travel to, it's an object sitting at a
+// point once you've already arrived (see lib/mapIcons.ts), so it reads as
+// visually distinct from the crag pin (PinpointMarker) rather than the
+// same kind of thing at a different scale.
+const ICON = buildBadgeIcon({ ringColor: '#8b4a18', size: 18, className: 'boulder-pin-icon' })
 
 export default function BoulderPinMarker({ boulder }: { boulder: BoulderListItem }) {
     if (boulder.lat == null || boulder.lng == null) return null
