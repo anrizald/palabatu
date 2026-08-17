@@ -8,6 +8,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import PinpointMarker from '../components/PinpointMarker.js'
 import ClusterCardRail from '../components/ClusterCardRail.js'
 import CragDetailLayer from '../components/CragDetailLayer.js'
+import MapLegend from '../components/MapLegend.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { CragListItem } from '../types/crag.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
@@ -15,14 +16,9 @@ import AddSheet from '../components/add-sheet/AddSheet.js'
 import type { AddIntent } from '../components/add-sheet/types.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
 import FallbackImg from '../components/FallbackImg.js'
-import { circleButtonStyle } from '../lib/constants.js'
+import { circleButtonStyle, DETAIL_ZOOM } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
-// Below this, individual rocks/approach-starts would be too close together
-// to tell apart from the crag pin they share a neighbourhood with -- these
-// two layers (handoff.md open item 13) only earn their keep once zoomed
-// in past roughly "walking around the crag" scale.
-const DETAIL_ZOOM = 15
 // Padded bounding box around Indonesia (Sabang to Merauke) — keeps panning within the country.
 const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
     [-14.5, 89.5],
@@ -377,6 +373,16 @@ export default function MapPage() {
                     style={{
                         position: 'absolute',
                         bottom: '24px',
+                        left: '16px',
+                        zIndex: 1000,
+                    }}
+                >
+                    <MapLegend />
+                </div>
+                <div
+                    style={{
+                        position: 'absolute',
+                        bottom: '24px',
                         right: '24px',
                         zIndex: 1000, // Must be high enough to float over the map tiles
                         display: 'flex',
@@ -442,6 +448,17 @@ function ProximityClusters({ crags, onViewSpot, onAddFirst }: { crags: CragListI
     const isMobile = useIsMobile()
     const [tick, setTick] = useState(0)
     const [mobileCluster, setMobileCluster] = useState<Cluster | null>(null)
+    // Crag IDs confirmed (via CragDetailLayer's onContentAvailability) to have
+    // at least one geocoded rock or approach-start -- once true, the crag pin
+    // is genuinely redundant with what's now on screen and gets hidden
+    // outright rather than merely de-emphasized (see the render below).
+    // Grows only, never shrinks back within a session: whether a crag has any
+    // geocoded content is a fact about its data, not something that flickers.
+    const [cragsWithDetail, setCragsWithDetail] = useState<Set<string>>(new Set())
+    const markCragHasDetail = (cragId: string, hasContent: boolean) => {
+        if (!hasContent) return
+        setCragsWithDetail(prev => prev.has(cragId) ? prev : new Set(prev).add(cragId))
+    }
 
     // Only zoom needs to retrigger clustering: latLngToContainerPoint distances
     // between markers are pan-invariant (panning is a pure translation that
@@ -517,26 +534,43 @@ function ProximityClusters({ crags, onViewSpot, onAddFirst }: { crags: CragListI
                     const item = c.items[0]
                     if (!item) return null
                     const isEmpty = item.problem_count === 0
+                    const showDetail = currentZoom >= DETAIL_ZOOM
+                    const hasDetail = cragsWithDetail.has(item.id)
                     return (
                         <Fragment key={item.id}>
-                            <PinpointMarker
-                                position={[item.lat, item.lng]}
-                                name={item.name}
-                                directions={item.directions}
-                                boulderCount={item.boulder_count}
-                                problemCount={item.problem_count}
-                                creatorName={item.creator_name}
-                                zoom={currentZoom}
-                                dimmed={isEmpty}
-                                onViewSpot={() => onViewSpot(item)}
-                                onAddFirst={() => onAddFirst(item)}
-                            />
+                            {/* Crag pin: hidden outright once its own rocks/trail
+                                are confirmed on screen (genuinely redundant at
+                                that point, not just crowded); de-emphasized
+                                (capped size, no bounce) while zoomed in but
+                                before that's confirmed, since it may still be
+                                the only marker this crag has -- many rocks have
+                                no coordinate at all (handoff.md open item 13). */}
+                            {!(showDetail && hasDetail) && (
+                                <PinpointMarker
+                                    position={[item.lat, item.lng]}
+                                    name={item.name}
+                                    directions={item.directions}
+                                    boulderCount={item.boulder_count}
+                                    problemCount={item.problem_count}
+                                    creatorName={item.creator_name}
+                                    zoom={currentZoom}
+                                    dimmed={isEmpty}
+                                    deemphasized={showDetail}
+                                    onViewSpot={() => onViewSpot(item)}
+                                    onAddFirst={() => onAddFirst(item)}
+                                />
+                            )}
                             {/* Close-zoom layers (handoff.md open item 13):
                                 a crag's own rocks and its approaches' start
                                 points, each at their own coordinate --
                                 distinct from this far-out "there's climbing
                                 here" pin. */}
-                            {currentZoom >= DETAIL_ZOOM && <CragDetailLayer cragId={item.id} />}
+                            {showDetail && (
+                                <CragDetailLayer
+                                    cragId={item.id}
+                                    onContentAvailability={hasContent => markCragHasDetail(item.id, hasContent)}
+                                />
+                            )}
                         </Fragment>
                     )
                 }

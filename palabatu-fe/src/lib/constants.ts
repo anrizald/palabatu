@@ -36,6 +36,15 @@ export function detectGradeScale(token: string): { type: ProblemType; scale: str
     return null;
 }
 
+// Below this zoom level, individual rocks/approach-starts would be too close
+// together to tell apart from the crag pin they share a neighbourhood with --
+// the two close-zoom map layers (handoff.md open item 13) only earn their
+// keep once zoomed in past roughly "walking around the crag" scale. Shared
+// between Map.tsx (gates when CragDetailLayer mounts) and PinpointMarker.tsx
+// (caps the crag pin's own size growth once detail pins join it, see the
+// 2026-08-17 de-emphasis pass) so the two can't drift out of sync.
+export const DETAIL_ZOOM = 15;
+
 export const circleButtonStyle = {
     background: '#141210',
     border: '1px solid #c87a30',

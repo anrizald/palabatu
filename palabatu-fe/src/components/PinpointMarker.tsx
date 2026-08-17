@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import ClusterCardRail from './ClusterCardRail.js'
 import InfoTooltip, { ADDED_BY_DISCLAIMER } from './InfoTooltip.js'
 import { renderBadgeSvg, renderTeardropSvg } from '../lib/mapIcons.js'
+import { DETAIL_ZOOM } from '../lib/constants.js'
 import type { CragListItem } from '../types/crag.js'
 
 // One pin per crag (handoff.md decision 3) -- boulders and problems don't
@@ -13,6 +14,15 @@ import type { CragListItem } from '../types/crag.js'
 // "someone marked this, nobody's documented it yet" empty-crag state
 // (handoff.md open item 1): visible, but visually distinct from a crag
 // with real content, with its own CTA rather than fading into nothing.
+// `deemphasized` is the separate, orthogonal "this crag's rocks/approach are
+// now sharing the map with me" state (2026-08-17 pass, prompted by "spot pin
+// feels redundant and crowded once you're zoomed into a crag with real close-
+// zoom content"): caps this pin's size growth at its DETAIL_ZOOM value
+// instead of continuing to grow toward MAX_ZOOM, and drops the bounce, so it
+// recedes rather than dominating over the rock/trail pins doing the precision
+// job at that point. Map.tsx only sets this once CragDetailLayer is mounted
+// but hasn't confirmed it actually drew anything yet -- once it has, Map.tsx
+// stops rendering this marker altogether rather than deemphasizing further.
 type Props = {
     position: [number, number]
     name?: string
@@ -23,6 +33,7 @@ type Props = {
     type?: 'pinpoint' | 'cluster'
     zoom?: number
     dimmed?: boolean
+    deemphasized?: boolean
     onViewSpot?: () => void
     onAddFirst?: () => void
     clusterItems?: CragListItem[]
@@ -53,7 +64,7 @@ const CLUSTER_FALLBACK_URI = `data:image/svg+xml,${encodeURIComponent(renderBadg
 
 export default function PinpointMarker({
     position, name, directions, boulderCount = 0, problemCount = 0, creatorName, type = 'pinpoint', zoom = MAX_ZOOM,
-    dimmed = false, onViewSpot, onAddFirst, clusterItems, onSelectItem, onClusterTap,
+    dimmed = false, deemphasized = false, onViewSpot, onAddFirst, clusterItems, onSelectItem, onClusterTap,
 }: Props) {
     const markerRef = useRef<L.Marker>(null)
 
@@ -61,18 +72,20 @@ export default function PinpointMarker({
         const dpr = window.devicePixelRatio || 1
         const assetSize = dpr >= 3 ? 96 : dpr >= 2 ? 64 : 32
         const baseName = type === 'cluster' ? 'pinpoint-cluster' : 'pinpoint'
-        const size = iconSizeForZoom(zoom)
+        const effectiveZoom = deemphasized ? Math.min(zoom, DETAIL_ZOOM) : zoom
+        const size = iconSizeForZoom(effectiveZoom)
         const fallbackUri = type === 'cluster' ? CLUSTER_FALLBACK_URI : PINPOINT_FALLBACK_URI
         const opacity = dimmed ? 0.5 : 1
+        const bounceClass = deemphasized ? '' : ' pinpoint-marker-bounce'
 
         return L.divIcon({
-            html: `<img src="/assets/pointers/${baseName}-${assetSize}.png" style="width:${size}px;height:${size}px;opacity:${opacity}" class="pinpoint-marker-bounce" onerror="this.onerror=null;this.src='${fallbackUri}'" />`,
+            html: `<img src="/assets/pointers/${baseName}-${assetSize}.png" style="width:${size}px;height:${size}px;opacity:${opacity}" class="${bounceClass}" onerror="this.onerror=null;this.src='${fallbackUri}'" />`,
             iconSize: [size, size],
             iconAnchor: [size / 2, size],
             popupAnchor: [0, -size],
             className: 'pinpoint-marker-icon',
         })
-    }, [type, zoom, dimmed])
+    }, [type, zoom, dimmed, deemphasized])
 
     useEffect(() => {
         markerRef.current?.setIcon(markerIcon)
