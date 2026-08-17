@@ -1,10 +1,13 @@
 # Directory & All Problems — design handoff
 
-Status: **design only, nothing built.** Companion to `handoff.md` (the
-crags/boulders/problems restructure and the add sheet), which stays the
-source of truth for everything on the *write* side. This file covers the two
-*read* surfaces that restructure left behind: `/directory` (`Directory.tsx`)
-and `/directory/all` (`ProblemList.tsx`).
+Status: **Sequencing steps 1-2 of 7 shipped 2026-08-17; steps 3-7 still
+design only.** Step 1 (card unification, decisions 4/6, findings 3/7/12) and
+step 2 (`AddSheet` to the app root, decision 10, finding 8) are built and
+verified live — see the Sequencing section below for what each covered.
+Companion to `handoff.md` (the crags/boulders/problems restructure and the
+add sheet), which stays the source of truth for everything on the *write*
+side. This file covers the two *read* surfaces that restructure left behind:
+`/directory` (`Directory.tsx`) and `/directory/all` (`ProblemList.tsx`).
 
 Read `handoff.md`'s "UX principles" section first — every principle there
 applies here unchanged and is not repeated below. `PRODUCT.md` and
@@ -68,6 +71,8 @@ shipped code, not proposals; the proposals are the Decisions section.
    still a project" (`add-sheet/ProblemFields.tsx:55`). The result is a bare
    accent-bordered pill with nothing in it. The single most encouraged new
    state in the add flow has no representation on the read side.
+   **Fixed 2026-08-17** (decision 4, sequencing step 1) — see `GradeChip` in
+   `components/ProblemCard.tsx`.
 
 4. **The Type filter guesses from the grade string.** `ProblemList.tsx:71-73`
    derives boulder-vs-rope by scanning the grade token through
@@ -97,6 +102,9 @@ shipped code, not proposals; the proposals are the Decisions section.
    to the problem. Now that crags and boulders have real pages, that string is
    the most obvious navigation affordance on the card and it does nothing.
    `boulder_name` isn't shown at all, so a card cannot say which rock it's on.
+   **Fixed 2026-08-17** (decision 6, sequencing step 1) — see `SpotLine` in
+   `components/ProblemCard.tsx`; the rock segment is omitted when the boulder
+   has no name rather than inventing a fallback label.
 
 8. **The primary CTA doesn't do what it says.** Directory's "Add a problem"
    button links to `/map` (`Directory.tsx:171-176`, and again in the empty
@@ -108,6 +116,11 @@ shipped code, not proposals; the proposals are the Decisions section.
    navigates to the map, loads Leaflet and a screen of satellite tiles to
    show a form, and leaves you on the map afterwards instead of back on the
    page you were documenting.
+   **Fixed 2026-08-17** (decision 10, sequencing step 2) — `AddSheetProvider`
+   mounted at the app root; Directory's CTA, `CragDetailPage`'s "Add a
+   rock"/"Add the first one", and `BoulderDetailPage`'s "Add a problem" all
+   open the sheet in place now. Verified live: the URL no longer changes when
+   opening from any of these.
 
 9. **The stat bar undercounts spots.** `Directory.tsx:159` counts distinct
    `crag_id`s *among problems*, so every empty spot — the dimmed-pin
@@ -139,6 +152,9 @@ shipped code, not proposals; the proposals are the Decisions section.
     inline markup (`Directory.tsx:212-285`). Every fix below otherwise has to
     be made three times — and finding 3 (the empty grade pill) is already
     present in at least two of them.
+    **Fixed 2026-08-17** (sequencing step 1) — one `ProblemCard` with a
+    `variant?: 'grid' | 'hero'` prop; Landing's local copy and the Spotlight's
+    inline markup are both gone.
 
 ---
 
@@ -184,7 +200,8 @@ shipped code, not proposals; the proposals are the Decisions section.
    Where a problem has no line drawn, the card shows the bare rock photo,
    and that absence is itself worth surfacing (decision 8).
 
-4. **Ungraded is a state called "Project", never an empty pill.** Render the
+4. **Ungraded is a state called "Project", never an empty pill.** *(Shipped
+   2026-08-17, sequencing step 1.)* Render the
    grade badge only when there is a grade; otherwise render a visually
    distinct "Project" chip — outlined, Weathered Stone, not accent, because
    it is information rather than an achievement. It is also a first-class
@@ -199,7 +216,9 @@ shipped code, not proposals; the proposals are the Decisions section.
    *which grade chips to offer* once a type is chosen. This also makes the
    noun switch (decision 9) mechanical rather than a second guess.
 
-6. **Every crag and rock name in the directory is a link.** Crag name → the
+6. **Every crag and rock name in the directory is a link.** *(Shipped
+   2026-08-17, sequencing step 1 — the problem card only; `/directory/spots`
+   and `/directory/all`'s spot filter still want step 3/5.)* Crag name → the
    crag page. Rock name → the rock page. Both appear on a problem card: the
    spot on the first line (it answers "can I get there"), the rock on the
    second (it answers "what else is on it"). This is the cheapest possible
@@ -242,7 +261,9 @@ shipped code, not proposals; the proposals are the Decisions section.
    UX principle 6 exactly. So: *"14 lines on 3 rocks"* for a spot; *"Add
    route"* / *"a route on this wall"* for one item on a wall.
 
-10. **The Add CTA opens the sheet, from wherever it is.** Mount `AddSheet`
+10. **The Add CTA opens the sheet, from wherever it is.** *(Shipped
+    2026-08-17, sequencing step 2 — also closes `handoff-add-sheet.md`'s
+    B4.)* Mount `AddSheet`
     once at the app level rather than inside `Map.tsx`, and drive it from a
     small piece of shared state (context or a URL param handled at the route
     root). Then the directory's button opens the sheet in place, and — the
@@ -252,6 +273,14 @@ shipped code, not proposals; the proposals are the Decisions section.
     the directory needs it, but it fixes the add flow's worst navigational
     tax at the same time; see `handoff.md` UX principle 1 on context entry
     points.
+
+    **As built:** context, not a URL param — `palabatu-fe/src/lib/
+    addSheetContextInstance.ts` + `useAddSheet.ts` + `AddSheetContext.tsx`
+    (split three ways the same way `AuthContext` already is, to satisfy the
+    fast-refresh lint rule), `AddSheetProvider` mounted once in `App.tsx`
+    above `<Routes>`. The old `?addToCrag=`/`?addToBoulder=`/`?addIntent=`
+    query-param deep link is gone outright rather than kept alongside the
+    context — nothing outside `Map.tsx` referenced it.
 
 11. **All Problems keeps its job and gains the filters the model now has.**
     It is the "I know what I want" surface and should stay dense and fast.
@@ -414,30 +443,53 @@ is faster (no round-trip per keystroke) and simpler. Don't pre-build it.
 
 ## Blast radius
 
-- `palabatu-fe/src/pages/Directory.tsx` — rewritten (rows regrouped, gap row,
-  stats, CTA).
-- `palabatu-fe/src/pages/ProblemList.tsx` — filters extended, type filter
-  fixed, sort default changed.
-- `palabatu-fe/src/pages/SpotList.tsx` — **new**, plus a route in `App.tsx`
-  and a nav entry.
-- `palabatu-fe/src/components/ProblemCard.tsx` — grade/Project, links, rock
-  line, optional annotation overlay, `variant="hero"`.
-- **New**: a spot card and a rock card component, or one card with variants —
-  decide when building; don't create a single-use abstraction per row.
-- `palabatu-fe/src/pages/Landing.tsx` — its local `ProblemCard` (`:120`) is
-  deleted in favour of the shared one; its Near You row inherits decision 2.
-- `palabatu-fe/src/lib/cragCache.ts` — `enrichProblems` gains `boulder_type`
-  (and shrinks once tier 1 lands); a spot-level aggregate helper for the
-  Near You row.
-- `palabatu-fe/src/pages/Map.tsx` — `AddSheet` moves out to the app root
-  (decision 10); `Map.tsx` keeps its FAB and drives the shared state.
-- `palabatu-fe/src/pages/CragDetailPage.tsx` / `BoulderDetailPage.tsx` — the
-  `/map?addTo...` navigations become in-place sheet opens.
-- `palabatu-fe/src/types/problem.ts` — `EnrichedProblem` gains
-  `boulderType`; `NewProblem` (`:8`) is dead since `components/add-flow/`
-  was deleted and should go with this pass.
+Done items below shipped 2026-08-17 as sequencing steps 1-2; everything else
+is still pending.
+
+- `palabatu-fe/src/components/ProblemCard.tsx` — **done:** grade/Project
+  (decision 4), crag/rock links (decision 6), `variant="hero"` (finding 12).
+  Still pending: the topo-line overlay (decision 3, step 6, tier-1-gated).
+- `palabatu-fe/src/pages/Landing.tsx` — **done:** its local `ProblemCard`
+  (`:120`) is deleted in favour of the shared one. Still pending: its Near
+  You row is still problem-granular, not yet grouped into spots per
+  decision 2 (step 4).
+- `palabatu-fe/src/pages/Directory.tsx` — **done:** the Spotlight hero now
+  uses `ProblemCard variant="hero"` instead of ~90 lines of inline markup,
+  and the "Add a problem" CTA (header + empty state) opens the sheet in
+  place instead of linking to `/map`. Still pending: rows regrouped, gap
+  row, and the stat bar (finding 9) — step 4.
+- `palabatu-fe/src/pages/ProblemList.tsx` — **partially done as a side
+  effect:** already renders the shared `ProblemCard`, so it inherited the
+  grade/Project chip and crag/rock links for free — decision 11's "rock line
+  under each card's name" is therefore already satisfied here. Still
+  pending: the spot filter, Project-as-filter-chip, and the type filter
+  (step 5, the last tier-1-gated).
+- `palabatu-fe/src/pages/Map.tsx` — **done:** `AddSheet` moved out to the app
+  root (decision 10); `Map.tsx` keeps its FAB and calls `useAddSheet()`. The
+  `?addToCrag=`/`?addToBoulder=`/`?addIntent=` query-param deep link is
+  removed outright (nothing outside this file referenced it).
+- `palabatu-fe/src/pages/CragDetailPage.tsx` / `BoulderDetailPage.tsx` —
+  **done:** the `/map?addTo...` navigations are now in-place `openAddSheet()`
+  calls.
+- **New, done:** `palabatu-fe/src/lib/addSheetContextInstance.ts` +
+  `useAddSheet.ts` + `AddSheetContext.tsx` — the shared state decision 10
+  asked for, split three ways the same way `AuthContext` already is (fast
+  refresh requires a hook's file to only export the hook).
+- `palabatu-fe/src/App.tsx` — **done:** `AddSheetProvider` wraps the routed
+  app, above `<Routes>`.
+- `palabatu-fe/src/pages/SpotList.tsx` — **pending:** new, plus a route in
+  `App.tsx` and a nav entry (step 3).
+- **Pending:** a spot card and a rock card component, or one card with
+  variants — decide when building; don't create a single-use abstraction per
+  row (step 3).
+- `palabatu-fe/src/lib/cragCache.ts` — **pending:** `enrichProblems` gains
+  `boulder_type` (and shrinks once tier 1 lands); a spot-level aggregate
+  helper for the Near You row (steps 4/6).
+- `palabatu-fe/src/types/problem.ts` — **pending:** `EnrichedProblem` gains
+  `boulderType`; `NewProblem` (`:8`) is still dead since
+  `components/add-flow/` was deleted and should go with this pass (step 6).
 - Backend, tier 1 only: `internal/problems/repository.go` (the list query),
-  `docs/swagger.json`, `src/types/api.d.ts`.
+  `docs/swagger.json`, `src/types/api.d.ts` — **pending** (step 6).
 
 Untouched: schema, the add sheet's own components, approaches, the merge
 flow, authz.
@@ -449,12 +501,22 @@ flow, authz.
 Ordered so every step is shippable on its own and nothing is blocked on the
 backend.
 
-1. **Card unification + the two content bugs.** One `ProblemCard`, delete
+1. ~~**Card unification + the two content bugs.** One `ProblemCard`, delete
    `Landing.tsx`'s copy, fold in the Spotlight hero; grade→Project
    (decision 4); crag/rock links (decision 6). Smallest diff, fixes the most
-   visible defect, and everything after it builds on one component.
-2. **`AddSheet` to the app root** (decision 10). Independent of the rest, and
-   the CTA fixes on every page depend on it.
+   visible defect, and everything after it builds on one component.~~
+   **Done 2026-08-17.** Verified live (screenshots at 360px and desktop
+   against the local Docker DB, including an ungraded problem and a problem
+   whose rock has a name); `tsc`/`eslint` clean. One bug caught and fixed
+   during verification: a percentage `max-width` on a flex item with no
+   definite width was collapsing the Spotlight's crag/rock line almost to
+   nothing — replaced with `flex-1`/`min-w-0`.
+2. ~~**`AddSheet` to the app root** (decision 10). Independent of the rest, and
+   the CTA fixes on every page depend on it.~~ **Done 2026-08-17.** Verified
+   live (scripted through all four entry points, logged in): URL stays
+   unchanged opening from Directory/CragDetailPage/BoulderDetailPage, each
+   pre-seeds correctly; `tsc`/`eslint` clean. Also closes
+   `handoff-add-sheet.md`'s B4.
 3. **`/directory/spots`** (decision 1). Entirely tier 0; the highest-value
    single addition in this document.
 4. **Regroup the directory rows** (decision 2) + the stat-bar count

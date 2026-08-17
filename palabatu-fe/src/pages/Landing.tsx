@@ -2,7 +2,9 @@ import { api } from "../lib/api.js";
 import { enrichProblems } from "../lib/cragCache.js";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { Compass, Flame, Clock } from 'lucide-react';
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
+import { ProblemCard, type FooterStat } from '../components/ProblemCard.js';
 import Toast from '../components/Toast.js';
 import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
@@ -10,7 +12,7 @@ import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
 type Geo = { lat: number; lng: number };
-type CardItem = { problem: EnrichedProblem; badge: string; icon: 'pin' | 'flame' | 'clock' };
+type CardItem = { problem: EnrichedProblem; footerStat: FooterStat };
 
 const CARD_LIMIT = 10;
 
@@ -111,35 +113,6 @@ function InstagramIcon() {
     );
 }
 
-function TabIcon({ icon }: { icon: CardItem['icon'] }) {
-    if (icon === 'flame') return <FlameIcon />;
-    if (icon === 'clock') return <ClockIcon />;
-    return <PinIcon />;
-}
-
-function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: EnrichedProblem) => void }) {
-    const { problem, badge, icon } = item;
-    return (
-        <div className="p-card" onClick={() => onSelect(problem)}>
-            <h3 className="p-card-title">{problem.name || 'Problem Name'}</h3>
-            <p className="p-card-loc">{problem.crag_name || 'Unknown Location'}</p>
-            <div className="p-card-row">
-                <span className="p-card-grade">{problem.grade || '—'}</span>
-                <span className="p-card-badge"><TabIcon icon={icon} />{badge}</span>
-            </div>
-            <div className="p-card-foot">
-                Added by{' '}
-                <Link
-                    to={`/profile/${problem.creator_slug}`}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {problem.creator_name || 'unknown'}
-                </Link>
-            </div>
-        </div>
-    );
-}
-
 export default function Landing() {
     const { user, showToast, toast } = useAuth();
     const navigate = useNavigate();
@@ -191,7 +164,7 @@ export default function Landing() {
             .slice(0, CARD_LIMIT)
             .map(problem => {
                 const count = problem.send_count ?? 0;
-                return { problem, badge: `${count} send${count === 1 ? '' : 's'}`, icon: 'flame' as const };
+                return { problem, footerStat: { icon: Flame, label: `${count} send${count === 1 ? '' : 's'}` } };
             })
     ), [problems]);
 
@@ -200,7 +173,7 @@ export default function Landing() {
             .filter(p => p.created_at)
             .sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
             .slice(0, CARD_LIMIT)
-            .map(problem => ({ problem, badge: formatRelativeTime(problem.created_at as string), icon: 'clock' as const }))
+            .map(problem => ({ problem, footerStat: { icon: Clock, label: formatRelativeTime(problem.created_at as string) } }))
     ), [problems]);
 
     const nearYouItems = useMemo<CardItem[]>(() => {
@@ -210,7 +183,7 @@ export default function Landing() {
             .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.mapLat!, lng: problem.mapLng! }) }))
             .sort((a, b) => a.distanceKm - b.distanceKm)
             .slice(0, CARD_LIMIT)
-            .map(({ problem, distanceKm }) => ({ problem, badge: formatDistance(distanceKm), icon: 'pin' as const }));
+            .map(({ problem, distanceKm }) => ({ problem, footerStat: { icon: Compass, label: formatDistance(distanceKm) } }));
     }, [problems, geo]);
 
     const activeItems = activeTab === 'hot' ? hotItems : activeTab === 'recent' ? recentItems : nearYouItems;
@@ -337,26 +310,13 @@ export default function Landing() {
 
         /* --- cards --- */
         .card-row { display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 12px; scroll-snap-type: x proximity; }
-        .p-card {
-            scroll-snap-align: start;
+        /* Loading placeholder only -- the real cards are the shared
+           components/ProblemCard.tsx, styled via Tailwind theme tokens. */
+        .p-card-skeleton {
             min-width: 236px; max-width: 236px;
             background: #141210; border: 1px solid #2a2420; border-radius: 16px;
-            padding: 18px; cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
+            padding: 18px;
         }
-        .p-card:hover { transform: translateY(-4px); border-color: #c87a30; }
-        .p-card-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; color: #f0e0c8; margin: 0 0 6px; }
-        .p-card-loc { font-size: 12px; color: #6a5848; margin: 0 0 12px; font-family: 'DM Sans', sans-serif; }
-        .p-card-row { display: flex; align-items: center; gap: 8px; }
-        .p-card-grade {
-            font-size: 11px; padding: 3px 10px;
-            background: rgba(200,122,48,0.12); border: 1px solid #c87a3040;
-            color: #c87a30; border-radius: 20px; font-family: 'DM Sans', sans-serif;
-        }
-        .p-card-badge { font-size: 11px; color: #8a7060; display: flex; align-items: center; gap: 4px; font-family: 'DM Sans', sans-serif; }
-        .p-card-badge svg { width: 12px; height: 12px; }
-        .p-card-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2420; font-size: 11px; color: #6a5848; font-family: 'DM Sans', sans-serif; }
-        .p-card-foot a { color: #c87a30; text-decoration: none; font-weight: 600; }
 
         .locked-card {
             background: #141210; border: 1px dashed #2a2420; border-radius: 16px;
@@ -528,7 +488,7 @@ export default function Landing() {
                         ) : isLoading ? (
                             <div className="card-row">
                                 {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="p-card">
+                                    <div key={i} className="p-card-skeleton">
                                         <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
                                         <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
                                         <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
@@ -546,7 +506,13 @@ export default function Landing() {
                         ) : (
                             <div className="card-row">
                                 {activeItems.map(item => (
-                                    <ProblemCard key={item.problem.id} item={item} onSelect={(p) => navigate(`/problems/${p.id}`)} />
+                                    <ProblemCard
+                                        key={item.problem.id}
+                                        problem={item.problem}
+                                        navigate={navigate}
+                                        footerStat={item.footerStat}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
                                 ))}
                             </div>
                         )}

@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css'
 import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
 import { getAllCrags } from '../lib/cragCache.js'
 import { useAuth } from '../lib/useAuth.js'
+import { useAddSheet } from '../lib/useAddSheet.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -12,8 +13,6 @@ import MapLegend from '../components/MapLegend.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import type { CragListItem } from '../types/crag.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
-import AddSheet from '../components/add-sheet/AddSheet.js'
-import type { AddIntent } from '../components/add-sheet/types.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
 import FallbackImg from '../components/FallbackImg.js'
 import { circleButtonStyle, DETAIL_ZOOM } from '../lib/constants.js'
@@ -280,14 +279,11 @@ function LocateMeButton() {
 
 export default function MapPage() {
     const [crags, setCrags] = useState<CragListItem[]>([])
-    const [showAddSheet, setShowAddSheet] = useState(false)
-    const [addSheetSeed, setAddSheetSeed] = useState<{ cragId?: string; boulderId?: string; intent?: AddIntent }>({})
     const { user } = useAuth()
+    const { openAddSheet } = useAddSheet()
     const navigate = useNavigate()
     // const center: [number, number] = [-7.797068, 110.370529]
     const center: [number, number] = [-2.5, 118.0]
-    const [toast, setToast] = useState<ToastProps | null>(null);
-    const [searchParams, setSearchParams] = useSearchParams()
 
     const canAdd = !!user;
 
@@ -297,45 +293,10 @@ export default function MapPage() {
 
     useEffect(() => { loadCrags() }, [])
 
-    // Deep link from a crag/boulder page's "+ Add" CTA (handoff.md's add
-    // sheet re-entering pre-seeded, per UX principle 4 -- never re-ask a
-    // question already answered).
-    useEffect(() => {
-        const addToCrag = searchParams.get('addToCrag')
-        const addToBoulder = searchParams.get('addToBoulder')
-        const addIntent = searchParams.get('addIntent') as AddIntent | null
-        if (addToCrag || addToBoulder) {
-            if (!user) {
-                setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
-            } else {
-                setAddSheetSeed({
-                    ...(addToCrag ? { cragId: addToCrag } : {}),
-                    ...(addToBoulder ? { boulderId: addToBoulder } : {}),
-                    ...(addIntent ? { intent: addIntent } : {}),
-                })
-                setShowAddSheet(true)
-            }
-            searchParams.delete('addToCrag')
-            searchParams.delete('addToBoulder')
-            searchParams.delete('addIntent')
-            setSearchParams(searchParams, { replace: true })
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    const handleFAB = () => {
-        if (!user) {
-            setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
-            return;
-        }
-
-        setAddSheetSeed({})
-        setShowAddSheet(true)
-    }
+    const handleFAB = () => openAddSheet({ onAdded: loadCrags })
 
     return (
         <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
-            {toast && <Toast {...toast} />}
             <MapContainer
                 center={center}
                 zoom={5}
@@ -420,19 +381,9 @@ export default function MapPage() {
                 <ProximityClusters
                     crags={crags}
                     onViewSpot={crag => navigate(`/crags/${crag.id}`)}
-                    onAddFirst={crag => { setAddSheetSeed({ cragId: crag.id }); setShowAddSheet(true) }}
+                    onAddFirst={crag => openAddSheet({ cragId: crag.id, onAdded: loadCrags })}
                 />
             </MapContainer>
-
-            {showAddSheet && (
-                <AddSheet
-                    onClose={() => setShowAddSheet(false)}
-                    onAdded={() => { loadCrags() }}
-                    {...(addSheetSeed.intent ? { initialIntent: addSheetSeed.intent } : {})}
-                    {...(addSheetSeed.cragId ? { initialCragId: addSheetSeed.cragId } : {})}
-                    {...(addSheetSeed.boulderId ? { initialBoulderId: addSheetSeed.boulderId } : {})}
-                />
-            )}
         </div>
     )
 }

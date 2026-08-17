@@ -2,9 +2,9 @@ import { api } from '../lib/api.js';
 import { enrichProblems } from '../lib/cragCache.js';
 import { Link, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { MapPin, Navigation, Mountain, Clock, Compass, Plus, ArrowRight } from 'lucide-react';
-import FallbackImg from '../components/FallbackImg.js';
+import { Mountain, Clock, Compass, Plus, ArrowRight } from 'lucide-react';
 import { ProblemCard, type FooterStat } from '../components/ProblemCard.js';
+import { useAddSheet } from '../lib/useAddSheet.js';
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
@@ -91,6 +91,7 @@ export default function Directory() {
     const [locateError, setLocateError] = useState<string | null>(null);
 
     const navigate = useNavigate();
+    const { openAddSheet } = useAddSheet();
 
     const fetchProblems = useCallback(() => {
         setIsLoading(true);
@@ -168,12 +169,12 @@ export default function Directory() {
                             What's hot, what's fresh, and what's climbable nearby. Scroll around, then go find your next project.
                         </p>
                     </div>
-                    <Link
-                        to="/map"
-                        className="shrink-0 inline-flex items-center justify-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)] transition-all"
+                    <button
+                        onClick={() => openAddSheet({ onAdded: fetchProblems })}
+                        className="shrink-0 inline-flex items-center justify-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)] transition-all cursor-pointer"
                     >
                         <Plus size={16} className="shrink-0" /> Add a problem
-                    </Link>
+                    </button>
                 </div>
 
                 {!isLoading && !loadError && problems.length > 0 && (
@@ -200,88 +201,19 @@ export default function Directory() {
                     <div className="flex flex-col items-center gap-3 text-center py-16">
                         <Mountain size={32} className="text-text-faint shrink-0" />
                         <p className="text-text-muted">No problems added yet. Be the first to map one.</p>
-                        <Link
-                            to="/map"
-                            className="mt-1 inline-flex items-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)] transition-all"
+                        <button
+                            onClick={() => openAddSheet({ onAdded: fetchProblems })}
+                            className="mt-1 inline-flex items-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium text-on-accent shadow-[0_2px_12px_rgba(200,122,48,0.3)] bg-gradient-to-br from-accent to-accent-dark hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(200,122,48,0.4)] transition-all cursor-pointer"
                         >
                             <Plus size={16} className="shrink-0" /> Add a problem
-                        </Link>
+                        </button>
                     </div>
                 ) : (
                     <>
                         {spotlight && (
                             <section className="mb-10">
                                 <h2 className="font-serif text-xl font-bold text-text mb-3">Spotlight</h2>
-                                <div
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-label={`View details for ${spotlight.name}`}
-                                    onClick={() => navigate(`/problems/${spotlight.id}`)}
-                                    onKeyDown={(e) => {
-                                        if (e.target !== e.currentTarget) return;
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            navigate(`/problems/${spotlight.id}`);
-                                        }
-                                    }}
-                                    className="group relative rounded-2xl overflow-hidden bg-panel border border-border hover:border-accent focus-visible:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 cursor-pointer transition-colors"
-                                >
-                                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface">
-                                        {spotlight.thumbnailUrl ? (
-                                            <FallbackImg
-                                                src={spotlight.thumbnailUrl}
-                                                alt=""
-                                                width={1100}
-                                                height={620}
-                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                fallback={Mountain}
-                                                fallbackColor="var(--color-text-faint)"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Mountain size={48} className="text-text-faint shrink-0" />
-                                            </div>
-                                        )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-ink to-transparent" />
-
-                                        <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="bg-ink border border-accent/40 text-accent px-3 py-1 rounded-full text-[13px] font-bold">
-                                                    {spotlight.grade}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-xs text-text-secondary">
-                                                    <MapPin size={12} className="shrink-0" /> {spotlight.crag_name || 'Spot not set'}
-                                                </span>
-                                            </div>
-                                            <h3 className="font-serif text-3xl sm:text-4xl font-bold text-text mb-2">{spotlight.name}</h3>
-                                            <div className="text-xs text-text-dim">
-                                                by{' '}
-                                                <Link
-                                                    to={`/profile/${spotlight.creator_slug}`}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="text-accent font-bold no-underline hover:underline"
-                                                >
-                                                    {spotlight.creator_name || 'unknown'}
-                                                </Link>
-                                                {' '}· {spotlight.send_count || 0} {spotlight.send_count === 1 ? 'send' : 'sends'}
-                                            </div>
-                                        </div>
-
-                                        {spotlight.mapLat != null && spotlight.mapLng != null && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/map?lat=${spotlight.mapLat}&lng=${spotlight.mapLng}`);
-                                                }}
-                                                aria-label={`Locate ${spotlight.name} on the map`}
-                                                title="Locate on map"
-                                                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-ink border border-border text-text-muted hover:text-accent hover:border-accent rounded-full cursor-pointer transition-colors"
-                                            >
-                                                <Navigation size={15} className="shrink-0" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                                <ProblemCard problem={spotlight} navigate={navigate} variant="hero" />
                             </section>
                         )}
 

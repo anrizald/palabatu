@@ -4,6 +4,7 @@ import { Compass, Layers, MapPin, Pencil, Plus, Footprints } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
+import { useAddSheet } from '../lib/useAddSheet.js'
 import { invalidateCragCache } from '../lib/cragCache.js'
 import type { CragListItem, CragRequest } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
@@ -24,6 +25,7 @@ export default function CragDetailPage() {
     const { user } = useAuth()
     const isAdmin = useIsAdmin()
     const navigate = useNavigate()
+    const { openAddSheet } = useAddSheet()
 
     const [crag, setCrag] = useState<CragListItem | null>(null)
     const [boulders, setBoulders] = useState<BoulderListItem[]>([])
@@ -208,7 +210,7 @@ export default function CragDetailPage() {
                         <div className="font-serif text-lg font-black text-text">No problems yet</div>
                         <p className="text-sm text-text-dim max-w-[360px]">Someone marked this spot, but nobody's documented a rock here yet.</p>
                         <button
-                            onClick={() => navigate(`/map?addToCrag=${crag.id}&addIntent=problem`)}
+                            onClick={() => openAddSheet({ cragId: crag.id, intent: 'problem', onAdded: load })}
                             className="flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] border-0 text-on-accent font-sans text-sm font-medium cursor-pointer bg-[linear-gradient(145deg,var(--color-accent),var(--color-accent-dark))]"
                         >
                             <Plus size={15} className="shrink-0" /> Add the first one
@@ -219,7 +221,7 @@ export default function CragDetailPage() {
                         <div className="flex items-center justify-between">
                             <h2 className="font-serif text-lg font-black text-text">Rocks</h2>
                             <button
-                                onClick={() => navigate(`/map?addToCrag=${crag.id}&addIntent=rock`)}
+                                onClick={() => openAddSheet({ cragId: crag.id, intent: 'rock', onAdded: load })}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
                             >
                                 <Plus size={13} className="shrink-0" /> Add a rock

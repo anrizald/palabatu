@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
 import { getAllCrags, invalidateCragCache } from '../lib/cragCache.js'
+import { useAddSheet } from '../lib/useAddSheet.js'
 import type { CragListItem } from '../types/crag.js'
 import type { BoulderListItem, BoulderAnnotation, UpdateBoulderRequest, MergeRequestListItem } from '../types/boulder.js'
 import type { ProblemListItem, TopoUploadResponse } from '../types/problem.js'
@@ -38,7 +39,7 @@ export default function BoulderDetailPage() {
     const { id } = useParams<{ id: string }>()
     const { user } = useAuth()
     const isAdmin = useIsAdmin()
-    const navigate = useNavigate()
+    const { openAddSheet } = useAddSheet()
 
     const [boulder, setBoulder] = useState<BoulderListItem | null>(null)
     const [crag, setCrag] = useState<CragListItem | null>(null)
@@ -350,7 +351,7 @@ export default function BoulderDetailPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="font-serif text-lg font-black text-text">Problems on this rock</h2>
                         <button
-                            onClick={() => navigate(`/map?addToBoulder=${boulder.id}&addIntent=problem`)}
+                            onClick={() => openAddSheet({ boulderId: boulder.id, intent: 'problem', onAdded: load })}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
                         >
                             <Plus size={13} className="shrink-0" /> Add a problem

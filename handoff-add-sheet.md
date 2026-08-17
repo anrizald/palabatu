@@ -1,22 +1,40 @@
 # Add sheet — review findings (2026-08-13)
 
-Status: **A1-A3, B5-B9, C10-C13 fixed same day.** A punch list against the
-add sheet that shipped in `handoff.md` revision (h) — `palabatu-fe/src/
-components/add-sheet/` plus its entry points.
+Status: **A1-A3, B5-B9, C10-C13 fixed 2026-08-13; B4 fixed 2026-08-17.** A
+punch list against the add sheet that shipped in `handoff.md` revision (h) —
+`palabatu-fe/src/components/add-sheet/` plus its entry points.
 
-**What's still open:** B4 (mount `AddSheet` at the app root) is deliberately
-unfixed here — it's decision 10 of `handoff-directory.md`, sequenced as step
-2 there, and belongs in that pass rather than duplicated in this one. C11 is
-recorded, not built — a code comment at the implicit-new-rock collapse point
-in `AddSheet.tsx` names the nullable marker column that's the eventual fix,
-but open item 9 (whether/how to surface "not sure" rocks to admins) is still
-undecided, so no schema or admin surface was added. C12's confirm-before-
-discard dialog is itself proposed for replacement — not by this file, but by
-[handoff-drafts.md](handoff-drafts.md), written the same session: once the
-sheet autosaves, there's nothing left to confirm-or-discard, so that dialog
-becomes a toast-with-undo instead. That doc is also proposed only, not built
-— C12's fix here stands until it lands. Everything else in this
-file — A1-A3, B5-B9, C10, C12, C13 — shipped: `resolveCragId` now commits
+**B4 (mount `AddSheet` at the app root) shipped 2026-08-17**, built as
+decision 10 of `handoff-directory.md` (sequenced there as step 2, done as one
+change for both documents per this file's original note). The
+implementation: `palabatu-fe/src/lib/addSheetContextInstance.ts` +
+`useAddSheet.ts` + `AddSheetContext.tsx` (split across three files the same
+way `AuthContext` already is, to satisfy the fast-refresh lint rule),
+providing `AddSheetProvider` mounted once in `App.tsx` above `<Routes>`.
+Every entry point named in this file's own "Start here" section now opens
+the sheet in place instead of routing through `/map`: `Map.tsx`'s FAB,
+`CragDetailPage`'s "Add a rock"/"Add the first one", `BoulderDetailPage`'s
+"Add a problem", and — beyond this file's original scope but named by
+decision 10 itself — `Directory.tsx`'s "Add a problem" CTA. The
+`?addToCrag=`/`?addToBoulder=`/`?addIntent=` query-param deep link this file
+originally documented is gone; nothing outside `Map.tsx` referenced it, so
+it was a clean removal rather than a compatibility gap. Verified live
+(logged in, scripted through all four entry points): the URL no longer
+changes when opening from a detail page or the directory, and each opens
+pre-seeded correctly (`CragDetailPage` resolves the crag name in the
+breadcrumb, `BoulderDetailPage` resolves both crag and rock). See
+`handoff-directory.md`'s own status line for the fuller writeup.
+
+**What's still open:** C11 is recorded, not built — a code comment at the
+implicit-new-rock collapse point in `AddSheet.tsx` names the nullable marker
+column that's the eventual fix, but open item 9 (whether/how to surface "not
+sure" rocks to admins) is still undecided, so no schema or admin surface was
+added. C12's confirm-before-discard dialog has since been superseded, not by
+this file but by [handoff-drafts.md](handoff-drafts.md)'s Milestone 1
+(shipped 2026-08-17, same day as B4): the sheet now autosaves, so
+`handleClose` replaces the confirm-before-discard prompt shipped here with
+the toast-plus-undo flow decision 4 of that doc specifies. Everything
+else — A1-A3, B4, B5-B9, C10, C12, C13 — shipped: `resolveCragId` now commits
 crag id/isNewSpot/draft to state immediately (fixes A1 and A3 as one
 change), the nearest-spot default has its own guard independent of the
 context-prefill guard (A2), photo upload failures surface as toasts instead
@@ -27,12 +45,11 @@ attaches as an extra angle (B7/B8), a newly created rock becomes the
 resolved context with a banner offering the first problem on it (B5), the
 rock tab's title/button read the tab's own draft type (B6), the dead
 `NewProblem` type and `CragDetailPage`'s bare `Rock ${idx+1}` fallback are
-gone (C13), and the sheet has dialog roles, Escape-to-close (overlay first,
-then the sheet), a confirm-before-discard on close, a Tab focus trap, and
-tabpanel wiring (C12). `tsc`, `eslint`, `go vet` all clean; not re-verified
-live on a phone per this file's own closing note, since the app wasn't run
-this pass either — the repro steps below still apply for anyone confirming
-by hand.
+gone (C13), the sheet has dialog roles, Escape-to-close (overlay first, then
+the sheet), a Tab focus trap, and tabpanel wiring, its close confirmation now
+the drafts-autosave toast-with-undo rather than a `window.confirm` (C12),
+and every entry point opens it in place rather than bouncing through `/map`
+(B4). `tsc`, `eslint`, `go vet` all clean throughout.
 
 ## Start here (cold session)
 
@@ -55,8 +72,10 @@ palabatu-fe/src/components/add-sheet/
   types.ts            drafts + haversine; NOT backend mirrors
 ```
 
-Entry points: `Map.tsx` (the FAB, and the `?addToCrag=`/`?addToBoulder=`
-deep link), `CragDetailPage.tsx`, `BoulderDetailPage.tsx`.
+Entry points (all context-driven since B4/decision 10, not URL-driven —
+see the status note above): `Map.tsx`'s FAB, `CragDetailPage.tsx`,
+`BoulderDetailPage.tsx`, `Directory.tsx`, each calling `useAddSheet()`'s
+`openAddSheet()` from `palabatu-fe/src/lib/useAddSheet.ts`.
 
 **To run it:** two processes, per `CLAUDE.md` — `cd palabatu-be && go run
 ./cmd/api`, then `cd palabatu-fe && npm run dev`, then
@@ -181,6 +200,10 @@ veteran contributor taps or confidence, which UX principle 1 names as the
 failure mode that matters most.
 
 ### B4. Every entry point detours through the map
+
+**Fixed 2026-08-17** — see the status note at the top of this file and
+`handoff-directory.md` decision 10. Left below as the historical record of
+the bug; the description past this point is no longer current behavior.
 
 `AddSheet` is mounted only inside `Map.tsx` (`:421-429`). So
 `CragDetailPage`'s "Add a rock" (`:222`) and `BoulderDetailPage`'s "Add a
@@ -371,8 +394,8 @@ Recorded so a later pass doesn't undo deliberate work:
 2. **A2** — two lines, and it restores the sheet's central promise.
 3. **B6, C13** — trivial, and B6 is user-visible nonsense.
 4. **B9's error surfacing**, then B7/B8 as one photo-path pass.
-5. **B4** — larger, and shared with `handoff-directory.md` step 2; do it
-   there.
+5. ~~**B4** — larger, and shared with `handoff-directory.md` step 2; do it
+   there.~~ **Done 2026-08-17.**
 6. **B5, C10, C12** — as time allows.
 7. **C11** — only when open item 9 gets decided; record the intent now.
 
