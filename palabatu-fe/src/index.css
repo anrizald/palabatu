@@ -54,11 +54,16 @@ body,
 }
 
 /* Leaflet anchors its own controls (the attribution line) to the bottom of the
-   map container, which runs full-bleed behind the transparent footer overlay --
-   lift that row clear of the strip. Unlayered and specificity-bumped past
-   leaflet.css's own `.leaflet-bottom { bottom: 0 }`, which is itself unlayered
-   and so would beat anything in @layer base regardless of source order. */
-.leaflet-container .leaflet-bottom {
+   map container. On /map that container runs full-bleed behind the
+   transparent footer overlay, so its controls are lifted clear of the strip
+   -- scoped to .leaflet-full-bleed-page (Map.tsx's own wrapper) rather than
+   every .leaflet-container app-wide, since every other map in the app is a
+   small embedded card or a portaled sheet that never reaches the footer and
+   would otherwise just lose space to a lift it doesn't need. Unlayered and
+   specificity-bumped past leaflet.css's own `.leaflet-bottom { bottom: 0 }`,
+   which is itself unlayered and so would beat anything in @layer base
+   regardless of source order. */
+.leaflet-full-bleed-page .leaflet-bottom {
   bottom: var(--footer-h);
 }
 
@@ -208,6 +213,32 @@ body,
 
 .cluster-popup .leaflet-popup-close-button:hover {
   color: var(--color-text);
+}
+
+/* Leaflet's default attribution control is a white pill with blue links --
+   convincing chrome for a plain basemap, but a foreign-looking widget against
+   this app's dark theme. Applies everywhere a map renders one, /map included.
+   Compound-selector: leaflet.css is loaded after index.css (via App.tsx's own
+   import), so at equal specificity its plain .leaflet-control-attribution
+   would win on source order alone -- the extra .leaflet-container beats it
+   regardless of load order. */
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-panel) 78%, transparent);
+  border: none;
+  box-shadow: none;
+  padding: 2px 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--color-text-muted);
+}
+
+.leaflet-container .leaflet-control-attribution a:hover {
+  color: var(--color-text-secondary);
 }
 
 .locate-sandglass-spin {

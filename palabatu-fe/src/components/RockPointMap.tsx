@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Crosshair } from 'lucide-react'
-import { MapContainer, TileLayer, Circle, Marker, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, Marker, Tooltip, AttributionControl, useMap } from 'react-leaflet'
 import LocationPicker from './LocationPicker.js'
 import { buildBadgeIcon, buildTeardropIcon } from '../lib/mapIcons.js'
 import type { BoulderType } from '../types/boulder.js'
@@ -118,8 +118,12 @@ export default function RockPointMap({
     return (
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: `${heightPx}px` }}>
-                <MapContainer center={center} zoom={hasPin ? 18 : 17} maxZoom={20} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} maxNativeZoom={18} maxZoom={20} />
+                <MapContainer center={center} zoom={hasPin ? 18 : 17} maxZoom={20} zoomControl={false} attributionControl={false} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri &mdash; Source: Esri" maxNativeZoom={18} maxZoom={20} />
+                    {/* Bottom-left, not Leaflet's bottomright default -- the
+                        "use my location" crosshair button below sits at
+                        bottom-2 right-2, and the two would otherwise overlap. */}
+                    <AttributionControl position="bottomleft" />
                     <Recenter center={center} trigger={recenterTrigger} />
                     <LocationPicker onPick={(pLat, pLng) => onPick(pLat, pLng, null)} />
 

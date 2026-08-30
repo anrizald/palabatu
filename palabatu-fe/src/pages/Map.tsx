@@ -298,8 +298,15 @@ export default function MapPage() {
     return (
         // Full-bleed to the bottom edge: the footer is a transparent overlay and
         // the tiles are meant to show through behind it. Only the map's own
-        // controls below hold back by --footer-h so they don't collide with it.
-        <div style={{ position: 'fixed', top: 'var(--header-h)', left: 0, right: 0, bottom: 0 }}>
+        // controls below hold back by --footer-h so they don't collide with it
+        // -- index.css scopes that lift to .leaflet-full-bleed-page specifically
+        // (not every .leaflet-container app-wide) since this is the one map
+        // that actually shares the viewport's bottom edge with the footer.
+        // (The elevated look that creates is a known open item -- see chat
+        // 2026-08-31 -- not yet resolved; the footer-credit-merge tried in the
+        // same discussion was reverted, so this still runs Leaflet's own
+        // attribution control.)
+        <div className="leaflet-full-bleed-page" style={{ position: 'fixed', top: 'var(--header-h)', left: 0, right: 0, bottom: 0 }}>
             <MapContainer
                 center={center}
                 zoom={5}

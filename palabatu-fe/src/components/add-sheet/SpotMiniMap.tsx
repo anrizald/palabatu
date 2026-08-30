@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Crosshair } from 'lucide-react'
-import { MapContainer, TileLayer, Circle, CircleMarker, Marker, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, CircleMarker, Marker, Tooltip, AttributionControl, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import LocationPicker from '../LocationPicker.js'
 import type { CragListItem } from '../../types/crag.js'
@@ -76,8 +76,12 @@ export default function SpotMiniMap({ lat, lng, accuracyM, onPick, allCrags }: S
     return (
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: '172px' }}>
-                <MapContainer center={center} zoom={lat != null ? 15 : 5} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} maxNativeZoom={18} maxZoom={20} />
+                <MapContainer center={center} zoom={lat != null ? 15 : 5} zoomControl={false} attributionControl={false} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri &mdash; Source: Esri" maxNativeZoom={18} maxZoom={20} />
+                    {/* Bottom-left, not Leaflet's bottomright default -- the
+                        "use my location" crosshair button below sits at
+                        bottom-2 right-2, and the two would otherwise overlap. */}
+                    <AttributionControl position="bottomleft" />
                     <Recenter center={center} />
                     <LocationPicker onPick={(pLat, pLng) => onPick(pLat, pLng, null)} />
                     {lat != null && lng != null && (
