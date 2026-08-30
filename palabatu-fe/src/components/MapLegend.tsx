@@ -21,7 +21,7 @@ const ROWS: { icon: React.ReactNode; label: string; detail: string }[] = [
             />
         ),
         label: 'Spot',
-        detail: 'A climbing area, like Goa Agung -- always shown.',
+        detail: 'A climbing area, like Goa Agung. Always shown.',
     },
     {
         icon: (
@@ -43,7 +43,7 @@ const ROWS: { icon: React.ReactNode; label: string; detail: string }[] = [
             />
         ),
         label: 'Multiple spots',
-        detail: 'Several spots close together at this zoom -- zoom in or tap to split them apart.',
+        detail: 'Several spots close together at this zoom. Zoom in or tap to split them apart.',
     },
     {
         icon: (

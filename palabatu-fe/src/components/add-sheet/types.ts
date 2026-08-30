@@ -49,16 +49,26 @@ export const blankSpot: NewSpotDraft = {
 }
 
 // "Add a rock" draft -- photo or name required (never both, never neither;
-// handoff.md decision 19), plus the boulder/wall segmented choice.
+// handoff.md decision 19), plus the boulder/wall segmented choice. The pin is
+// optional and stays null unless it is deliberately placed (handoff.md open
+// item 13: draw the rocks that have a coordinate, never invent one for the
+// rest) -- unlike a spot's, which is required.
 export type NewRockDraft = {
     name: string
     type: BoulderType
     rock_type: string
+    lat: number | null
+    lng: number | null
+    accuracyM: number | null
     imageFiles: File[]
     imagePreviews: string[]
 }
 
-export const blankRock: NewRockDraft = { name: '', type: 'boulder', rock_type: '', imageFiles: [], imagePreviews: [] }
+export const blankRock: NewRockDraft = {
+    name: '', type: 'boulder', rock_type: '',
+    lat: null, lng: null, accuracyM: null,
+    imageFiles: [], imagePreviews: [],
+}
 
 // "Add a problem" draft -- name is the only required field.
 export type NewProblemDraft = {

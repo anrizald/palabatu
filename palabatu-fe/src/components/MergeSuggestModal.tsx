@@ -57,7 +57,7 @@ export default function MergeSuggestModal({ boulderId, cragId, onClose, onSugges
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-6">
             {toast && <Toast {...toast} />}
-            <div className="bg-panel border border-border rounded-[20px] w-full max-w-[440px] max-h-[calc(100vh-48px)] flex flex-col shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+            <div className="bg-panel border border-border rounded-[20px] w-full max-w-[440px] max-h-[calc(100dvh-48px)] flex flex-col shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
                 <div className="flex items-center justify-between pt-4 px-8 pb-2.5 shrink-0">
                     <h2 className="font-serif text-[20px] font-black text-text">These are the same rock</h2>
                     <button onClick={onClose} className="text-text-dim cursor-pointer bg-transparent border-0 p-0 flex items-center" aria-label="Close">

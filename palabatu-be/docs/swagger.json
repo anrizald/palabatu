@@ -868,6 +868,55 @@
                 },
                 "type": "object"
             },
+            "internal_feedback.Feedback": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "page_url": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_feedback.SubmitFeedbackRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "page_url": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "internal_notification.Notification": {
                 "properties": {
                     "actor_name": {
@@ -3217,6 +3266,161 @@
                 "summary": "Add images to a crag",
                 "tags": [
                     "crags"
+                ]
+            }
+        },
+        "/api/feedback": {
+            "get": {
+                "description": "Owner-only.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_feedback.Feedback"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List open feedback",
+                "tags": [
+                    "feedback"
+                ]
+            },
+            "post": {
+                "description": "Public, rate-limited (3 per 5s per IP). Open to logged-out visitors -- runs OptionalAuth so a logged-in submitter's user_id is attached when present.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_feedback.SubmitFeedbackRequest",
+                                        "summary": "body",
+                                        "description": "Feedback submission"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Feedback submission",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_feedback.Feedback"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Submit feedback",
+                "tags": [
+                    "feedback"
+                ]
+            }
+        },
+        "/api/feedback/{id}/reviewed": {
+            "post": {
+                "description": "Owner-only.",
+                "parameters": [
+                    {
+                        "description": "Feedback ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Mark a feedback submission reviewed",
+                "tags": [
+                    "feedback"
                 ]
             }
         },

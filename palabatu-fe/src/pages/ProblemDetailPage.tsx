@@ -382,13 +382,13 @@ export default function ProblemDetailPage() {
     const rows = useMemo(() => problem ? detailRows(problem) : [], [problem]);
 
     if (isLoading) return (
-        <div className="min-h-screen bg-ink flex items-center justify-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
             <div className="text-text-muted font-serif tracking-wider">Loading problem...</div>
         </div>
     );
 
     if (loadError || !problem) return (
-        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
             <div className="font-serif text-2xl font-black text-text">Problem not found</div>
             <div className="text-sm text-text-dim">{loadError}</div>
             <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
@@ -411,7 +411,7 @@ export default function ProblemDetailPage() {
 
             {showMoveRock && problem && (
                 <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center">
-                    <div className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] max-h-[85vh] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
+                    <div className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] max-h-[85dvh] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans">
                         <div className="shrink-0 flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-border">
                             <h2 className="font-serif text-lg font-bold text-text">Move to another rock</h2>
                             <button onClick={() => setShowMoveRock(false)} aria-label="Close" disabled={isMoving} className="w-11 h-11 -m-1.5 rounded-full flex items-center justify-center text-text-muted hover:bg-surface hover:text-text-secondary cursor-pointer bg-transparent border-0">
@@ -431,7 +431,7 @@ export default function ProblemDetailPage() {
                 </div>
             )}
 
-            <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+            <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
                 <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                     <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit">
                         <ArrowLeft size={14} className="shrink-0" /> Back to Directory

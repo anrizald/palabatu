@@ -25,10 +25,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AddSheetProvider>
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-dvh flex flex-col bg-ink">
           <Header />
 
-          <main className="flex-1 overflow-y-auto">
+          {/* The fixed Header/Footer reserve no flow space of their own, so the
+              shell pads for both here -- see --header-h/--footer-h in
+              index.css. Pages therefore never need their own header offset,
+              and nothing they render can land under either bar. */}
+          <main className="flex-1 pt-[var(--header-h)] pb-[var(--footer-h)]">
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/map" element={<MapPage />} />

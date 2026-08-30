@@ -38,7 +38,7 @@ export default function Toast({ message, type = "success", onClose, actionLabel,
                     exit={{ x: 100, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     style={{
-                        position: 'fixed', top: '72px', right: '16px',
+                        position: 'fixed', top: 'calc(var(--header-h) + 12px)', right: '16px',
                         padding: '10px 18px', borderRadius: '10px',
                         fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
                         color: '#f0e0c8', zIndex: 999,

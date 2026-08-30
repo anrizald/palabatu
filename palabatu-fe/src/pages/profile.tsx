@@ -259,13 +259,13 @@ export default function Profile() {
     };
 
     if (isLoading) return (
-        <div className="min-h-screen bg-ink flex items-center justify-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
             <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
         </div>
     );
 
     if (loadError) return (
-        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
             <div className="font-serif text-2xl font-black text-text">Profile not found</div>
             <div className="text-sm text-text-dim">{loadError}</div>
             <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
@@ -281,7 +281,7 @@ export default function Profile() {
         <>
             {toast && <Toast {...toast} />}
 
-            <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-10">
+            <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-10">
                 <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-8 items-start">
                     {/* Sidebar */}
                     <div className="bg-panel border border-border rounded-[20px] px-5 py-7 flex flex-col items-center gap-4 sm:sticky sm:top-20">

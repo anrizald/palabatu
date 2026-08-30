@@ -160,8 +160,8 @@ export default function Directory() {
     const uniqueSpots = new Set(problems.map(p => p.crag_id).filter(Boolean)).size;
 
     return (
-        <div className="min-h-screen bg-ink text-text font-sans pb-12">
-            <div className="max-w-[1100px] mx-auto px-6 pt-20">
+        <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
+            <div className="max-w-[1100px] mx-auto px-6 pt-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-2">
                     <div>
                         <h1 className="font-serif text-[32px] font-black text-text mb-1">Directory</h1>

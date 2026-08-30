@@ -21,7 +21,7 @@ export default function ReportModal({ target, onClose, onSubmit, isSubmitting = 
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-panel border border-border rounded-[20px] w-full max-w-[420px] max-h-[90vh] overflow-y-auto font-sans text-text flex flex-col"
+                className="bg-panel border border-border rounded-[20px] w-full max-w-[420px] max-h-[90dvh] overflow-y-auto font-sans text-text flex flex-col"
             >
                 <div className="px-5 py-4 flex justify-between items-center border-b border-border">
                     <h3 className="font-serif text-lg m-0">

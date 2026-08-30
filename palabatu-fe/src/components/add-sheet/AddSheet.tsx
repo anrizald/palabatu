@@ -17,6 +17,7 @@ import DraftsOverlay from './DraftsOverlay.js'
 import ProblemFields from './ProblemFields.js'
 import SpotFields from './SpotFields.js'
 import RockFields from './RockFields.js'
+import type { NearbyRock } from '../RockPointMap.js'
 import { putDraft, getAllDrafts, deleteDraft, type AddSheetDraft } from './drafts.js'
 import {
     NEAR_M, haversineKm, formatDistanceM, blankSpot, blankRock, blankProblem,
@@ -77,6 +78,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const [overlayOpen, setOverlayOpen] = useState(false)
 
     const [newRockDraft, setNewRockDraft] = useState<NewRockDraft>(blankRock)
+    // The resolved spot's already-pinned rocks, for the rock tab's pin map:
+    // seeing them is what stops a contributor pinning a second entry for a
+    // rock that's already on the map (the duplicate state boulders' merge
+    // flow exists to clean up afterwards).
+    const [siblingRocks, setSiblingRocks] = useState<BoulderListItem[]>([])
 
     const [problemDraft, setProblemDraft] = useState<NewProblemDraft>(blankProblem)
     const [moreOpen, setMoreOpen] = useState(false)
@@ -159,11 +165,35 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [crags, myLoc])
 
+    // Only the rock tab draws these, so only it pays for the fetch. Uncached
+    // (fetchBouldersForCrag, not getBouldersForCrag) for the same reason the
+    // picker is: a rock added moments ago must show up as a sibling.
+    useEffect(() => {
+        if (intent !== 'rock' || !cragId) { setSiblingRocks([]); return }
+        let cancelled = false
+        void fetchBouldersForCrag(cragId).then(list => { if (!cancelled) setSiblingRocks(list) })
+        return () => { cancelled = true }
+    }, [intent, cragId])
+
     const resolvedCrag = cragId ? crags.find(c => c.id === cragId) ?? null : null
     const cragDistKm = resolvedCrag && myLoc ? haversineKm(myLoc, { lat: resolvedCrag.lat, lng: resolvedCrag.lng }) : null
     const isFar = cragDistKm != null && cragDistKm * 1000 > NEAR_M
     const boulderType = resolvedBoulder?.type ?? 'boulder'
     const noun = boulderType === 'wall' ? 'route' : 'problem'
+
+    // The frame of reference the rock tab's pin map opens in -- the chosen
+    // spot, or the one being created alongside it in the same session. Null
+    // until one of those exists, since "where within the spot?" is
+    // unanswerable before there's a spot.
+    const rockPinCrag: { center: Geo; name: string } | null = resolvedCrag
+        ? { center: { lat: resolvedCrag.lat, lng: resolvedCrag.lng }, name: resolvedCrag.name }
+        : isNewSpot && newSpotDraft.lat != null && newSpotDraft.lng != null
+            ? { center: { lat: newSpotDraft.lat, lng: newSpotDraft.lng }, name: newSpotDraft.name.trim() || 'the new spot' }
+            : null
+
+    const nearbyRocks: NearbyRock[] = siblingRocks
+        .filter((b): b is BoulderListItem & { lat: number; lng: number } => b.lat != null && b.lng != null)
+        .map(b => ({ id: b.id, label: b.name ?? b.sample_problem_name ?? 'Unnamed rock', lat: b.lat, lng: b.lng }))
 
     async function refreshCrags() {
         invalidateCragCache()
@@ -261,7 +291,12 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             }
             const body: CreateBoulderRequest = {
                 crag_id: resolved.id, name: newRockDraft.name, type: newRockDraft.type,
-                rock_type: newRockDraft.rock_type, lat: null, lng: null, image_urls: imageUrls,
+                rock_type: newRockDraft.rock_type,
+                // Both or neither -- the backend's validateLatLng no-ops when
+                // either is nil, and half a coordinate is meaningless anyway.
+                lat: newRockDraft.lng == null ? null : newRockDraft.lat,
+                lng: newRockDraft.lat == null ? null : newRockDraft.lng,
+                image_urls: imageUrls,
             }
             const res = await api.post<Boulder | ErrorResponse>('/api/boulders', body)
             if ('error' in res) { showError(res.error); return }
@@ -395,7 +430,8 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     function hasUnsavedInput(): boolean {
         const spotDirty = newSpotDraft.name.trim() !== '' || newSpotDraft.lat != null
             || newSpotDraft.directions.trim() !== '' || newSpotDraft.access_notes.trim() !== '' || !!newSpotDraft.photoFile
-        const rockDirty = newRockDraft.name.trim() !== '' || newRockDraft.rock_type.trim() !== '' || newRockDraft.imageFiles.length > 0
+        const rockDirty = newRockDraft.name.trim() !== '' || newRockDraft.rock_type.trim() !== ''
+            || newRockDraft.imageFiles.length > 0 || newRockDraft.lat != null
         const problemDirty = problemDraft.name.trim() !== '' || problemDraft.grade !== ''
             || problemDraft.first_ascensionist.trim() !== '' || problemDraft.discovered_by.trim() !== ''
             || problemDraft.landing_hazards.trim() !== '' || problemDraft.descent.trim() !== ''
@@ -477,7 +513,16 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         setIsNewSpot(d.isNewSpot)
         setResolvedBoulder(null)
         setNewSpotDraft({ ...d.newSpotDraft, photoPreview: d.newSpotDraft.photoFile ? URL.createObjectURL(d.newSpotDraft.photoFile) : null })
-        setNewRockDraft({ ...d.newRockDraft, imagePreviews: d.newRockDraft.imageFiles.map(f => URL.createObjectURL(f)) })
+        // lat/lng/accuracyM are normalized rather than spread through: drafts
+        // saved before the rock pin existed have no such keys, and `undefined`
+        // would reach the pin map as a missing prop instead of "no pin yet".
+        setNewRockDraft({
+            ...d.newRockDraft,
+            lat: d.newRockDraft.lat ?? null,
+            lng: d.newRockDraft.lng ?? null,
+            accuracyM: d.newRockDraft.accuracyM ?? null,
+            imagePreviews: d.newRockDraft.imageFiles.map(f => URL.createObjectURL(f)),
+        })
         setProblemDraft({ ...d.problemDraft, photoPreview: d.problemDraft.photoFile ? URL.createObjectURL(d.problemDraft.photoFile) : null })
         setDraftId(d.id)
         draftCreatedAtRef.current = d.createdAt
@@ -651,7 +696,13 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 )}
                 <Breadcrumb />
                 <div className="h-px bg-border my-4" />
-                <RockFields draft={newRockDraft} onChange={setNewRockDraft} />
+                <RockFields
+                    draft={newRockDraft}
+                    onChange={setNewRockDraft}
+                    cragCenter={rockPinCrag?.center ?? null}
+                    cragName={rockPinCrag?.name ?? ''}
+                    nearbyRocks={nearbyRocks}
+                />
             </>
         )
     } else {
@@ -718,7 +769,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 aria-modal="true"
                 aria-labelledby="add-sheet-title"
                 tabIndex={-1}
-                className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] h-[92vh] sm:h-auto sm:max-h-[calc(100vh-48px)] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans outline-none"
+                className="relative bg-panel border border-border rounded-t-[20px] sm:rounded-[20px] w-full sm:max-w-[440px] h-[92dvh] sm:h-auto sm:max-h-[calc(100dvh-48px)] flex flex-col overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.6)] font-sans outline-none"
             >
                 <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-4">
                     <h2 id="add-sheet-title" className="font-serif text-[21px] font-bold text-text">{title}</h2>

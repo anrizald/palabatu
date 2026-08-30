@@ -56,7 +56,7 @@ export default function Notifications() {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
                 <div className="text-text-dim text-sm">Log in to view your notifications.</div>
             </div>
         );
@@ -64,14 +64,14 @@ export default function Notifications() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
                 <div className="text-text-muted font-serif tracking-wider">Loading notifications...</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             <div className="max-w-[640px] mx-auto flex flex-col gap-5">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     <h1 className="font-serif text-2xl font-black text-text">Notifications</h1>

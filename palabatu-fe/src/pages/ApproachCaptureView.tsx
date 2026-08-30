@@ -98,7 +98,7 @@ export default function ApproachCaptureView() {
     }
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-32">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-32">
             {toast && <Toast {...toast} />}
             <div className="max-w-[560px] mx-auto flex flex-col gap-6">
                 <div>

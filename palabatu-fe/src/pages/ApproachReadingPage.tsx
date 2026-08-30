@@ -188,7 +188,7 @@ export default function ApproachReadingPage() {
 
     if (notFound) {
         return (
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Guide not found</div>
                 <button type="button" onClick={() => navigate('/map')} className="text-accent text-sm bg-transparent border-0 cursor-pointer hover:underline">Back to the map</button>
             </div>
@@ -196,7 +196,7 @@ export default function ApproachReadingPage() {
     }
     if (!approach || !step) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
                 <div className="text-text-muted font-serif tracking-wider">Loading...</div>
             </div>
         )

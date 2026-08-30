@@ -10,6 +10,7 @@ import FeedbackModal from './FeedbackModal.js';
 import Toast, { type ToastProps } from './Toast.js';
 import type { Profile as AuthProfile } from '../types/auth.js';
 import type { ErrorResponse } from '../types/apitypes.js';
+import type { FeedbackType } from '../types/feedback.js';
 
 export default function Header() {
     const { user } = useAuth();
@@ -24,10 +25,10 @@ export default function Header() {
     const closeSidebar = () => setIsSidebarOpen(false);
     const openFeedback = () => { closeSidebar(); setIsFeedbackOpen(true); };
 
-    const submitFeedback = async ({ message, email }: { message: string; email: string }) => {
+    const submitFeedback = async ({ type, message, email }: { type: FeedbackType; message: string; email: string }) => {
         setIsSubmittingFeedback(true);
         try {
-            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { message, email, page_url: window.location.pathname });
+            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { type, message, email, page_url: window.location.pathname });
             if (res.error) {
                 setToast({ message: `Error: ${res.error}`, type: 'error', onClose: () => setToast(null) });
             } else {
@@ -138,12 +139,17 @@ export default function Header() {
             `}</style>
 
             <nav style={{
-                height: '60px', position: 'fixed',
+                // Height comes from --header-h so the shell's reserved dead
+                // zone and the bar itself can never drift apart; the inset
+                // padding keeps the row's contents clear of a notch.
+                height: 'var(--header-h)',
+                paddingTop: 'env(safe-area-inset-top, 0px)',
+                position: 'fixed',
                 top: 0, left: 0, right: 0,
                 background: 'rgba(15,13,11,0.9)',
                 backdropFilter: 'blur(12px)',
                 borderBottom: '1px solid #1e1a16',
-                zIndex: 50, padding: '0 24px',
+                zIndex: 50, paddingLeft: '24px', paddingRight: '24px',
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'space-between'
             }}>

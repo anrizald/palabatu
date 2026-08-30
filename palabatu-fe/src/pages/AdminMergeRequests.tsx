@@ -66,7 +66,7 @@ export default function AdminMergeRequests() {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
                 <div className="text-text-dim text-sm">Log in as an admin to view the merge queue.</div>
             </div>
         );
@@ -74,7 +74,7 @@ export default function AdminMergeRequests() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
                 <div className="text-text-muted font-serif tracking-wider">Loading...</div>
             </div>
         );
@@ -82,7 +82,7 @@ export default function AdminMergeRequests() {
 
     if (loadError) {
         return (
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Admins only</div>
                 <div className="text-sm text-text-dim">{loadError}</div>
             </div>
@@ -90,7 +90,7 @@ export default function AdminMergeRequests() {
     }
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
 
             <div className="max-w-[820px] mx-auto flex flex-col gap-5">

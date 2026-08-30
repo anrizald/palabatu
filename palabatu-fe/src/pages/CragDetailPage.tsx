@@ -81,7 +81,7 @@ export default function CragDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
                 <div className="text-text-muted font-serif tracking-wider">Loading...</div>
             </div>
         )
@@ -89,7 +89,7 @@ export default function CragDetailPage() {
 
     if (notFound || !crag) {
         return (
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Spot not found</div>
                 <Link to="/map" className="text-accent text-sm no-underline hover:underline">Back to the map</Link>
             </div>
@@ -97,7 +97,7 @@ export default function CragDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
 
             <div className="max-w-[820px] mx-auto flex flex-col gap-5">

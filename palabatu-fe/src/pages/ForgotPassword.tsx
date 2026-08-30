@@ -27,7 +27,7 @@ export default function ForgotPassword() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
             {toast && <Toast {...toast} />}
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px'
             }}>

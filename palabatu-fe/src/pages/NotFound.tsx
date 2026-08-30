@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 export default function NotFound() {
     return (
         <div style={{
-            minHeight: '100vh', background: '#0f0d0b', color: '#f0e0c8',
+            minHeight: 'var(--content-h)', background: '#0f0d0b', color: '#f0e0c8',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '16px', padding: '24px', textAlign: 'center'
         }}>

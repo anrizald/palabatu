@@ -190,8 +190,8 @@ export function ProblemList() {
     }, [problems, search, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy]);
 
     return (
-        <div className="min-h-screen bg-ink text-text font-sans pb-12">
-            <div className="max-w-[1100px] mx-auto px-6 pt-20">
+        <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
+            <div className="max-w-[1100px] mx-auto px-6 pt-6">
                 <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit mb-4">
                     <ArrowLeft size={14} className="shrink-0" /> Back to Directory
                 </Link>

@@ -238,41 +238,41 @@ function LocateMeButton() {
 
     return (
         <>
-        {toast && <Toast {...toast} />}
-        <button
-            onClick={handleLocate}
-            disabled={isLocating}
-            title="Find my location"
-            aria-label="Find my location"
-            style={{
-                ...circleButtonStyle,
-                width: '48px',
-                height: '48px',
-                cursor: 'pointer',
-                opacity: isLocating ? 0.6 : 1,
-            }}
-        >
-            {isLocating ? (
-                <FallbackImg
-                    src="/assets/locate_me/sandglass-24.png"
-                    srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="locate-sandglass-spin"
-                    fallback={Hourglass}
-                />
-            ) : (
-                <FallbackImg
-                    src="/assets/locate_me/crosshair-24.png"
-                    srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
-                    alt=""
-                    width={24}
-                    height={24}
-                    fallback={Crosshair}
-                />
-            )}
-        </button>
+            {toast && <Toast {...toast} />}
+            <button
+                onClick={handleLocate}
+                disabled={isLocating}
+                title="Find my location"
+                aria-label="Find my location"
+                style={{
+                    ...circleButtonStyle,
+                    width: '48px',
+                    height: '48px',
+                    cursor: 'pointer',
+                    opacity: isLocating ? 0.6 : 1,
+                }}
+            >
+                {isLocating ? (
+                    <FallbackImg
+                        src="/assets/locate_me/sandglass-24.png"
+                        srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="locate-sandglass-spin"
+                        fallback={Hourglass}
+                    />
+                ) : (
+                    <FallbackImg
+                        src="/assets/locate_me/crosshair-24.png"
+                        srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
+                        alt=""
+                        width={24}
+                        height={24}
+                        fallback={Crosshair}
+                    />
+                )}
+            </button>
         </>
     );
 }
@@ -296,7 +296,10 @@ export default function MapPage() {
     const handleFAB = () => openAddSheet({ onAdded: loadCrags })
 
     return (
-        <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
+        // Full-bleed to the bottom edge: the footer is a transparent overlay and
+        // the tiles are meant to show through behind it. Only the map's own
+        // controls below hold back by --footer-h so they don't collide with it.
+        <div style={{ position: 'fixed', top: 'var(--header-h)', left: 0, right: 0, bottom: 0 }}>
             <MapContainer
                 center={center}
                 zoom={5}
@@ -311,7 +314,7 @@ export default function MapPage() {
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
-                    maxNativeZoom={19}
+                    maxNativeZoom={18}
                     maxZoom={20}
                 />
                 <MapFlyTo />
@@ -333,7 +336,7 @@ export default function MapPage() {
                 <div
                     style={{
                         position: 'absolute',
-                        bottom: '24px',
+                        bottom: 'calc(24px + var(--footer-h))',
                         left: '16px',
                         zIndex: 1000,
                     }}
@@ -343,7 +346,7 @@ export default function MapPage() {
                 <div
                     style={{
                         position: 'absolute',
-                        bottom: '24px',
+                        bottom: 'calc(24px + var(--footer-h))',
                         right: '24px',
                         zIndex: 1000, // Must be high enough to float over the map tiles
                         display: 'flex',

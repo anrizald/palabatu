@@ -3,7 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
 import type { Analytics, DailyCount, TesterCandidate, ToggleTesterResponse } from '../types/devtools.js';
-import type { FeedbackItem } from '../types/feedback.js';
+import { FEEDBACK_TYPES, type FeedbackItem } from '../types/feedback.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
@@ -203,7 +203,7 @@ export default function Developer() {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
                 <div className="text-text-dim text-sm">Log in to view this page.</div>
             </div>
         );
@@ -211,7 +211,7 @@ export default function Developer() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Owner only</div>
                 <div className="text-sm text-text-dim">This page isn't available on your account.</div>
             </div>
@@ -227,7 +227,7 @@ export default function Developer() {
     ];
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
 
             <div className="max-w-[900px] mx-auto flex flex-col gap-5">
@@ -391,6 +391,11 @@ export default function Developer() {
                         )}
                         {feedbackItems.map(f => (
                             <div key={f.id} className="bg-panel border border-border rounded-2xl p-4 flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded-full bg-accent/15 border border-accent/40 text-accent text-[10px] font-bold uppercase tracking-wide">
+                                        {FEEDBACK_TYPES.find(t => t.value === f.type)?.label ?? f.type}
+                                    </span>
+                                </div>
                                 <div className="text-sm text-text whitespace-pre-wrap">{f.message}</div>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-dim">
                                     <span>{f.username ? `@${f.username}` : f.email || 'Anonymous'}</span>

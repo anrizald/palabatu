@@ -9,6 +9,7 @@ import Toast from '../components/Toast.js';
 import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
 import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
+import type { FeedbackType } from '../types/feedback.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
 type Geo = { lat: number; lng: number };
@@ -20,7 +21,7 @@ const CARD_LIMIT = 10;
 const DISCORD_SUPPORT_URL = 'https://discord.gg/palabatu';
 
 // placeholder — replace with real donation URLs
-const SAWERIA_URL = 'https://saweria.co/anrizald';
+const SAWERIA_URL = 'https://saweria.co/ghuldev';
 const KOFI_URL = 'https://ko-fi.com/ghulaman';
 
 const GITHUB_REPO_URL = 'https://github.com/anrizald/palabatu';
@@ -203,10 +204,10 @@ export default function Landing() {
         );
     };
 
-    const submitFeedback = async ({ message, email }: { message: string; email: string }) => {
+    const submitFeedback = async ({ type, message, email }: { type: FeedbackType; message: string; email: string }) => {
         setIsSubmittingFeedback(true);
         try {
-            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { message, email, page_url: window.location.pathname });
+            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { type, message, email, page_url: window.location.pathname });
             if (res.error) {
                 showToast(`Error: ${res.error}`, 'error');
             } else {
@@ -232,12 +233,13 @@ export default function Landing() {
         /* --- hero --- */
         .hero {
             position: relative;
-            min-height: 100vh;
-            min-height: 100dvh;
+            /* the shell already holds back the header/footer strips, so a
+               full-bleed hero is exactly the space left between them */
+            min-height: var(--content-h);
             width: 100%;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            padding: 100px 24px 56px;
+            padding: 40px 24px 40px;
             text-align: center;
             box-sizing: border-box;
             overflow: hidden;
@@ -634,9 +636,9 @@ export default function Landing() {
                                         well enough to fix what we got wrong.
                                     </p>
                                     <div className="pat-icons">
-                                        <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on GitHub">
+                                        {/* <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on GitHub">
                                             <GithubIcon />
-                                        </a>
+                                        </a> */}
                                         <a href={DISCORD_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Join the Discord">
                                             <DiscordIcon />
                                         </a>

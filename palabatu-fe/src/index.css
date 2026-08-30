@@ -28,6 +28,40 @@ body,
   height: 100%;
 }
 
+/* --- App chrome dead zones ---------------------------------------------
+   Header and Footer are both position:fixed, so neither reserves any space
+   in the document flow. These tokens are the single source of truth for how
+   much the shell holds back on their behalf: App.tsx's <main> pads by them,
+   Header/Footer size themselves from them, and pages measure their own
+   full-bleed height against --content-h instead of the raw viewport.
+
+   Before this existed every page hand-compensated with its own pt-20 magic
+   number and nothing at all compensated for the footer -- so on a phone the
+   footer sat on top of page content, and any vertically centered page
+   (login, signup, the loading/not-found states) centered against the whole
+   viewport and pushed its card up under the header.
+
+   env(safe-area-inset-*) resolves to 0 unless index.html opts into
+   viewport-fit=cover; it is folded in here so a notch/home-indicator is
+   handled correctly the moment it does. */
+:root {
+  --header-h: calc(60px + env(safe-area-inset-top, 0px));
+  --footer-h: calc(38px + env(safe-area-inset-bottom, 0px));
+
+  /* dvh, not vh: on mobile 100vh measures the viewport with the URL bar
+     hidden, which is taller than what is actually on screen. */
+  --content-h: calc(100dvh - var(--header-h) - var(--footer-h));
+}
+
+/* Leaflet anchors its own controls (the attribution line) to the bottom of the
+   map container, which runs full-bleed behind the transparent footer overlay --
+   lift that row clear of the strip. Unlayered and specificity-bumped past
+   leaflet.css's own `.leaflet-bottom { bottom: 0 }`, which is itself unlayered
+   and so would beat anything in @layer base regardless of source order. */
+.leaflet-container .leaflet-bottom {
+  bottom: var(--footer-h);
+}
+
 /* Shared dark palette used across the app's auth/profile-style pages
    (Login, Signup, Header, Profile, ...). Most of those still hand-roll this
    same palette as inline styles; these tokens exist so new/rewritten pages
@@ -69,6 +103,14 @@ body,
   a {
     font-weight: 500;
     text-decoration: inherit;
+  }
+
+  html,
+  body {
+    /* The dead zones are outside any page's own bg-ink container, so the
+       document itself has to carry the palette or the header/footer strips
+       show through as lighter bands. */
+    background-color: var(--color-ink);
   }
 
   body {

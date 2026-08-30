@@ -144,7 +144,7 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
                 onClick={(e) => e.stopPropagation()}
                 style={{
                     background: '#141210', border: '1px solid #2a2420', borderRadius: '20px',
-                    width: '100%', maxWidth: '900px', maxHeight: '92vh',
+                    width: '100%', maxWidth: '900px', maxHeight: '92dvh',
                     fontFamily: "'DM Sans', sans-serif", color: '#f0e0c8',
                     display: 'flex', flexDirection: 'column', overflow: 'hidden',
                 }}
