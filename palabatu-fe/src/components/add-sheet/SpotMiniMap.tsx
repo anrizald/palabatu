@@ -77,7 +77,7 @@ export default function SpotMiniMap({ lat, lng, accuracyM, onPick, allCrags }: S
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: '172px' }}>
                 <MapContainer center={center} zoom={lat != null ? 15 : 5} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} maxNativeZoom={19} maxZoom={20} />
+                    <TileLayer url={TILE_URL} maxNativeZoom={18} maxZoom={20} />
                     <Recenter center={center} />
                     <LocationPicker onPick={(pLat, pLng) => onPick(pLat, pLng, null)} />
                     {lat != null && lng != null && (

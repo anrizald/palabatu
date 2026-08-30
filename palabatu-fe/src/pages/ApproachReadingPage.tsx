@@ -86,7 +86,7 @@ function MapOverview({ approach, activeIdx, onSelect, onClose }: { approach: App
             </div>
             <div style={{ height: '280px' }} className="shrink-0 border-b border-border">
                 <MapContainer center={center} zoom={pinned.length ? 15 : 5} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} maxNativeZoom={19} maxZoom={20} />
+                    <TileLayer url={TILE_URL} maxNativeZoom={18} maxZoom={20} />
                     {pinned.map(({ s, idx }) => (
                         <Marker key={s.id} position={[s.lat!, s.lng!]} icon={numberedIcon(idx + 1, idx === activeIdx)} eventHandlers={{ click: () => onSelect(idx) }} />
                     ))}

@@ -119,7 +119,7 @@ export default function RockPointMap({
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: `${heightPx}px` }}>
                 <MapContainer center={center} zoom={hasPin ? 18 : 17} maxZoom={20} zoomControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} maxNativeZoom={19} maxZoom={20} />
+                    <TileLayer url={TILE_URL} maxNativeZoom={18} maxZoom={20} />
                     <Recenter center={center} trigger={recenterTrigger} />
                     <LocationPicker onPick={(pLat, pLng) => onPick(pLat, pLng, null)} />
 
