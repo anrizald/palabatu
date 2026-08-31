@@ -434,7 +434,7 @@ export default function Landing() {
                             marginBottom: '8px', letterSpacing: '-0.01em'
                         }}>kuat, pinter, boleh</p>
                         <p style={{ fontSize: '15px', color: '#6a5848', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
-                            Indonesia's bouldering community
+                            Indonesia's Bouldering Spotter Map
                         </p>
                         <a href="/map" style={{
                             padding: '12px 28px',
