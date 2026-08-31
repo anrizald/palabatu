@@ -3,6 +3,7 @@ package problems
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -15,6 +16,12 @@ import (
 // the boulder, not the problem) -- only the generic Cloudinary-upload
 // endpoints stay here, since they're entity-agnostic.
 func Routes(rg *gin.RouterGroup) {
+	// Uploads are authenticated but were otherwise unbounded -- a burst of
+	// them isn't just extra DB/CPU load like other endpoints, it's billed
+	// Cloudinary traffic, so this gets its own limiter beyond the blanket
+	// /api one in main.go.
+	limitUploads := middleware.RateLimit(5*time.Second, 3)
+
 	rg.GET("/problems", handleListProblems)
 	rg.GET("/problems/:id", handleGetProblem)
 	rg.POST("/problems", middleware.RequireAuth, handleCreateProblem)
@@ -25,8 +32,8 @@ func Routes(rg *gin.RouterGroup) {
 	rg.POST("/problems/:id/images", middleware.RequireAuth, handleAddProblemImages)
 	rg.DELETE("/problems/:id/images", middleware.RequireAuth, handleDeleteProblemImage)
 
-	rg.POST("/upload/topo", middleware.RequireAuth, handleUploadTopo)
-	rg.POST("/upload/avatar", middleware.RequireAuth, handleUploadAvatar)
+	rg.POST("/upload/topo", middleware.RequireAuth, limitUploads, handleUploadTopo)
+	rg.POST("/upload/avatar", middleware.RequireAuth, limitUploads, handleUploadAvatar)
 }
 
 // handleListProblems godoc

@@ -1080,6 +1080,9 @@
                     "boulder_name": {
                         "type": "string"
                     },
+                    "boulder_type": {
+                        "type": "string"
+                    },
                     "crag_id": {
                         "type": "string"
                     },
@@ -1134,6 +1137,16 @@
                     },
                     "send_count": {
                         "type": "integer"
+                    },
+                    "topo_line": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "topo_url": {
+                        "type": "string"
                     }
                 },
                 "type": "object"
@@ -1146,6 +1159,9 @@
                     "boulder_name": {
                         "type": "string"
                     },
+                    "boulder_type": {
+                        "type": "string"
+                    },
                     "crag_id": {
                         "type": "string"
                     },
@@ -1200,6 +1216,16 @@
                     },
                     "send_count": {
                         "type": "integer"
+                    },
+                    "topo_line": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "topo_url": {
+                        "type": "string"
                     }
                 },
                 "type": "object"

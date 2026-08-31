@@ -1,3 +1,6 @@
+import type { BoulderType } from './boulder.js'
+import type { Shape } from './annotation.js'
+
 // Mirrors problems.CreateProblemRequest (see
 // palabatu-be/internal/problems/dto.go) -- POST /api/problems's request
 // body. boulder_id is required; crag_id is derived server-side from the
@@ -44,6 +47,14 @@ export type DeleteProblemImageRequest = { url: string }
 // rest mirror nullable Go pointer fields. image_urls are beta/action shots
 // -- a NEW field with a NEW meaning, not the pre-restructure topo photo
 // (that lives on the boulder now, src/types/boulder.ts).
+// boulder_type/topo_url/topo_line are handoff-directory.md's tier 1
+// (2026-08-31): the rock's authoritative type (BoulderType is non-pointer
+// on the Go side, always present), its first photo (string | null,
+// replacing the per-crag fan-out enrichProblems used to need just for a
+// thumbnail), and this problem's own drawn line on that photo (Go passes
+// this through as an opaque json.RawMessage like auth.Profile.Title/.Tags,
+// but the frontend already knows its real shape via annotation.ts's Shape,
+// so it's typed precisely here rather than left opaque).
 export type ProblemListItem = {
     id: string
     name: string
@@ -52,6 +63,9 @@ export type ProblemListItem = {
     crag_name: string | null
     boulder_id: string
     boulder_name: string | null
+    boulder_type: BoulderType
+    topo_url: string | null
+    topo_line: Shape[] | null
     first_ascensionist: string | null
     discovered_by: string | null
     landing_hazards: string | null

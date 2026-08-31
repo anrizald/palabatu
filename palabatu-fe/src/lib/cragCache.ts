@@ -78,37 +78,36 @@ export async function getCragCoords(cragId: string): Promise<{ lat: number; lng:
     return crag ? { lat: crag.lat, lng: crag.lng } : null
 }
 
-// Resolves a problem's card thumbnail: its boulder's first photo, if any.
-export async function getBoulderThumbnail(cragId: string, boulderId: string): Promise<string | null> {
-    const boulders = await getBouldersForCrag(cragId)
-    const boulder = boulders.find(b => b.id === boulderId)
-    return boulder?.image_urls[0] ?? null
-}
-
-// Batch version of the two lookups above, for card grids/rows showing many
-// problems at once (Directory.tsx, ProblemList.tsx, Landing.tsx): one
-// getAllCrags() call plus one getBouldersForCrag() per *distinct* crag in
-// the list (cached, and the same calls CragDetailPage already makes), not
-// one round-trip per problem.
+// Batch enrichment for card grids/rows showing many problems at once
+// (Directory.tsx, ProblemList.tsx, Landing.tsx). Used to also resolve each
+// problem's thumbnail via a per-*distinct*-crag getBouldersForCrag() fan-out
+// (finding 11's "1 + N requests"); now that handoff-directory.md's tier 1
+// puts the boulder's photo directly on the wire as ProblemListItem.topo_url,
+// that fan-out is gone -- one getAllCrags() call is the whole job, so a cold
+// `/directory/all` is 2 requests total, not 1 + N.
+//
+// mapLat/mapLng now come from the crag only, not "boulder's own pin, falling
+// back to the crag's" as before -- a boulder's own coordinates
+// (handoff.md's 2026-08-30 rock-pin work) aren't part of tier 1, and fetching
+// them here would bring the boulder fan-out straight back. This is a
+// deliberate precision trade for a card's "locate on map" button: it now
+// centers the map on the crag rather than the specific rock. Accepted
+// because that button was always an approximate "jump to roughly here", not
+// a precision instrument -- the map's own close-zoom layer is what shows
+// boulder-level pins once you're actually at the crag (handoff.md's
+// three-layer zoom design). Revisit only if that turns out to matter more
+// than it looks like it should.
 export async function enrichProblems(problems: ProblemListItem[]): Promise<EnrichedProblem[]> {
     const crags = await getAllCrags()
     const cragById = new Map(crags.map(c => [c.id, c]))
 
-    const distinctCragIds = [...new Set(problems.map(p => p.crag_id))]
-    const boulderLists = await Promise.all(distinctCragIds.map(getBouldersForCrag))
-    const boulderById = new Map<string, BoulderListItem>()
-    for (const list of boulderLists) {
-        for (const b of list) boulderById.set(b.id, b)
-    }
-
     return problems.map(p => {
         const crag = cragById.get(p.crag_id)
-        const boulder = boulderById.get(p.boulder_id)
         return {
             ...p,
-            thumbnailUrl: boulder?.image_urls[0] ?? null,
-            mapLat: boulder?.lat ?? crag?.lat ?? null,
-            mapLng: boulder?.lng ?? crag?.lng ?? null,
+            thumbnailUrl: p.topo_url,
+            mapLat: crag?.lat ?? null,
+            mapLng: crag?.lng ?? null,
         }
     })
 }

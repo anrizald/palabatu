@@ -3,7 +3,7 @@ import { enrichProblems } from '../lib/cragCache.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, ArrowLeft, RotateCcw } from 'lucide-react';
-import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
+import { GRADE_SCALES, detectGradeScale, boulderTypeToGradeType, type ProblemType } from '../lib/constants.js';
 import { ProblemCard } from '../components/ProblemCard.js';
 import { useAuth } from '../lib/useAuth.js';
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
@@ -65,11 +65,16 @@ function compareGrades(a: string, b: string): number {
     return a.localeCompare(b);
 }
 
-// Which (type, scale) a problem's grade belongs to, for the Type/Scale quick
-// filters below. Unrecognized/legacy grades default to boulder/V-Scale,
-// mirroring ProblemEditForm's detectGrade fallback.
-function gradeMeta(grade: string): { type: ProblemType; scale: string } {
-    return detectGradeScale(grade.split('-')[0] ?? grade) ?? { type: 'boulder', scale: 'V-Scale' };
+// Which scale a problem's grade belongs to (V-Scale/Font/YDS/French), for
+// the Scale/Grade quick filters below. Type itself no longer comes from
+// here (handoff-directory.md decision 5/finding 4) — it comes straight from
+// the rock's boulder_type via boulderTypeToGradeType, since that's
+// authoritative and a grade string can't reliably be reverse-guessed into
+// one; scale still has to come from the grade token, since it isn't stored
+// anywhere else. Unrecognized/legacy grades default to V-Scale, mirroring
+// ProblemEditForm's detectGrade fallback.
+function gradeScale(grade: string): string {
+    return detectGradeScale(grade.split('-')[0] ?? grade)?.scale ?? 'V-Scale';
 }
 
 // The full searchable/filterable catalog — Directory.tsx owns the curated
@@ -80,6 +85,7 @@ export function ProblemList() {
     const { user } = useAuth();
     const [problems, setProblems] = useState<EnrichedProblem[]>([]);
     const [search, setSearch] = useState('');
+    const [spotFilter, setSpotFilter] = useState('All');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
     const [scaleFilter, setScaleFilter] = useState('All');
     const [selectedGrade, setSelectedGrade] = useState('All');
@@ -139,16 +145,42 @@ export function ProblemList() {
 
     const scaleOptions = typeFilter === 'All' ? [] : Object.keys(GRADE_SCALES[typeFilter]);
 
-    const hasActiveFilters = search !== '' || typeFilter !== 'All' || scaleFilter !== 'All'
-        || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
+    // Project is its own pill, not a Type/Scale-gated one (handoff-directory.md
+    // decision 4) — an ungraded problem's type can't be reliably guessed from
+    // its grade string anyway (finding 4, still open until tier 1 ships
+    // boulder_type), so picking Project clears Type/Scale rather than risk a
+    // Type=Rope + Project combo that silently returns zero results.
+    const handleProjectFilter = () => {
+        setSelectedGrade('Project');
+        setTypeFilter('All');
+        setScaleFilter('All');
+    };
+
+    const hasActiveFilters = search !== '' || spotFilter !== 'All' || typeFilter !== 'All'
+        || scaleFilter !== 'All' || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
     const clearFilters = () => {
         setSearch('');
+        setSpotFilter('All');
         setTypeFilter('All');
         setScaleFilter('All');
         setSelectedGrade('All');
         setSentFilter('all');
         setSortBy('name');
     };
+
+    // Spot options for the missing hierarchy axis (finding 5) — every crag
+    // that actually has a problem on it, name-sorted. Derived from the
+    // loaded problems rather than a separate crags fetch: a crag with zero
+    // problems would always filter to an empty grid anyway, so it's not a
+    // useful option here (unlike /directory/spots, which exists precisely to
+    // surface those).
+    const spotOptions = useMemo(() => {
+        const byId = new Map<string, string>();
+        for (const p of problems) {
+            if (p.crag_id && !byId.has(p.crag_id)) byId.set(p.crag_id, p.crag_name || 'Unnamed spot');
+        }
+        return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    }, [problems]);
 
     // Grades available for the current Type/Scale selection, ordered by
     // difficulty within scale, so the picker only ever shows grades that
@@ -158,9 +190,8 @@ export function ProblemList() {
             problems
                 .filter((p): p is EnrichedProblem & { grade: string } => {
                     if (!p.grade) return false;
-                    const meta = gradeMeta(p.grade);
-                    if (typeFilter !== 'All' && meta.type !== typeFilter) return false;
-                    if (scaleFilter !== 'All' && meta.scale !== scaleFilter) return false;
+                    if (typeFilter !== 'All' && boulderTypeToGradeType(p.boulder_type) !== typeFilter) return false;
+                    if (scaleFilter !== 'All' && gradeScale(p.grade) !== scaleFilter) return false;
                     return true;
                 })
                 .map(p => p.grade)
@@ -168,26 +199,32 @@ export function ProblemList() {
         return ['All', ...Array.from(grades).sort(compareGrades)];
     }, [problems, typeFilter, scaleFilter]);
 
-    // Filter + sort problems based on search, type/scale/grade, sent-status and sort choice
+    // Filter + sort problems based on search, spot, type/scale/grade,
+    // sent-status and sort choice
     const filteredProblems = useMemo(() => {
         const filtered = problems.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                 (p.crag_name || '').toLowerCase().includes(search.toLowerCase()) ||
                 (p.boulder_name || '').toLowerCase().includes(search.toLowerCase());
-            const meta = gradeMeta(p.grade ?? '');
-            const matchesType = typeFilter === 'All' || meta.type === typeFilter;
-            const matchesScale = scaleFilter === 'All' || meta.scale === scaleFilter;
-            const matchesGrade = selectedGrade === 'All' || p.grade === selectedGrade;
+            const matchesSpot = spotFilter === 'All' || p.crag_id === spotFilter;
+            const matchesType = typeFilter === 'All' || boulderTypeToGradeType(p.boulder_type) === typeFilter;
+            const matchesScale = scaleFilter === 'All' || gradeScale(p.grade ?? '') === scaleFilter;
+            // Falsy check, not `=== null` -- some rows store '' rather than a
+            // true SQL NULL for "no grade yet" despite the string | null type
+            // (confirmed live: "Slab Mantao"/"VCrazy" both have grade: '').
+            // Matches GradeChip's own condition so a problem showing the
+            // "Project" badge is always reachable through this filter.
+            const matchesGrade = selectedGrade === 'All' || (selectedGrade === 'Project' ? !p.grade : p.grade === selectedGrade);
             const matchesSent = !user || sentFilter === 'all'
                 || (sentFilter === 'unsent' ? !mySentIds.has(String(p.id)) : mySentIds.has(String(p.id)));
-            return matchesSearch && matchesType && matchesScale && matchesGrade && matchesSent;
+            return matchesSearch && matchesSpot && matchesType && matchesScale && matchesGrade && matchesSent;
         });
         return filtered.sort((a, b) => {
             if (sortBy === 'sends') return (b.send_count || 0) - (a.send_count || 0);
             if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             return a.name.localeCompare(b.name);
         });
-    }, [problems, search, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy]);
+    }, [problems, search, spotFilter, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy]);
 
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
@@ -211,6 +248,16 @@ export function ProblemList() {
                             className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
                         />
                     </div>
+                    <select
+                        value={spotFilter}
+                        onChange={(e) => setSpotFilter(e.target.value)}
+                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
+                    >
+                        <option value="All">All spots</option>
+                        {spotOptions.map(([id, name]) => (
+                            <option key={id} value={id}>{name}</option>
+                        ))}
+                    </select>
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortBy)}
@@ -250,16 +297,16 @@ export function ProblemList() {
                     </div>
                 )}
 
-                {typeFilter !== 'All' && (
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
-                        {availableGrades.map(g => (
-                            <button key={g} onClick={() => setSelectedGrade(g)} className={pillClass(selectedGrade === g)}>
-                                {g}
-                            </button>
-                        ))}
-                    </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
+                    <button onClick={() => setSelectedGrade('All')} className={pillClass(selectedGrade === 'All')}>All</button>
+                    <button onClick={handleProjectFilter} className={pillClass(selectedGrade === 'Project')}>Project</button>
+                    {typeFilter !== 'All' && availableGrades.filter(g => g !== 'All').map(g => (
+                        <button key={g} onClick={() => setSelectedGrade(g)} className={pillClass(selectedGrade === g)}>
+                            {g}
+                        </button>
+                    ))}
+                </div>
 
                 {user && (
                     <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -274,7 +321,7 @@ export function ProblemList() {
 
                 {!isLoading && !loadError && (
                     <div className="text-xs text-text-dim mb-3">
-                        {filteredProblems.length} {filteredProblems.length === 1 ? 'problem' : 'problems'} found
+                        {filteredProblems.length} {filteredProblems.length === 1 ? 'line' : 'lines'} found
                     </div>
                 )}
 

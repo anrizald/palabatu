@@ -4329,6 +4329,7 @@ export interface components {
         "internal_problems.ProblemDetail": {
             boulder_id?: string;
             boulder_name?: string;
+            boulder_type?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -4346,10 +4347,13 @@ export interface components {
             name?: string;
             notes?: string;
             send_count?: number;
+            topo_line?: number[];
+            topo_url?: string;
         };
         "internal_problems.ProblemListItem": {
             boulder_id?: string;
             boulder_name?: string;
+            boulder_type?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -4367,6 +4371,8 @@ export interface components {
             name?: string;
             notes?: string;
             send_count?: number;
+            topo_line?: number[];
+            topo_url?: string;
         };
         "internal_problems.ProblemRow": {
             boulder_id?: string;

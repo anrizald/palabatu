@@ -5,6 +5,7 @@ import { VerifyEmail } from './pages/index.js'
 import { Routes, Route } from 'react-router-dom'
 import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
+import { SpotList } from './pages/SpotList.js'
 import { AddSheetProvider } from './lib/AddSheetContext.js'
 import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, Notifications, ComingSoon, Developer } from './pages/index.js'
 
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/directory" element={<Directory />} />
               <Route path="/directory/all" element={<ProblemList />} />
+              <Route path="/directory/spots" element={<SpotList />} />
               <Route path="/problems/:id" element={<ProblemDetailPage />} />
               <Route path="/crags/:id" element={<CragDetailPage />} />
               <Route path="/crags/:id/approaches/new" element={<ApproachCaptureView />} />
