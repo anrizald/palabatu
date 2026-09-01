@@ -13,7 +13,7 @@ import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
-const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
 
 // A crag's page (handoff.md decision 3: tapping a crag pin opens this).
 // Shows the spot's own info and a photo grid of its rocks -- picked by
@@ -133,28 +133,28 @@ export default function CragDetailPage() {
                                     <h1 className="font-serif text-2xl font-black text-text">{crag.name}</h1>
                                 </div>
                                 {canEdit && (
-                                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
+                                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <Pencil size={13} className="shrink-0" /> Edit
                                     </button>
                                 )}
                             </div>
 
-                            <div className="text-xs text-text-dim flex items-center gap-1.5">
+                            <div className="text-xs text-text-muted flex items-center gap-1.5">
                                 <MapPin size={12} className="shrink-0" /> {crag.lat.toFixed(4)}, {crag.lng.toFixed(4)}
                             </div>
 
                             {crag.directions && (
                                 <div className="text-sm text-text-secondary">
-                                    <span className="text-text-dim">Patokan: </span>{crag.directions}
+                                    <span className="text-text-muted">Patokan: </span>{crag.directions}
                                 </div>
                             )}
                             {crag.access_notes && (
                                 <div className="text-sm text-text-secondary">
-                                    <span className="text-text-dim">Access: </span>{crag.access_notes}
+                                    <span className="text-text-muted">Access: </span>{crag.access_notes}
                                 </div>
                             )}
                             {crag.creator_name && (
-                                <div className="text-xs text-text-dim">Added by {crag.creator_name}</div>
+                                <div className="text-xs text-text-muted">Added by {crag.creator_name}</div>
                             )}
                         </>
                     )}
@@ -195,7 +195,7 @@ export default function CragDetailPage() {
                             ))}
                             <button
                                 onClick={() => navigate(`/crags/${crag.id}/approaches/new`)}
-                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer"
                             >
                                 <Plus size={13} className="shrink-0" /> Add another way in
                             </button>
@@ -208,7 +208,7 @@ export default function CragDetailPage() {
                     <div className="bg-panel border border-border rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
                         <Layers size={28} className="shrink-0 text-text-faint" />
                         <div className="font-serif text-lg font-black text-text">No problems yet</div>
-                        <p className="text-sm text-text-dim max-w-[360px]">Someone marked this spot, but nobody's documented a rock here yet.</p>
+                        <p className="text-sm text-text-muted max-w-[360px]">Someone marked this spot, but nobody's documented a rock here yet.</p>
                         <button
                             onClick={() => openAddSheet({ cragId: crag.id, intent: 'problem', onAdded: load })}
                             className="flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] border-0 text-on-accent font-sans text-sm font-medium cursor-pointer bg-[linear-gradient(145deg,var(--color-accent),var(--color-accent-dark))]"
@@ -222,7 +222,7 @@ export default function CragDetailPage() {
                             <h2 className="font-serif text-lg font-black text-text">Rocks</h2>
                             <button
                                 onClick={() => openAddSheet({ cragId: crag.id, intent: 'rock', onAdded: load })}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs cursor-pointer"
                             >
                                 <Plus size={13} className="shrink-0" /> Add a rock
                             </button>

@@ -7,7 +7,7 @@ import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from './Toast.js'
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
-const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
 
 type Props = {
     boulderId: string
@@ -66,12 +66,12 @@ export default function MergeSuggestModal({ boulderId, cragId, onClose, onSugges
                 </div>
 
                 <div className="overflow-y-auto min-h-0 flex-1 px-8 pb-4 flex flex-col gap-4">
-                    <p className="text-[13px] text-text-dim">Which other rock at this spot is this the same as?</p>
+                    <p className="text-[13px] text-text-muted">Which other rock at this spot is this the same as?</p>
 
                     {isLoading ? (
-                        <p className="text-xs text-text-dim">Loading rocks...</p>
+                        <p className="text-xs text-text-muted">Loading rocks...</p>
                     ) : candidates.length === 0 ? (
-                        <p className="text-sm text-text-dim">There's no other rock at this spot to compare against.</p>
+                        <p className="text-sm text-text-muted">There's no other rock at this spot to compare against.</p>
                     ) : (
                         <div className="grid grid-cols-3 gap-2.5">
                             {candidates.map((b, idx) => (
@@ -108,7 +108,7 @@ export default function MergeSuggestModal({ boulderId, cragId, onClose, onSugges
                 </div>
 
                 <div className="flex gap-2.5 px-8 py-4 shrink-0 border-t border-border">
-                    <button onClick={onClose} className="flex-1 py-[11px] bg-transparent border border-border rounded-[10px] text-text-dim font-sans text-sm cursor-pointer">Cancel</button>
+                    <button onClick={onClose} className="flex-1 py-[11px] bg-transparent border border-border rounded-[10px] text-text-muted font-sans text-sm cursor-pointer">Cancel</button>
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting || !targetId}

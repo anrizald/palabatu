@@ -773,6 +773,9 @@
                     "access_notes": {
                         "type": "string"
                     },
+                    "approach_count": {
+                        "type": "integer"
+                    },
                     "boulder_count": {
                         "type": "integer"
                     },

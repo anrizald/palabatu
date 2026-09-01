@@ -157,7 +157,7 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
                         Annotate Route
                     </h3>
                     <button onClick={onCancel} style={{
-                        background: 'none', border: 'none', color: '#8a7060', fontSize: '22px', cursor: 'pointer', lineHeight: 1,
+                        background: 'none', border: 'none', color: '#967b6a', fontSize: '22px', cursor: 'pointer', lineHeight: 1,
                     }}>&times;</button>
                 </div>
 
@@ -232,7 +232,7 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
                             onClick={onCancel}
                             style={{
                                 flex: '1 1 120px', padding: '10px', background: 'transparent',
-                                border: '1px solid #2a2420', borderRadius: '10px', color: '#8a7060',
+                                border: '1px solid #2a2420', borderRadius: '10px', color: '#967b6a',
                                 fontSize: '13px', cursor: 'pointer',
                             }}
                         >
@@ -263,7 +263,7 @@ function toolButtonStyle(active: boolean): CSSProperties {
         width: '32px', height: '32px', borderRadius: '8px',
         background: active ? 'rgba(200,122,48,0.2)' : 'transparent',
         border: active ? '1px solid #c87a30' : '1px solid #2a2420',
-        color: active ? '#c87a30' : '#8a7060',
+        color: active ? '#c87a30' : '#967b6a',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     }
 }
@@ -272,7 +272,7 @@ function iconButtonStyle(disabled: boolean): CSSProperties {
     return {
         width: '32px', height: '32px', borderRadius: '8px',
         background: 'transparent', border: '1px solid #2a2420',
-        color: disabled ? '#4a4038' : '#8a7060',
+        color: disabled ? '#4a4038' : '#967b6a',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
     }

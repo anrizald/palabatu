@@ -4237,6 +4237,7 @@ export interface components {
         };
         "internal_crags.CragListItem": {
             access_notes?: string;
+            approach_count?: number;
             boulder_count?: number;
             created_at?: string;
             created_by?: string;

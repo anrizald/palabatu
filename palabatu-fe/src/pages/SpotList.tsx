@@ -2,7 +2,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowLeft, Compass, Mountain, Plus, Search } from 'lucide-react';
 import { getAllCrags } from '../lib/cragCache.js';
-import { haversineKm, formatDistanceM, type Geo } from '../components/add-sheet/types.js';
+import { haversineKm, formatDistance, type Geo } from '../lib/geo.js';
+import { WayInLine } from '../components/SpotCard.js';
 import { useAddSheet } from '../lib/useAddSheet.js';
 import FallbackImg from '../components/FallbackImg.js';
 import type { CragListItem } from '../types/crag.js';
@@ -72,6 +73,7 @@ export function SpotList() {
 
     const totalLines = crags.reduce((sum, c) => sum + c.problem_count, 0);
     const totalRocks = crags.reduce((sum, c) => sum + c.boulder_count, 0);
+    const withWayIn = crags.filter(c => c.approach_count > 0).length;
 
     const visibleCrags = useMemo(() => {
         const filtered = crags.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
@@ -93,7 +95,7 @@ export function SpotList() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
             <div className="max-w-[1100px] mx-auto px-6 pt-6">
-                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit mb-4">
+                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors w-fit mb-4">
                     <ArrowLeft size={14} className="shrink-0" /> Back to Directory
                 </Link>
 
@@ -113,10 +115,10 @@ export function SpotList() {
                 </div>
 
                 {!isLoading && !loadError && crags.length > 0 && (
-                    <div className="flex items-center gap-3 text-xs text-text-dim mb-6">
-                        <span><b className="text-text font-semibold">{crags.length}</b> spots</span>
-                        <span className="w-[3px] h-[3px] rounded-full bg-border" />
-                        <span><b className="text-text font-semibold">{totalLines}</b> lines on <b className="text-text font-semibold">{totalRocks}</b> rocks</span>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted mb-6">
+                        <span className="whitespace-nowrap"><b className="text-text font-semibold">{crags.length}</b> spots</span>
+                        <span className="whitespace-nowrap"><span className="text-border mr-3" aria-hidden="true">&bull;</span><b className="text-text font-semibold">{totalLines}</b> lines on <b className="text-text font-semibold">{totalRocks}</b> rocks</span>
+                        <span className="whitespace-nowrap"><span className="text-border mr-3" aria-hidden="true">&bull;</span><b className="text-text font-semibold">{withWayIn}</b> with a way in mapped</span>
                     </div>
                 )}
                 {(isLoading || loadError || crags.length === 0) && <div className="mb-6" />}
@@ -131,7 +133,7 @@ export function SpotList() {
                                     placeholder="Search spots..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
+                                    className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-dim outline-none transition-colors"
                                 />
                             </div>
                             <select
@@ -146,7 +148,7 @@ export function SpotList() {
                         </div>
 
                         {!geo && (
-                            <div className="flex items-center gap-2 text-xs text-text-dim mb-5">
+                            <div className="flex items-center gap-2 text-xs text-text-muted mb-5">
                                 <Compass size={13} className="shrink-0" />
                                 <span>{locateError || 'Turn on location to sort by distance.'}</span>
                                 <button
@@ -253,16 +255,29 @@ function SpotRow({ crag, distanceKm, navigate, onAddedFirst }: {
                         {crag.name}
                     </h3>
                     {distanceKm != null && (
-                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] text-text-dim">
-                            <Compass size={11} className="shrink-0" />{formatDistanceM(distanceKm)}
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] text-text-muted">
+                            <Compass size={11} className="shrink-0" />{formatDistance(distanceKm)}
                         </span>
                     )}
                 </div>
-                <p className="text-xs text-text-dim mt-1">
+                <p className="text-xs text-text-muted mt-1">
                     {isEmpty
                         ? 'Nothing documented yet'
                         : `${crag.problem_count} line${crag.problem_count === 1 ? '' : 's'} on ${crag.boulder_count} rock${crag.boulder_count === 1 ? '' : 's'}`}
                 </p>
+
+                {/* decision 7's "should I go there" fields, the two this row
+                    can answer that the counts can't: is the walk in mapped,
+                    and did anyone write down the patokan (the landmark
+                    directions a crag carries in `directions`). */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                    <WayInLine approachCount={crag.approach_count} />
+                    {crag.directions && (
+                        <span className="text-[11px] text-text-muted whitespace-nowrap">
+                            <span className="text-border mr-2" aria-hidden="true">&bull;</span>Patokan written
+                        </span>
+                    )}
+                </div>
 
                 {isEmpty && (
                     <button

@@ -31,7 +31,7 @@ export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false,
 
                 <div className="px-5 py-4 flex flex-col gap-3.5">
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-[12px] text-text-dim font-bold">Type</label>
+                        <label className="text-[12px] text-text-muted font-bold">Type</label>
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as FeedbackType)}
@@ -43,7 +43,7 @@ export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false,
                         </select>
                     </div>
 
-                    <div className="text-[12px] text-text-dim bg-surface/60 border border-border rounded-xl p-3 leading-relaxed">
+                    <div className="text-[12px] text-text-muted bg-surface/60 border border-border rounded-xl p-3 leading-relaxed">
                         {activeType.description}
                     </div>
 

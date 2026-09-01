@@ -55,7 +55,7 @@ export default function ResetPassword() {
                     boxShadow: '0 40px 80px rgba(0,0,0,0.6)'
                 }}>
                     <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 900, color: '#f0e0c8', marginBottom: '8px' }}>New password</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>Choose a strong password for your account.</p>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>Choose a strong password for your account.</p>
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <input

@@ -15,7 +15,13 @@ export default function FooterSection() {
             // to keep *other UI* out of this strip, not to mask the page.
             pointerEvents: 'none',   // allows clicks to pass through
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            fontSize: '11px', color: '#2a2420',
+            // Weathered Stone, the Sentence Rule's floor. This was #2a2420
+            // (Cold Slate, the *border* token) at 1.27:1 -- the app's lowest
+            // contrast anywhere, and on every page. The rule's own remedy for
+            // copy that feels too loud at the floor is to cut it or shrink its
+            // role, never to dim it below: hence the smaller 10px size here,
+            // holding roughly the visual weight the dimming was reaching for.
+            fontSize: '10px', color: '#967b6a',
             fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.05em',
         }}>
             {/* One row, not two stacked lines: the strip is permanently unusable

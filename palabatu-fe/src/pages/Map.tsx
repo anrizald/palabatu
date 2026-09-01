@@ -100,13 +100,13 @@ function LocationSearchBox() {
     let dropdownContent: ReactNode = null;
     if (isSearching) {
         dropdownContent = (
-            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                 Searching...
             </div>
         );
     } else if (results.length === 0) {
         dropdownContent = (
-            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                 No results found
             </div>
         );
@@ -161,7 +161,7 @@ function LocationSearchBox() {
                 padding: '10px 12px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             }}>
-                <Search size={16} color="#8a7060" style={{ flexShrink: 0 }} />
+                <Search size={16} color="#967b6a" style={{ flexShrink: 0 }} />
                 <input
                     type="text"
                     value={query}
@@ -189,7 +189,7 @@ function LocationSearchBox() {
                         aria-label="Clear search"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
                     >
-                        <X size={14} color="#8a7060" style={{ flexShrink: 0 }} />
+                        <X size={14} color="#967b6a" style={{ flexShrink: 0 }} />
                     </button>
                 )}
             </div>
@@ -585,7 +585,7 @@ function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster |
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                         {cluster.items.length} locations here
                     </span>
                     <button
@@ -593,7 +593,7 @@ function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster |
                         aria-label="Close"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
                     >
-                        <X size={18} color="#8a7060" style={{ flexShrink: 0 }} />
+                        <X size={18} color="#967b6a" style={{ flexShrink: 0 }} />
                     </button>
                 </div>
                 <div style={{ padding: '0 16px 4px' }}>

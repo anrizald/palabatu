@@ -13,22 +13,12 @@ export const NEAR_M = 500
 
 export type Geo = { lat: number; lng: number }
 
-// Great-circle distance in km. Own copy rather than a shared lib module --
-// mirrors the precedent already established between Directory.tsx and
-// Landing.tsx's identical helpers (each page's geo need is small enough
-// that the indirection isn't worth it yet).
-export function haversineKm(a: Geo, b: Geo): number {
-    const R = 6371
-    const dLat = (b.lat - a.lat) * Math.PI / 180
-    const dLng = (b.lng - a.lng) * Math.PI / 180
-    const s = Math.sin(dLat / 2) ** 2
-        + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2
-    return 2 * R * Math.asin(Math.sqrt(s))
-}
-
-export function formatDistanceM(km: number): string {
-    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`
-}
+// Re-exported from lib/geo.ts, which now holds the one implementation these
+// (and Directory/Landing/SpotList) all used their own copy of. Kept as
+// re-exports rather than rewritten imports so the add sheet's own modules,
+// which are handoff.md's territory, keep importing from one place.
+export { haversineKm } from '../../lib/geo.js'
+export { formatDistance as formatDistanceM } from '../../lib/geo.js'
 
 // "Add a spot" draft -- name, pin (dropped on SpotMiniMap), photo, and the
 // optional patokan/access fields under "More details".

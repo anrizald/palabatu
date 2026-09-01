@@ -2,14 +2,16 @@ import { api } from '../lib/api.js';
 import { enrichProblems } from '../lib/cragCache.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Search, ArrowLeft, RotateCcw, Compass, Plus } from 'lucide-react';
 import { GRADE_SCALES, detectGradeScale, boulderTypeToGradeType, type ProblemType } from '../lib/constants.js';
 import { ProblemCard } from '../components/ProblemCard.js';
 import { useAuth } from '../lib/useAuth.js';
+import { useAddSheet } from '../lib/useAddSheet.js';
+import { haversineKm, type Geo } from '../lib/geo.js';
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
 import type { ErrorResponse } from '../types/apitypes.js';
 
-type SortBy = 'name' | 'sends' | 'newest';
+type SortBy = 'name' | 'sends' | 'newest' | 'nearest';
 type SentFilter = 'all' | 'unsent' | 'sent';
 type TypeFilter = 'All' | ProblemType;
 
@@ -31,7 +33,7 @@ const TYPE_FILTER_OPTIONS: { value: TypeFilter; label: string }[] = [
 function pillClass(active: boolean): string {
     return `px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${active
         ? 'bg-accent/15 border-accent text-accent'
-        : 'bg-transparent border-border text-text-dim hover:border-accent hover:text-text-secondary'
+        : 'bg-transparent border-border text-text-muted hover:border-accent hover:text-text-secondary'
         }`;
 }
 
@@ -91,11 +93,20 @@ export function ProblemList() {
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [sentFilter, setSentFilter] = useState<SentFilter>('all');
     const [mySentIds, setMySentIds] = useState<Set<string>>(new Set());
-    const [sortBy, setSortBy] = useState<SortBy>('name');
+    // handoff-directory.md decision 12: newest by default, nearest once
+    // location is on. A-Z is a filing-cabinet default -- kept as an option,
+    // since it is the right sort once you're hunting a name you already
+    // know, but not the one a catalog opens on.
+    const [sortBy, setSortBy] = useState<SortBy>('newest');
+    const [sortTouched, setSortTouched] = useState(false);
+    const [geo, setGeo] = useState<Geo | null>(null);
+    const [locating, setLocating] = useState(false);
+    const [locateError, setLocateError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const navigate = useNavigate();
+    const { openAddSheet } = useAddSheet();
 
     const fetchProblems = useCallback(() => {
         setIsLoading(true);
@@ -130,6 +141,28 @@ export function ProblemList() {
             .catch(e => console.error('Failed to load your sends', e));
     }, [user]);
 
+    const requestLocation = () => {
+        setLocating(true);
+        setLocateError(null);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setLocating(false);
+                if (!sortTouched) setSortBy('nearest');
+            },
+            () => {
+                setLocateError("Could not get your location. Check your browser's location permissions.");
+                setLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
+    const handleSortChange = (value: SortBy) => {
+        setSortTouched(true);
+        setSortBy(value);
+    };
+
     // Type -> Scale -> Grade is a cascade: picking a type narrows which
     // scales apply, and either narrows which grades exist to pick from.
     // Selecting "All" at a level resets everything below it back to "All".
@@ -146,10 +179,9 @@ export function ProblemList() {
     const scaleOptions = typeFilter === 'All' ? [] : Object.keys(GRADE_SCALES[typeFilter]);
 
     // Project is its own pill, not a Type/Scale-gated one (handoff-directory.md
-    // decision 4) — an ungraded problem's type can't be reliably guessed from
-    // its grade string anyway (finding 4, still open until tier 1 ships
-    // boulder_type), so picking Project clears Type/Scale rather than risk a
-    // Type=Rope + Project combo that silently returns zero results.
+    // decision 4). Picking it clears Type/Scale: an ungraded problem has no
+    // scale to belong to, so leaving a stale Scale=Font selected behind it
+    // would silently return zero results.
     const handleProjectFilter = () => {
         setSelectedGrade('Project');
         setTypeFilter('All');
@@ -157,7 +189,8 @@ export function ProblemList() {
     };
 
     const hasActiveFilters = search !== '' || spotFilter !== 'All' || typeFilter !== 'All'
-        || scaleFilter !== 'All' || selectedGrade !== 'All' || sentFilter !== 'all' || sortBy !== 'name';
+        || scaleFilter !== 'All' || selectedGrade !== 'All' || sentFilter !== 'all'
+        || sortBy !== (geo ? 'nearest' : 'newest');
     const clearFilters = () => {
         setSearch('');
         setSpotFilter('All');
@@ -165,7 +198,8 @@ export function ProblemList() {
         setScaleFilter('All');
         setSelectedGrade('All');
         setSentFilter('all');
-        setSortBy('name');
+        setSortBy(geo ? 'nearest' : 'newest');
+        setSortTouched(false);
     };
 
     // Spot options for the missing hierarchy axis (finding 5) — every crag
@@ -208,7 +242,11 @@ export function ProblemList() {
                 (p.boulder_name || '').toLowerCase().includes(search.toLowerCase());
             const matchesSpot = spotFilter === 'All' || p.crag_id === spotFilter;
             const matchesType = typeFilter === 'All' || boulderTypeToGradeType(p.boulder_type) === typeFilter;
-            const matchesScale = scaleFilter === 'All' || gradeScale(p.grade ?? '') === scaleFilter;
+            // An ungraded problem belongs to no scale, so a specific Scale
+            // pick excludes it rather than falling through gradeScale's
+            // unrecognized-token default of V-Scale. Same falsy check as
+            // the Project filter below and GradeChip's own condition.
+            const matchesScale = scaleFilter === 'All' || (!!p.grade && gradeScale(p.grade) === scaleFilter);
             // Falsy check, not `=== null` -- some rows store '' rather than a
             // true SQL NULL for "no grade yet" despite the string | null type
             // (confirmed live: "Slab Mantao"/"VCrazy" both have grade: '').
@@ -222,14 +260,24 @@ export function ProblemList() {
         return filtered.sort((a, b) => {
             if (sortBy === 'sends') return (b.send_count || 0) - (a.send_count || 0);
             if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            // A problem's map point is its crag's (see cragCache.ts), so
+            // "nearest" really orders by nearest spot and leaves everything
+            // at one spot tied -- which is the honest answer here: a
+            // catalog row can't claim a precision the data doesn't have.
+            // Name breaks the tie so the order stays stable, not arbitrary.
+            if (sortBy === 'nearest' && geo) {
+                const da = a.mapLat != null && a.mapLng != null ? haversineKm(geo, { lat: a.mapLat, lng: a.mapLng }) : Infinity;
+                const db = b.mapLat != null && b.mapLng != null ? haversineKm(geo, { lat: b.mapLat, lng: b.mapLng }) : Infinity;
+                if (da !== db) return da - db;
+            }
             return a.name.localeCompare(b.name);
         });
-    }, [problems, search, spotFilter, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy]);
+    }, [problems, search, spotFilter, typeFilter, scaleFilter, selectedGrade, sentFilter, mySentIds, user, sortBy, geo]);
 
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
             <div className="max-w-[1100px] mx-auto px-6 pt-6">
-                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit mb-4">
+                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors w-fit mb-4">
                     <ArrowLeft size={14} className="shrink-0" /> Back to Directory
                 </Link>
 
@@ -245,7 +293,7 @@ export function ProblemList() {
                             placeholder="Search by name or location..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
+                            className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-dim outline-none transition-colors"
                         />
                     </div>
                     <select
@@ -260,24 +308,25 @@ export function ProblemList() {
                     </select>
                     <select
                         value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as SortBy)}
+                        onChange={(e) => handleSortChange(e.target.value as SortBy)}
                         className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
                     >
-                        <option value="name">Sort: Name (A-Z)</option>
-                        <option value="sends">Sort: Most sent</option>
+                        {geo && <option value="nearest">Sort: Nearest</option>}
                         <option value="newest">Sort: Newest</option>
+                        <option value="sends">Sort: Most sent</option>
+                        <option value="name">Sort: Name (A-Z)</option>
                     </select>
                     <button
                         onClick={clearFilters}
                         disabled={!hasActiveFilters}
-                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium bg-transparent border border-border text-text-dim hover:border-accent hover:text-text-secondary disabled:opacity-40 disabled:cursor-default disabled:hover:border-border disabled:hover:text-text-dim cursor-pointer transition-colors"
+                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium bg-transparent border border-border text-text-muted hover:border-accent hover:text-text-secondary disabled:opacity-40 disabled:cursor-default disabled:hover:border-border disabled:hover:text-text-muted cursor-pointer transition-colors"
                     >
                         <RotateCcw size={14} className="shrink-0" /> Reset
                     </button>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="text-xs text-text-dim shrink-0 mr-1">Type</span>
+                    <span className="text-xs text-text-muted shrink-0 mr-1">Type</span>
                     {TYPE_FILTER_OPTIONS.map(({ value, label }) => (
                         <button key={value} onClick={() => handleTypeFilter(value)} className={pillClass(typeFilter === value)}>
                             {label}
@@ -287,7 +336,7 @@ export function ProblemList() {
 
                 {typeFilter !== 'All' && (
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className="text-xs text-text-dim shrink-0 mr-1">Scale</span>
+                        <span className="text-xs text-text-muted shrink-0 mr-1">Scale</span>
                         <button onClick={() => handleScaleFilter('All')} className={pillClass(scaleFilter === 'All')}>All</button>
                         {scaleOptions.map(s => (
                             <button key={s} onClick={() => handleScaleFilter(s)} className={pillClass(scaleFilter === s)}>
@@ -298,7 +347,7 @@ export function ProblemList() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="text-xs text-text-dim shrink-0 mr-1">Grade</span>
+                    <span className="text-xs text-text-muted shrink-0 mr-1">Grade</span>
                     <button onClick={() => setSelectedGrade('All')} className={pillClass(selectedGrade === 'All')}>All</button>
                     <button onClick={handleProjectFilter} className={pillClass(selectedGrade === 'Project')}>Project</button>
                     {typeFilter !== 'All' && availableGrades.filter(g => g !== 'All').map(g => (
@@ -310,7 +359,7 @@ export function ProblemList() {
 
                 {user && (
                     <div className="flex flex-wrap items-center gap-2 mb-4">
-                        <span className="text-xs text-text-dim shrink-0 mr-1">Status</span>
+                        <span className="text-xs text-text-muted shrink-0 mr-1">Status</span>
                         {SENT_FILTER_OPTIONS.map(({ value, label }) => (
                             <button key={value} onClick={() => setSentFilter(value)} className={pillClass(sentFilter === value)}>
                                 {label}
@@ -319,8 +368,22 @@ export function ProblemList() {
                     </div>
                 )}
 
+                {!isLoading && !loadError && !geo && problems.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted mb-3">
+                        <Compass size={13} className="shrink-0" />
+                        <span>{locateError || 'Turn on location to sort by distance.'}</span>
+                        <button
+                            onClick={requestLocation}
+                            disabled={locating}
+                            className="bg-transparent border-none text-accent hover:underline disabled:opacity-60 disabled:cursor-default cursor-pointer p-0"
+                        >
+                            {locating ? 'Locating...' : 'Use my location'}
+                        </button>
+                    </div>
+                )}
+
                 {!isLoading && !loadError && (
-                    <div className="text-xs text-text-dim mb-3">
+                    <div className="text-xs text-text-muted mb-3">
                         {filteredProblems.length} {filteredProblems.length === 1 ? 'line' : 'lines'} found
                     </div>
                 )}
@@ -343,7 +406,7 @@ export function ProblemList() {
                         {filteredProblems.length === 0 && (
                             <div className="col-span-full text-text-muted text-center py-16">
                                 {problems.length === 0 ? (
-                                    <>No problems added yet. <Link to="/map" className="text-accent hover:underline">Add one from the map</Link>.</>
+                                    <>No problems added yet. <button onClick={() => openAddSheet({ intent: 'problem', onAdded: fetchProblems })} className="inline-flex items-center gap-1 bg-transparent border-none text-accent hover:underline cursor-pointer p-0"><Plus size={13} className="shrink-0" />Add the first one</button>.</>
                                 ) : (
                                     <>No problems match your search. <button onClick={clearFilters} className="bg-transparent border-none text-accent hover:underline cursor-pointer p-0">Clear filters</button>.</>
                                 )}

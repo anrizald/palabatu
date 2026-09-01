@@ -32,7 +32,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 900, color: '#c87a30' }}>
                     Something slipped
                 </div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#8a7060' }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#967b6a' }}>
                     The app hit an unexpected error. Try reloading the page.
                 </div>
                 <button

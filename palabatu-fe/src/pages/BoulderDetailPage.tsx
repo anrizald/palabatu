@@ -18,7 +18,7 @@ import RockPointMap, { type NearbyRock } from '../components/RockPointMap.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
-const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
 
 // Read-only view of a photo with every problem's line on it drawn together
 // -- the concrete payoff of the boulder owning the photo (handoff.md
@@ -251,7 +251,7 @@ export default function BoulderDetailPage() {
 
             <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                 {crag && (
-                    <Link to={`/crags/${crag.id}`} className="text-xs text-text-dim no-underline hover:underline self-start">
+                    <Link to={`/crags/${crag.id}`} className="text-xs text-text-muted no-underline hover:underline self-start">
                         &larr; {crag.name}
                     </Link>
                 )}
@@ -264,13 +264,13 @@ export default function BoulderDetailPage() {
                                 <AlertTriangle size={16} className="shrink-0 text-accent mt-0.5" />
                                 <p className="text-sm text-text-secondary">
                                     <b>{req.suggester_name ?? 'Someone'}</b> flagged this as maybe the same rock as <b>{otherName}</b>.
-                                    {req.reason && <span className="block text-xs text-text-dim mt-1">"{req.reason}"</span>}
+                                    {req.reason && <span className="block text-xs text-text-muted mt-1">"{req.reason}"</span>}
                                 </p>
                             </div>
                             {req.objections.length > 0 && (
                                 <div className="flex flex-col gap-1.5 pl-[26px]">
                                     {req.objections.map(o => (
-                                        <div key={o.id} className="text-xs text-text-dim">
+                                        <div key={o.id} className="text-xs text-text-muted">
                                             <b className="text-text-secondary">{o.username ?? 'Someone'}</b> said this is not the same rock: "{o.body}"
                                         </div>
                                     ))}
@@ -338,13 +338,13 @@ export default function BoulderDetailPage() {
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                             <div>
                                 <h1 className="font-serif text-2xl font-black text-text">{boulder.name ?? 'Unnamed rock'}</h1>
-                                {boulder.rock_type && <div className="text-xs text-text-dim mt-1">{boulder.rock_type}</div>}
-                                {boulder.creator_name && <div className="text-xs text-text-dim mt-1">Added by {boulder.creator_name}</div>}
+                                {boulder.rock_type && <div className="text-xs text-text-muted mt-1">{boulder.rock_type}</div>}
+                                {boulder.creator_name && <div className="text-xs text-text-muted mt-1">Added by {boulder.creator_name}</div>}
                                 {/* An unpinned rock is invisible on the map's
                                     close-zoom layer, and nothing else says so
                                     -- this is where someone finds out it's
                                     worth fixing. */}
-                                <div className="text-xs text-text-dim mt-1 flex items-center gap-1.5">
+                                <div className="text-xs text-text-muted mt-1 flex items-center gap-1.5">
                                     <MapPin size={12} className="shrink-0" />
                                     {boulder.lat != null && boulder.lng != null
                                         ? 'Pinned on the map'
@@ -355,17 +355,17 @@ export default function BoulderDetailPage() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                                 {user && (
-                                    <button onClick={() => setShowMergeModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
+                                    <button onClick={() => setShowMergeModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <GitCompare size={13} className="shrink-0" /> Same rock as...
                                     </button>
                                 )}
                                 {canEdit && (
-                                    <button onClick={() => setShowMoveSpot(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
+                                    <button onClick={() => setShowMoveSpot(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <Compass size={13} className="shrink-0" /> Move to another spot
                                     </button>
                                 )}
                                 {canEdit && (
-                                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-dim text-xs cursor-pointer">
+                                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <Pencil size={13} className="shrink-0" /> Edit
                                     </button>
                                 )}
@@ -378,7 +378,7 @@ export default function BoulderDetailPage() {
                     {boulder.image_urls.length === 0 ? (
                         <div className="rounded-2xl bg-surface border border-dashed border-text-faint flex flex-col items-center justify-center gap-2 py-10">
                             <Layers size={24} className="shrink-0 text-text-faint" />
-                            <div className="text-sm text-text-dim">No photo yet</div>
+                            <div className="text-sm text-text-muted">No photo yet</div>
                         </div>
                     ) : (
                         boulder.image_urls.map(url => (
@@ -396,7 +396,7 @@ export default function BoulderDetailPage() {
                         ))
                     )}
                     {canEdit && (
-                        <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
+                        <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
                             <Plus size={13} className="shrink-0" /> {isUploadingPhoto ? 'Uploading...' : 'Add a photo'}
                             <input
                                 type="file"
@@ -419,14 +419,14 @@ export default function BoulderDetailPage() {
                         <h2 className="font-serif text-lg font-black text-text">Problems on this rock</h2>
                         <button
                             onClick={() => openAddSheet({ boulderId: boulder.id, intent: 'problem', onAdded: load })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-dim text-xs cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs cursor-pointer"
                         >
                             <Plus size={13} className="shrink-0" /> Add a problem
                         </button>
                     </div>
 
                     {problems.length === 0 ? (
-                        <div className="bg-panel border border-border rounded-2xl p-6 text-center text-sm text-text-dim">
+                        <div className="bg-panel border border-border rounded-2xl p-6 text-center text-sm text-text-muted">
                             No problems yet -- be the first to add one.
                         </div>
                     ) : (

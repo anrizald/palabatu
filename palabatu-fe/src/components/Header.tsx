@@ -70,7 +70,7 @@ export default function Header() {
                 .nav-link {
                     font-family: 'DM Sans', sans-serif;
                     font-size: 13px;
-                    color: #8a7060;
+                    color: #967b6a;
                     text-decoration: none;
                     letter-spacing: 0.05em;
                     transition: color 0.2s;

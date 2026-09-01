@@ -1,10 +1,16 @@
 import { api } from "../lib/api.js";
-import { enrichProblems } from "../lib/cragCache.js";
+import { enrichProblems, getAllCrags } from "../lib/cragCache.js";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Compass, Flame, Clock } from 'lucide-react';
+import { Flame, Plus } from 'lucide-react';
 import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
+import type { CragListItem } from '../types/crag.js';
 import { ProblemCard, type FooterStat } from '../components/ProblemCard.js';
+import { SpotCard } from '../components/SpotCard.js';
+import { RockCard } from '../components/RockCard.js';
+import { groupRecentRocks } from '../lib/recentRocks.js';
+import { haversineKm, type Geo } from '../lib/geo.js';
+import { useAddSheet } from '../lib/useAddSheet.js';
 import Toast from '../components/Toast.js';
 import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
@@ -12,7 +18,6 @@ import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
 import type { FeedbackType } from '../types/feedback.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
-type Geo = { lat: number; lng: number };
 type CardItem = { problem: EnrichedProblem; footerStat: FooterStat };
 
 const CARD_LIMIT = 10;
@@ -34,33 +39,9 @@ const labelStyle = {
 } as const;
 
 const bodyStyle = {
-    fontSize: '14px', color: '#8a7060', lineHeight: 1.6,
+    fontSize: '14px', color: '#967b6a', lineHeight: 1.6,
     fontFamily: "'DM Sans', sans-serif", margin: 0,
 } as const;
-
-function haversineKm(a: Geo, b: Geo) {
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLng = (b.lng - a.lng) * Math.PI / 180;
-    const s = Math.sin(dLat / 2) ** 2
-        + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-function formatDistance(km: number) {
-    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
-}
-
-function formatRelativeTime(dateStr: string) {
-    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-    if (days <= 0) return 'today';
-    if (days === 1) return '1 day ago';
-    if (days < 7) return `${days} days ago`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-    const months = Math.floor(days / 30);
-    return months <= 1 ? '1 month ago' : `${months} months ago`;
-}
 
 function PinIcon() {
     return (
@@ -118,6 +99,7 @@ export default function Landing() {
     const { user, showToast, toast } = useAuth();
     const navigate = useNavigate();
     const [problems, setProblems] = useState<EnrichedProblem[]>([]);
+    const [crags, setCrags] = useState<CragListItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [climberCount, setClimberCount] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>('hot');
@@ -125,19 +107,22 @@ export default function Landing() {
     const [locating, setLocating] = useState(false);
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const { openAddSheet } = useAddSheet();
 
     useEffect(() => {
         async function fetchData() {
             try {
-                const [problemsData, usersData] = await Promise.all([
+                const [problemsData, usersData, cragsData] = await Promise.all([
                     api.get<ProblemListItem[] | ErrorResponse>('/api/problems'),
                     api.get<Partial<CountResponse>>('/auth/users/count'),
+                    getAllCrags(),
                 ]);
                 if ('error' in problemsData) {
                     console.error("Error fetching problems:", problemsData.error);
                 } else {
                     setProblems(await enrichProblems(problemsData || []));
                 }
+                setCrags(cragsData);
                 if (typeof usersData?.count === 'number') {
                     setClimberCount(usersData.count);
                 }
@@ -169,25 +154,25 @@ export default function Landing() {
             })
     ), [problems]);
 
-    const recentItems = useMemo<CardItem[]>(() => (
-        [...problems]
-            .filter(p => p.created_at)
-            .sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
-            .slice(0, CARD_LIMIT)
-            .map(problem => ({ problem, footerStat: { icon: Clock, label: formatRelativeTime(problem.created_at as string) } }))
-    ), [problems]);
+    // Recent is asked at the rock level and Near You at the spot level
+    // (handoff-directory.md decision 2), matching Directory's rows. Both
+    // used to be problem-granular here, which meant a rock's eight lines
+    // rendered as eight copies of the same photograph -- and, since a
+    // problem's map point is its crag's, eight copies of the same distance
+    // too. Hot stays problem-level: one hard line genuinely is the unit.
+    const recentRocks = useMemo(() => groupRecentRocks(problems, CARD_LIMIT), [problems]);
 
-    const nearYouItems = useMemo<CardItem[]>(() => {
+    const nearSpots = useMemo(() => {
         if (!geo) return [];
-        return [...problems]
-            .filter(p => p.mapLat != null && p.mapLng != null)
-            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.mapLat!, lng: problem.mapLng! }) }))
+        return crags
+            .map(crag => ({ crag, distanceKm: haversineKm(geo, { lat: crag.lat, lng: crag.lng }) }))
             .sort((a, b) => a.distanceKm - b.distanceKm)
-            .slice(0, CARD_LIMIT)
-            .map(({ problem, distanceKm }) => ({ problem, footerStat: { icon: Compass, label: formatDistance(distanceKm) } }));
-    }, [problems, geo]);
+            .slice(0, CARD_LIMIT);
+    }, [crags, geo]);
 
-    const activeItems = activeTab === 'hot' ? hotItems : activeTab === 'recent' ? recentItems : nearYouItems;
+    const hasRows = activeTab === 'nearYou' ? nearSpots.length > 0
+        : activeTab === 'recent' ? recentRocks.length > 0
+            : hotItems.length > 0;
 
     const handleUseLocation = () => {
         setLocating(true);
@@ -257,7 +242,7 @@ export default function Landing() {
         .hero-stats {
             display: flex; align-items: center; gap: 14px;
             margin-top: 28px;
-            font-size: 12px; color: #8a7060;
+            font-size: 12px; color: #967b6a;
             letter-spacing: 0.03em;
             font-family: 'DM Sans', sans-serif;
         }
@@ -292,7 +277,7 @@ export default function Landing() {
         .section-inner { max-width: 1100px; margin: 0 auto; }
         .eyebrow {
             font-family: 'DM Sans', sans-serif;
-            font-size: 12px; font-weight: 600; color: #8a7060;
+            font-size: 12px; font-weight: 600; color: #967b6a;
             letter-spacing: 0.12em; text-transform: uppercase;
             margin: 0 0 18px;
         }
@@ -302,7 +287,7 @@ export default function Landing() {
         .tabs { display: inline-flex; gap: 2px; background: #141210; border: 1px solid #2a2420; border-radius: 10px; padding: 3px; }
         .tab {
             border: none; background: none; cursor: pointer;
-            padding: 7px 16px; font-size: 13px; color: #8a7060;
+            padding: 7px 16px; font-size: 13px; color: #967b6a;
             border-radius: 7px; display: flex; align-items: center; gap: 6px;
             font-family: 'DM Sans', sans-serif;
             transition: color 0.15s, background 0.15s;
@@ -326,7 +311,7 @@ export default function Landing() {
             text-align: center; gap: 12px;
         }
         .locked-card svg { width: 26px; height: 26px; color: #6a5848; }
-        .locked-card p { margin: 0; font-size: 13px; color: #8a7060; max-width: 320px; font-family: 'DM Sans', sans-serif; }
+        .locked-card p { margin: 0; font-size: 13px; color: #967b6a; max-width: 320px; font-family: 'DM Sans', sans-serif; }
         .locked-btn {
             border: 1px solid #c87a30; color: #c87a30; background: none;
             padding: 8px 18px; border-radius: 9px; font-size: 13px; cursor: pointer;
@@ -342,7 +327,7 @@ export default function Landing() {
         .about { text-align: center; }
         .mission { max-width: 640px; margin: 44px auto 0; }
         .mission p {
-            font-size: 15px; color: #8a7060; line-height: 1.7;
+            font-size: 15px; color: #967b6a; line-height: 1.7;
             font-family: 'DM Sans', sans-serif; margin: 0 0 12px;
         }
         .mission p:last-child { margin-bottom: 0; }
@@ -433,7 +418,7 @@ export default function Landing() {
                             fontWeight: 900, color: '#f0e0c8',
                             marginBottom: '8px', letterSpacing: '-0.01em'
                         }}>kuat, pinter, boleh</p>
-                        <p style={{ fontSize: '15px', color: '#6a5848', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
+                        <p style={{ fontSize: '15px', color: '#967b6a', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
                             Indonesia's Bouldering Spotter Map
                         </p>
                         <a href="/map" style={{
@@ -464,9 +449,9 @@ export default function Landing() {
                 {/* Explore */}
                 <section className="section">
                     <div className="section-inner">
-                        <p className="eyebrow">Explore problems</p>
+                        <p className="eyebrow">Explore</p>
                         <div className="explore-head">
-                            <div className="tabs" role="tablist" aria-label="Explore problems by">
+                            <div className="tabs" role="tablist" aria-label="Explore by">
                                 <button className="tab" role="tab" aria-selected={activeTab === 'nearYou'} onClick={() => setActiveTab('nearYou')}>
                                     <PinIcon /> Near You
                                 </button>
@@ -482,7 +467,7 @@ export default function Landing() {
                         {activeTab === 'nearYou' && !geo ? (
                             <div className="locked-card">
                                 <PinIcon />
-                                <p>Turn on location to see what problems are within reach.</p>
+                                <p>Turn on location to see which spots are within reach.</p>
                                 <button className="locked-btn" onClick={handleUseLocation} disabled={locating}>
                                     {locating ? 'Locating...' : 'Use my location'}
                                 </button>
@@ -497,17 +482,37 @@ export default function Landing() {
                                     </div>
                                 ))}
                             </div>
-                        ) : problems.length === 0 ? (
+                        ) : !hasRows ? (
                             <div className="locked-card">
                                 <PinIcon />
-                                <p>No problems added yet. Be the first to map one.</p>
-                                <Link to="/map" className="locked-btn" style={{ textDecoration: 'none', display: 'inline-block' }}>
-                                    Add a problem
-                                </Link>
+                                <p>Nothing documented yet. Be the first to map a line.</p>
+                                <button
+                                    className="locked-btn"
+                                    onClick={() => openAddSheet({ intent: 'problem' })}
+                                >
+                                    <Plus size={15} style={{ flexShrink: 0 }} /> Add the first one
+                                </button>
                             </div>
                         ) : (
                             <div className="card-row">
-                                {activeItems.map(item => (
+                                {activeTab === 'nearYou' && nearSpots.map(({ crag, distanceKm }) => (
+                                    <SpotCard
+                                        key={crag.id}
+                                        crag={crag}
+                                        distanceKm={distanceKm}
+                                        navigate={navigate}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
+                                ))}
+                                {activeTab === 'recent' && recentRocks.map(rock => (
+                                    <RockCard
+                                        key={rock.boulderId}
+                                        rock={rock}
+                                        navigate={navigate}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
+                                ))}
+                                {activeTab === 'hot' && hotItems.map(item => (
                                     <ProblemCard
                                         key={item.problem.id}
                                         problem={item.problem}
@@ -543,7 +548,7 @@ export default function Landing() {
                             </p>
                         </div>
 
-                        <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
+                        <p style={{ fontSize: '14px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
                             Anyone can add a boulder. Anyone can log a send.<br />
                             Join the cause —{' '}
                             <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
@@ -558,7 +563,7 @@ export default function Landing() {
                                     fontFamily: "'Playfair Display', serif", fontSize: '27px',
                                     fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
                                 }}>visi</h3>
-                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
                                     planned incoming features
                                 </p>
                                 <div className="about-feature">
@@ -586,7 +591,7 @@ export default function Landing() {
                                         Rain radar for your local crag. Don't climb when the sun isn't out.
                                     </p>
                                 </div>
-                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '20px 0 0' }}>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '20px 0 0' }}>
                                     Have a cool suggestion?{' '}
                                     <button
                                         onClick={() => setIsFeedbackOpen(true)}
@@ -607,7 +612,7 @@ export default function Landing() {
                                     fontFamily: "'Playfair Display', serif", fontSize: '27px',
                                     fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
                                 }}>patungan / bantuin</h3>
-                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
                                     everyone throws in what they've got
                                 </p>
                                 <p style={bodyStyle}>

@@ -33,7 +33,7 @@ function GradeChip({ grade, className = '' }: { grade: string | null; className?
 // boulder has no name rather than inventing a fallback label -- that's a
 // rock-list concern (BoulderListItem.sample_problem_name), not this card's.
 function SpotLine({ problem, tone }: { problem: EnrichedProblem; tone: 'dim' | 'secondary' }) {
-    const color = tone === 'dim' ? 'text-text-dim' : 'text-text-secondary';
+    const color = tone === 'dim' ? 'text-text-muted' : 'text-text-secondary';
     return (
         <div className={`flex items-center gap-1 text-xs ${color} min-w-0 flex-1`}>
             <MapPin size={12} className="shrink-0" />
@@ -152,7 +152,7 @@ export function ProblemCard({ problem, navigate, footerStat, className = '', var
                             <SpotLine problem={problem} tone="secondary" />
                         </div>
                         <h3 className="font-serif text-3xl sm:text-4xl font-bold text-text mb-2">{problem.name}</h3>
-                        <div className="text-xs text-text-dim">
+                        <div className="text-xs text-text-muted">
                             by {creatorLine} · {stat.label}
                         </div>
                     </div>
@@ -199,7 +199,7 @@ export function ProblemCard({ problem, navigate, footerStat, className = '', var
                 <div className="mb-2">
                     <SpotLine problem={problem} tone="dim" />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-text-dim pt-2 border-t border-border">
+                <div className="flex items-center justify-between text-[11px] text-text-muted pt-2 border-t border-border">
                     <span>by {creatorLine}</span>
                     <span className="flex items-center gap-1 shrink-0"><StatIcon size={11} className="shrink-0" />{stat.label}</span>
                 </div>

@@ -30,9 +30,9 @@ function detectGrade(grade: string): { type: ProblemType; scale: string; from: s
 }
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3 py-2.5 text-text-secondary text-sm outline-none box-border"
-const labelClass = "text-[11px] text-text-dim tracking-[0.1em] uppercase mb-1.5"
+const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
 const segmentBtnClass = (active: boolean) =>
-    `flex-1 py-[7px] text-xs font-sans border-0 rounded-lg cursor-pointer transition-all ${active ? 'bg-accent/15 text-accent font-bold' : 'bg-transparent text-text-dim font-normal'}`
+    `flex-1 py-[7px] text-xs font-sans border-0 rounded-lg cursor-pointer transition-all ${active ? 'bg-accent/15 text-accent font-bold' : 'bg-transparent text-text-muted font-normal'}`
 
 // Shared grade-picker + problem-field form for editing a problem, used by
 // both ProblemDetailPage's inline edit block and (previously) the map's
@@ -109,13 +109,13 @@ export default function ProblemEditForm({ form, onChange, onSave, onCancel, isPr
                 </div>
 
                 <div className="flex items-center justify-between mb-2.5">
-                    <span className="text-xs text-text-dim">
+                    <span className="text-xs text-text-muted">
                         {isRange
                             ? gradeFrom && gradeTo ? `Range: ${gradeFrom} – ${gradeTo}` : gradeFrom ? `From ${gradeFrom}, pick upper…` : 'Pick lower grade first'
                             : gradeFrom ? `Selected: ${gradeFrom}` : 'Pick a grade'}
                     </span>
                     <button onClick={() => { setIsRange(r => !r); setGradeFrom(''); setGradeTo(''); }}
-                        className={`text-[11px] px-2.5 py-1 rounded-full cursor-pointer font-sans transition-all border ${isRange ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}`}>
+                        className={`text-[11px] px-2.5 py-1 rounded-full cursor-pointer font-sans transition-all border ${isRange ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-muted'}`}>
                         Range
                     </button>
                 </div>
@@ -130,7 +130,7 @@ export default function ProblemEditForm({ form, onChange, onSave, onCancel, isPr
                         const active = isFrom || isTo || inRange;
 
                         return (
-                            <button key={g} onClick={() => handleGradePick(g)} className={`py-1.5 px-3 rounded-full text-xs font-sans cursor-pointer transition-all border ${active ? 'border-accent text-accent' : 'border-border text-text-dim'} ${isFrom || isTo ? 'bg-accent/20' : inRange ? 'bg-accent/[0.08]' : 'bg-transparent'}`}>{g}</button>
+                            <button key={g} onClick={() => handleGradePick(g)} className={`py-1.5 px-3 rounded-full text-xs font-sans cursor-pointer transition-all border ${active ? 'border-accent text-accent' : 'border-border text-text-muted'} ${isFrom || isTo ? 'bg-accent/20' : inRange ? 'bg-accent/[0.08]' : 'bg-transparent'}`}>{g}</button>
                         );
                     })}
                 </div>

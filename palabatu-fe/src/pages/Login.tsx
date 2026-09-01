@@ -36,7 +36,7 @@ export default function Login() {
                         fontSize: '28px', fontWeight: 900,
                         color: '#f0e0c8', marginBottom: '8px'
                     }}>Welcome back</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>
                         Log in to your Palabatu account
                     </p>
 
@@ -87,7 +87,7 @@ export default function Login() {
                             </button>
                         </div>
                         <a href="/forgot-password" style={{
-                            textAlign: 'right', color: '#6a5848',
+                            textAlign: 'right', color: '#967b6a',
                             fontSize: '12px', textDecoration: 'none',
                             display: 'block'
                         }}>Forgot password?</a>
@@ -105,7 +105,7 @@ export default function Login() {
                             }}
                         >{isLoading ? 'Logging in...' : 'Login'}</button>
 
-                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
+                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#967b6a', marginTop: '4px' }}>
                             No account?{' '}
                             <a href="/signup" style={{ color: '#c87a30', textDecoration: 'none' }}>Sign up</a>
                         </p>

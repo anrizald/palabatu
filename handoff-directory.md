@@ -1,7 +1,9 @@
 # Directory & All Problems — design handoff
 
 Status: **All 7 sequencing steps shipped (1-2 on 2026-08-17, 3-7 on
-2026-08-31).** Step 1 (card unification, decisions 4/6, findings 3/7/12),
+2026-08-31), then a review pass on 2026-09-01 closed the gaps that review
+found** -- see "Review pass" below for that list; it is the shorter read if
+you only want what changed most recently. Step 1 (card unification, decisions 4/6, findings 3/7/12),
 step 2 (`AddSheet` to the app root, decision 10, finding 8), step 3
 (`/directory/spots`, decision 1, finding 1), step 4 (regrouped Directory
 rows, decision 2, findings 2/6/9, the three-case empty states), step 5
@@ -26,6 +28,78 @@ applies here unchanged and is not repeated below. `PRODUCT.md` and
 Sentence Rule (2026-08-09) is binding on every string this document adds.
 
 Continue editing this file directly as the design changes.
+
+---
+
+## Review pass (2026-09-01)
+
+A read-through of the shipped steps against this document found six things
+the sequencing list had left behind. All are now built and verified live.
+
+1. **Decision 7's "way in mapped" existed nowhere.** Of the four fields
+   decision 7 says a spot card must answer with, three shipped (distance,
+   line count, photo) and the approach indicator did not -- on neither
+   `SpotCard`, nor `/directory/spots`' rows, nor either stat bar, despite
+   both mockups showing it. It was the one part of the spot index that
+   tier 0 genuinely could not cover: `CragListItem` had no approach count,
+   and fetching one per row would have rebuilt the fan-out finding 11
+   exists to complain about. Fixed with a **tier 1b** backend field, see
+   Backend work. `WayInLine` (in `components/SpotCard.tsx`) now renders on
+   every spot surface, both stat bars read "N with a way in mapped" instead
+   of a sends total, and `/directory/spots`' rows add "Patokan written"
+   when the crag carries written `directions`.
+
+2. **Decision 12 was only half-applied.** `/directory/spots` implemented it
+   (nearest once geo is on, unless the user picked a sort themselves);
+   `/directory/all` still opened on A-Z with no nearest option and no geo at
+   all -- the exact filing-cabinet default decision 12 rejects. It fell
+   between steps 3 and 5, since no sequencing step owned it. `ProblemList`
+   now defaults to newest, offers Nearest once location is on and switches
+   to it automatically, and carries the same "Use my location" prompt
+   `SpotList` has. Its map point is the crag's, so nearest orders by nearest
+   *spot* and leaves everything at one spot tied, broken by name for a
+   stable order -- an honest limit, not a precision the data has.
+
+3. **Two empty states still bounced through `/map`** -- `ProblemList`'s "Add
+   one from the map" and `Landing`'s "Add a problem" -- which is finding 8's
+   defect surviving inside the pages decision 10 was scoped for. Both open
+   the sheet in place now.
+
+4. **`Landing.tsx`'s explore tabs are regrouped** (decision 2), which the
+   Blast radius had correctly listed as still pending. It was worse than
+   that entry implied: since step 6 made every problem's map point its
+   crag's, Landing's problem-granular Near You showed a rock's lines as N
+   identical photos *and* N identical distances. Near You now cards spots,
+   Recent cards rocks, Hot stays problem-level. `SpotCard`/`RockCard` moved
+   out of `Directory.tsx` into shared components to do it rather than
+   growing a second copy (finding 12's rule, second call site).
+
+5. **The gap scan got cheaper than the version step 7 shipped.** With
+   `approach_count` on the crag list, two of the three gaps are answerable
+   without a request, and the boulder list is skipped entirely for a crag
+   with no lines. Measured cold `/directory`: **2 API calls**, down from 4,
+   with a worst case of 2 + 8 rather than 2 + 16.
+
+6. **Smaller things:** the stale "still open until tier 1 ships
+   boulder_type" comment in `ProblemList`; the Scale filter matching
+   ungraded problems via `gradeScale`'s V-Scale fallback (now excluded, same
+   falsy check the Project chip uses); `cragCache.getCragCoords` deleted as
+   dead; `components/index.ts`'s now-unimported `AddSheet` re-export
+   removed; three byte-identical copies of `haversineKm`/`formatDistance`
+   collapsed into `lib/geo.ts`; `scripts/gen-api-docs.ps1` hardened so it no
+   longer reports a successful `swag` run as a failure (see Backend work's
+   note on the PowerShell 5.1 quirk -- it is fixed, not just documented).
+
+**The Sentence Rule sweep this pass raised, then did.** The four files this
+document owns were fixed first; the remaining app-wide violations turned out
+to be both wider and worse than "13 more files" and were swept the same day.
+The write-up lives in `DESIGN.md` under the Sentence Rule itself, since it is
+a design-system fact rather than a directory one -- but the short version:
+~130 `text-text-dim` uses carrying copy, Faint Stone copy on the profile
+page, three Faint Stone placeholders, ~30 hardcoded `#8a7060` literals still
+on the pre-2026-08-09 Weathered Stone that failed AA, and `Footer.tsx`
+setting its credit line in the *border* token at 1.27:1 on every page.
+Measured after: zero text nodes below 4.5:1 on the pages checked.
 
 ---
 
@@ -152,7 +226,9 @@ shipped code, not proposals; the proposals are the Decisions section.
    mounted at the app root; Directory's CTA, `CragDetailPage`'s "Add a
    rock"/"Add the first one", and `BoulderDetailPage`'s "Add a problem" all
    open the sheet in place now. Verified live: the URL no longer changes when
-   opening from any of these.
+   opening from any of these. **Two stragglers fixed 2026-09-01** (review
+   pass 3): `ProblemList`'s and `Landing`'s bootstrap-empty states were both
+   still linking to `/map`, inside the very pages this document owns.
 
 9. **The stat bar undercounts spots.** `Directory.tsx:159` counts distinct
    `crag_id`s *among problems*, so every empty spot — the dimmed-pin
@@ -185,9 +261,12 @@ shipped code, not proposals; the proposals are the Decisions section.
     **The fan-out half is fixed 2026-08-31** (tier 1, sequencing step 6) —
     `enrichProblems` no longer fetches boulders at all now that
     `topo_url`/`boulder_type` are on the wire; a cold `/directory/all` is 2
-    requests (problems + crags), not 1 + N. The unpaginated-fetch half is
-    still open — that's tier 2, gated on the ~300-problem/~250KB threshold
-    named in Backend work, not yet crossed.
+    requests (problems + crags), not 1 + N. Step 7's gap scan then added a
+    bounded fan-out back (up to 8 crags x 2 calls); tier 1b removed the
+    approach half of it and made the boulder half skippable, so a cold
+    `/directory` measures **2 requests** with a worst case of 2 + 8. The
+    unpaginated-fetch half is still open — that's tier 2, gated on the
+    ~300-problem/~250KB threshold named in Backend work, not yet crossed.
 
 12. **Three ProblemCards exist.** The shared one (`components/ProblemCard.tsx`),
     a second local one inside `Landing.tsx:120`, and the Spotlight hero's
@@ -300,6 +379,13 @@ shipped code, not proposals; the proposals are the Decisions section.
    how many lines, and whether there's a photo all pass. Creator name, exact
    creation date, and internal ids do not — keep them, but never at the cost
    of the four that do.
+   **Shipped 2026-09-01** (review pass 1). Three of the four rode along with
+   steps 3 and 4; the way-in indicator needed a backend field of its own
+   (tier 1b) and so shipped late. `WayInLine` lives in
+   `components/SpotCard.tsx` and reads presence, not a count: two mapped
+   walk-ins are not twice as reassuring as one, so a number there would be
+   noise. It is sized down rather than dimmed down to read as secondary,
+   per the Sentence Rule.
 
 8. **One contribution-gap row, chosen by what's missing nearest you.**
    *(Shipped 2026-08-31, sequencing step 7 — see that entry for what
@@ -375,9 +461,17 @@ shipped code, not proposals; the proposals are the Decisions section.
     (decision 6). Remove nothing.
 
 12. **Sort defaults to nearest when location is on, newest otherwise.**
+    *(Shipped on `/directory/spots` 2026-08-31 with step 3; on
+    `/directory/all` 2026-09-01, review pass 2 — it belonged to no
+    sequencing step, which is how it came to be half-applied for a
+    fortnight.)*
     Alphabetical is a filing-cabinet default; nobody browsing a climbing
     catalog wants A-Z first. Keep A-Z as an option — it's the right sort once
     you're searching for a name you already know.
+    **As built:** both pages hold a `sortTouched` flag, so geolocation
+    arriving flips the sort to nearest only when the reader hasn't already
+    chosen one of their own; the Nearest option itself only appears once
+    there's a location to measure from.
 
 13. **The enrichment moves to the backend, once — and not before it's
     earned.** `cragCache` was the right call while the shape was in flux; the
@@ -573,6 +667,25 @@ dev backend (it doesn't hot-reload), confirmed `GET /api/problems` and
 re-screenshotted Directory/All Problems against the refreshed data to
 confirm no regression.
 
+**Tier 1b — shipped 2026-09-01 (review pass 1).** `CragListItem` gains one
+joined field, `approach_count`
+(`COALESCE((SELECT COUNT(*) FROM approaches WHERE crag_id = c.id), 0)::int`),
+non-pointer on the Go side so always present. Decision 7 needs it and tier 0
+could not supply it: without it, every spot row would have to fetch that
+crag's approach list to render one word, which is finding 11's fan-out
+rebuilt on the surface that exists to replace it. It pays for itself twice —
+`Directory`'s and `SpotList`'s stat bars stop deriving a sends total nobody
+asked for and report "N with a way in mapped" instead, and
+`findContributionGap` drops `getApproachesForCrag` entirely, so a cold
+`/directory` is 2 requests rather than 4.
+
+The PowerShell quirk noted above is **fixed, not just documented**:
+`scripts/gen-api-docs.ps1` no longer sets `$ErrorActionPreference = "Stop"`
+(which turned swag's `@host is deprecated` stderr warning into a terminating
+`NativeCommandError` and left `docs/swagger.json` unregenerated) and checks
+`$LASTEXITCODE` instead, which is the real success signal for a native exe.
+Verified by running the script itself under PowerShell 5.1.
+
 **Tier 2 — deferred until finding 11's threshold is crossed.** Pagination and
 server-side search/filter on `GET /api/problems`. Name the threshold now so
 it isn't argued about later: **when a cold `/directory/all` exceeds ~300
@@ -592,16 +705,19 @@ everything else is still pending.
   ready (`topo_line` on the wire) but the user chose to skip building the
   on-card rendering, see decision 3's note.
 - `palabatu-fe/src/pages/Landing.tsx` — **done:** its local `ProblemCard`
-  (`:120`) is deleted in favour of the shared one. **Still pending, and
-  *not* covered by step 4 as shipped:** its own three-tab Near You/Hot/
-  Recent explore section is a structurally different UI (one active-tab
-  card row via `activeTab`, not three parallel `RowSection`s) with its own
-  duplicated `haversineKm`/`formatDistance`/`formatRelativeTime`. Step 4
+  is deleted in favour of the shared one (step 1), and its three-tab explore
+  section is regrouped per decision 2 (**2026-09-01, review pass 4**): Near
+  You cards spots, Recent cards rocks, Hot stays problem-level. Step 4 had
   regrouped `Directory.tsx` only, per the Sequencing list's own naming
-  ("Regroup the directory rows"); Landing's tab would need its own
-  `SpotCard`/rock-grouping work (fetch `crags`, a spot-level Near You tab,
-  a rock-level grouping for Recent) and wasn't bundled in to keep this step
-  reviewable. Worth its own pass, not forgotten.
+  ("Regroup the directory rows"), and the deferral turned out to cost more
+  than it looked: step 6 made every problem's map point its crag's, so this
+  page's problem-granular Near You was showing a rock's lines as N identical
+  photos *and* N identical distance labels. It keeps its own tabbed shape
+  (one active-tab `card-row` via `activeTab`, not three parallel
+  `RowSection`s) — only the entity each tab asks about changed. Its
+  duplicated `haversineKm`/`formatDistance` are gone (now `lib/geo.ts`) and
+  `formatRelativeTime` with them, since a rock card carries a count rather
+  than a timestamp.
 - `palabatu-fe/src/pages/Directory.tsx` — **done:** the Spotlight hero uses
   `ProblemCard variant="hero"` instead of ~90 lines of inline markup; the
   header CTA opens the sheet in place and is now unconditionally-labeled
@@ -657,6 +773,20 @@ everything else is still pending.
   `useAddSheet.ts` + `AddSheetContext.tsx` — the shared state decision 10
   asked for, split three ways the same way `AuthContext` already is (fast
   refresh requires a hook's file to only export the hook).
+- **New, done (2026-09-01, review pass 4):** `components/SpotCard.tsx`
+  (`SpotCard` + `WayInLine`) and `components/RockCard.tsx`, lifted out of
+  `Directory.tsx` once Landing became a real second call site — the same
+  rule finding 12 settled for `ProblemCard`, applied before a second copy
+  could exist rather than after three did. `lib/recentRocks.ts` holds
+  `RecentRock`/`rockLabel`/`groupRecentRocks` (split from the component file
+  for the same fast-refresh lint rule the AddSheet context split for), and
+  `lib/geo.ts` holds the one `haversineKm`/`formatDistance` that
+  `Directory`, `Landing`, `SpotList`, `ProblemList` and the add sheet's
+  `types.ts` all now share instead of copying.
+  Note the `SpotList`/`SpotRow` bullet below said a shared spot card was
+  "deferred to whenever a second call site actually needs it" — this is that
+  second call site, so `SpotCard` is now shared while `SpotRow` (the denser
+  list-row layout, still one call site) stays page-local.
 - `palabatu-fe/src/App.tsx` — **done:** `AddSheetProvider` wraps the routed
   app, above `<Routes>`.
 - `palabatu-fe/src/pages/SpotList.tsx` — **done:** new page, list-per-crag
@@ -778,6 +908,10 @@ backend.
 
 `tsc`, `eslint`, and `go vet` clean at every step; smoke-test live against
 the local Docker DB, at 360 px first, per `CLAUDE.md`.
+
+The list being clear is not the same as this document being done — see the
+Review pass at the top for the six things it left behind, and Open items for
+what is still genuinely undecided.
 
 ---
 

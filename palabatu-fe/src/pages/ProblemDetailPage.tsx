@@ -390,7 +390,7 @@ export default function ProblemDetailPage() {
     if (loadError || !problem) return (
         <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
             <div className="font-serif text-2xl font-black text-text">Problem not found</div>
-            <div className="text-sm text-text-dim">{loadError}</div>
+            <div className="text-sm text-text-muted">{loadError}</div>
             <Link to="/directory" className="mt-2 text-sm text-accent hover:underline">Back to the directory</Link>
         </div>
     );
@@ -433,7 +433,7 @@ export default function ProblemDetailPage() {
 
             <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
                 <div className="max-w-[820px] mx-auto flex flex-col gap-5">
-                    <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-dim hover:text-accent transition-colors w-fit">
+                    <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors w-fit">
                         <ArrowLeft size={14} className="shrink-0" /> Back to Directory
                     </Link>
 
@@ -467,17 +467,17 @@ export default function ProblemDetailPage() {
                                             {problem.grade || 'Ungraded'}
                                         </span>
                                         {problem.crag_name && (
-                                            <Link to={`/crags/${problem.crag_id}`} className="flex items-center gap-1 text-xs text-text-dim no-underline hover:text-accent">
+                                            <Link to={`/crags/${problem.crag_id}`} className="flex items-center gap-1 text-xs text-text-muted no-underline hover:text-accent">
                                                 <Compass size={12} className="shrink-0" /> {problem.crag_name}
                                             </Link>
                                         )}
                                         {problem.boulder_name && (
-                                            <Link to={`/boulders/${problem.boulder_id}`} className="flex items-center gap-1 text-xs text-text-dim no-underline hover:text-accent">
+                                            <Link to={`/boulders/${problem.boulder_id}`} className="flex items-center gap-1 text-xs text-text-muted no-underline hover:text-accent">
                                                 <MapPin size={12} className="shrink-0" /> {problem.boulder_name}
                                             </Link>
                                         )}
                                         {joinDate && (
-                                            <span className="flex items-center gap-1 text-xs text-text-dim">
+                                            <span className="flex items-center gap-1 text-xs text-text-muted">
                                                 <Calendar size={12} className="shrink-0" /> {joinDate}
                                             </span>
                                         )}
@@ -492,7 +492,7 @@ export default function ProblemDetailPage() {
                                 </button>
                             </div>
 
-                            <div className="text-xs text-text-dim flex items-center gap-1.5">
+                            <div className="text-xs text-text-muted flex items-center gap-1.5">
                                 <span>
                                     Added by{' '}
                                     <Link to={`/profile/${problem.creator_slug}`} className="text-accent font-bold no-underline hover:underline">
@@ -507,7 +507,7 @@ export default function ProblemDetailPage() {
                                 <div className="flex flex-col gap-1.5 bg-ink/50 rounded-xl border border-border p-3.5">
                                     {rows.map(row => (
                                         <div key={row.label} className="flex items-baseline gap-2 text-xs">
-                                            <span className="text-text-dim w-[120px] shrink-0">{row.label}</span>
+                                            <span className="text-text-muted w-[120px] shrink-0">{row.label}</span>
                                             <span className="text-text-secondary">{row.value}</span>
                                         </div>
                                     ))}
@@ -519,7 +519,7 @@ export default function ProblemDetailPage() {
 
                             {(problem.image_urls.length > 0 || canEdit) && (
                                 <div className="flex flex-col gap-2">
-                                    <div className="text-[11px] text-text-dim tracking-[0.1em] uppercase">Beta &amp; action shots</div>
+                                    <div className="text-[11px] text-text-muted tracking-[0.1em] uppercase">Beta &amp; action shots</div>
                                     <div className="flex gap-2 overflow-x-auto pb-1">
                                         {problem.image_urls.map(url => (
                                             <div key={url} className="relative min-w-[110px] h-[110px] rounded-lg overflow-hidden shrink-0 border border-border">
@@ -535,7 +535,7 @@ export default function ProblemDetailPage() {
                                             </div>
                                         ))}
                                         {canEdit && (
-                                            <label className={`min-w-[110px] h-[110px] bg-surface border border-dashed border-text-faint rounded-lg cursor-pointer flex flex-col items-center justify-center text-text-dim text-xl shrink-0 ${isUploadingBeta ? 'opacity-50' : ''}`}>
+                                            <label className={`min-w-[110px] h-[110px] bg-surface border border-dashed border-text-faint rounded-lg cursor-pointer flex flex-col items-center justify-center text-text-muted text-xl shrink-0 ${isUploadingBeta ? 'opacity-50' : ''}`}>
                                                 +
                                                 <span className="text-[10px] mt-1">{isUploadingBeta ? 'Uploading...' : 'Add photo'}</span>
                                                 <input
@@ -567,7 +567,7 @@ export default function ProblemDetailPage() {
                                 >
                                     <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
                                 </button>
-                                <span className="text-xs text-text-dim">{sendCount} {sendCount === 1 ? 'send' : 'sends'}</span>
+                                <span className="text-xs text-text-muted">{sendCount} {sendCount === 1 ? 'send' : 'sends'}</span>
                             </div>
 
                             {canEdit && !isEditing && (
@@ -629,7 +629,7 @@ export default function ProblemDetailPage() {
                         old free-text location_name grouping. */}
                     {nearby.length > 0 && (
                         <div className="bg-panel border border-border rounded-2xl p-5">
-                            <div className="text-[11px] text-text-dim tracking-wide uppercase mb-3">Also at {problem.crag_name}</div>
+                            <div className="text-[11px] text-text-muted tracking-wide uppercase mb-3">Also at {problem.crag_name}</div>
                             <div className="flex flex-col gap-2">
                                 {nearby.map(p => (
                                     <Link
@@ -657,7 +657,7 @@ export default function ProblemDetailPage() {
                                     onChange={(e) => setNewComment(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
                                     placeholder="Share your beta..."
-                                    className="flex-1 bg-surface border border-border focus:border-accent rounded-xl px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none transition-colors"
+                                    className="flex-1 bg-surface border border-border focus:border-accent rounded-xl px-3.5 py-2.5 text-sm text-text placeholder:text-text-dim outline-none transition-colors"
                                 />
                                 <button
                                     onClick={handlePostComment}
@@ -668,12 +668,12 @@ export default function ProblemDetailPage() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="text-sm text-text-dim italic mb-5">Log in to comment!</div>
+                            <div className="text-sm text-text-muted italic mb-5">Log in to comment!</div>
                         )}
 
                         <div className="flex flex-col gap-3">
                             {comments.length === 0 ? (
-                                <div className="text-sm text-text-dim italic">No beta yet. Be the first!</div>
+                                <div className="text-sm text-text-muted italic">No beta yet. Be the first!</div>
                             ) : (
                                 comments.map(comment => {
                                     const canDeleteComment = user && (user.id === comment.user_id || isAdmin);
@@ -684,11 +684,11 @@ export default function ProblemDetailPage() {
                                                     {comment.username}
                                                 </Link>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-text-dim text-[11px]">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                                    <span className="text-text-muted text-[11px]">{new Date(comment.created_at).toLocaleDateString()}</span>
                                                     {user && user.id !== comment.user_id && (
                                                         <button
                                                             onClick={() => setReportTarget({ type: 'comment', id: comment.id, content: comment.content })}
-                                                            className="bg-transparent text-text-dim text-[11px] cursor-pointer"
+                                                            className="bg-transparent text-text-muted text-[11px] cursor-pointer"
                                                         >
                                                             Report
                                                         </button>

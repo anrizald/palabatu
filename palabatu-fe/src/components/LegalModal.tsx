@@ -5,7 +5,7 @@ const headingStyle = {
     fontFamily: "'DM Sans', sans-serif", fontSize: '16px', fontWeight: 500,
     color: '#f0e0c8', marginBottom: '8px'
 };
-const bodyStyle = { fontSize: '14px', color: '#8a7060', lineHeight: 1.7 };
+const bodyStyle = { fontSize: '14px', color: '#967b6a', lineHeight: 1.7 };
 
 type Doc = 'terms' | 'privacy' | 'guidelines';
 
@@ -196,7 +196,7 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
     const tabStyle = (active: boolean) => ({
         background: 'none', border: 'none', cursor: 'pointer', padding: '10px 4px 12px',
         fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500,
-        color: active ? '#f0e0c8' : '#6a5848',
+        color: active ? '#f0e0c8' : '#967b6a',
         borderBottom: active ? '2px solid #c87a30' : '2px solid transparent'
     });
 
@@ -255,7 +255,7 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
                         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
                         color: '#c87a30', fontWeight: 500, marginBottom: '10px'
                     }}>Draft — not yet reviewed or final</p>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '4px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '4px' }}>
                         Palabatu is still in development and this text has not been reviewed by
                         a lawyer. Treat every section below as a stub to be replaced before the
                         app is publicly launched, not as a binding agreement.

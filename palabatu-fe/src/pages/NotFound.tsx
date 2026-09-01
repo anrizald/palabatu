@@ -9,7 +9,7 @@ export default function NotFound() {
         }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Sans:wght@400&display=swap');`}</style>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '72px', fontWeight: 900, color: '#c87a30' }}>404</div>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '15px', color: '#8a7060' }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '15px', color: '#967b6a' }}>
                 This route doesn't lead anywhere on the wall.
             </div>
             <Link to="/" style={{

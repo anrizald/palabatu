@@ -47,7 +47,7 @@ export default function VerifyEmail() {
                     {status === 'loading' && (
                         <>
                             <div style={{ fontSize: '36px', marginBottom: '16px' }}>⏳</div>
-                            <p style={{ color: '#8a7060', fontSize: '14px' }}>Verifying your email...</p>
+                            <p style={{ color: '#967b6a', fontSize: '14px' }}>Verifying your email...</p>
                         </>
                     )}
                     {status === 'success' && (

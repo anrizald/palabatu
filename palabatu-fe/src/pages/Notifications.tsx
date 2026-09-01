@@ -57,7 +57,7 @@ export default function Notifications() {
     if (!user) {
         return (
             <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
-                <div className="text-text-dim text-sm">Log in to view your notifications.</div>
+                <div className="text-text-muted text-sm">Log in to view your notifications.</div>
             </div>
         );
     }
@@ -88,7 +88,7 @@ export default function Notifications() {
                 {items.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center">
                         <Bell size={28} className="text-text-dim shrink-0" />
-                        <div className="text-sm text-text-dim italic">You're all caught up.</div>
+                        <div className="text-sm text-text-muted italic">You're all caught up.</div>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
@@ -101,7 +101,7 @@ export default function Notifications() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm text-text-secondary leading-snug">{n.message}</div>
-                                        <div className="text-xs text-text-dim mt-1">{formatRelativeTime(n.created_at)}</div>
+                                        <div className="text-xs text-text-muted mt-1">{formatRelativeTime(n.created_at)}</div>
                                     </div>
                                     {!n.read && <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-2" />}
                                 </div>

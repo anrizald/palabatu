@@ -106,7 +106,7 @@ export default function MapLegend() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: '#f0e0c8' }}>{row.label}</div>
-                                    <div style={{ fontSize: '11px', color: '#6a5848', lineHeight: 1.4, marginTop: '2px' }}>{row.detail}</div>
+                                    <div style={{ fontSize: '11px', color: '#967b6a', lineHeight: 1.4, marginTop: '2px' }}>{row.detail}</div>
                                 </div>
                             </div>
                         ))}

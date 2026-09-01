@@ -67,7 +67,7 @@ export default function AdminMergeRequests() {
     if (!user) {
         return (
             <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
-                <div className="text-text-dim text-sm">Log in as an admin to view the merge queue.</div>
+                <div className="text-text-muted text-sm">Log in as an admin to view the merge queue.</div>
             </div>
         );
     }
@@ -84,7 +84,7 @@ export default function AdminMergeRequests() {
         return (
             <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Admins only</div>
-                <div className="text-sm text-text-dim">{loadError}</div>
+                <div className="text-sm text-text-muted">{loadError}</div>
             </div>
         );
     }
@@ -97,7 +97,7 @@ export default function AdminMergeRequests() {
                 <h1 className="font-serif text-2xl font-black text-text">Same-Rock Suggestions</h1>
 
                 {requests.length === 0 ? (
-                    <div className="text-sm text-text-dim italic">No pending suggestions.</div>
+                    <div className="text-sm text-text-muted italic">No pending suggestions.</div>
                 ) : (
                     <div className="flex flex-col gap-3">
                         {requests.map(req => {
@@ -111,15 +111,15 @@ export default function AdminMergeRequests() {
                                             <Link to={`/boulders/${req.source_boulder_id}`} className="text-accent font-bold no-underline hover:underline">
                                                 {req.source_boulder_name ?? 'Unnamed rock'}
                                             </Link>
-                                            <span className="text-text-dim">vs</span>
+                                            <span className="text-text-muted">vs</span>
                                             <Link to={`/boulders/${req.target_boulder_id}`} className="text-accent font-bold no-underline hover:underline">
                                                 {req.target_boulder_name ?? 'Unnamed rock'}
                                             </Link>
                                         </div>
-                                        <span className="text-text-dim text-xs">{new Date(req.created_at).toLocaleDateString()}</span>
+                                        <span className="text-text-muted text-xs">{new Date(req.created_at).toLocaleDateString()}</span>
                                     </div>
 
-                                    <div className="text-xs text-text-dim">
+                                    <div className="text-xs text-text-muted">
                                         Suggested by {req.suggester_name || 'unknown'}
                                         {req.reason && <span> -- "{req.reason}"</span>}
                                     </div>
@@ -135,7 +135,7 @@ export default function AdminMergeRequests() {
                                         </div>
                                     )}
 
-                                    <div className="flex items-center gap-3 flex-wrap text-xs text-text-dim">
+                                    <div className="flex items-center gap-3 flex-wrap text-xs text-text-muted">
                                         <span>Keep:</span>
                                         <label className="flex items-center gap-1.5 cursor-pointer">
                                             <input type="radio" checked={choice === 'source'} onChange={() => setSurvivorChoice(prev => ({ ...prev, [req.id]: 'source' }))} />
@@ -148,7 +148,7 @@ export default function AdminMergeRequests() {
                                     </div>
 
                                     {holdActive && (
-                                        <label className="flex items-center gap-1.5 text-xs text-text-dim cursor-pointer">
+                                        <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={overrideHold[req.id] ?? false}
@@ -162,7 +162,7 @@ export default function AdminMergeRequests() {
                                         <button
                                             onClick={() => handleResolve(req, 'reject')}
                                             disabled={resolvingId === req.id}
-                                            className="flex-1 mt-3 py-2 bg-surface border border-border text-text-dim rounded-lg text-xs cursor-pointer hover:text-text transition-colors disabled:opacity-50"
+                                            className="flex-1 mt-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-xs cursor-pointer hover:text-text transition-colors disabled:opacity-50"
                                         >
                                             Not the same rock
                                         </button>

@@ -111,7 +111,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
 
                     <div className="max-h-[360px] overflow-y-auto">
                         {recent.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-xs text-text-dim italic">
+                            <div className="px-4 py-8 text-center text-xs text-text-muted italic">
                                 No notifications yet.
                             </div>
                         ) : (
@@ -122,7 +122,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
                                         <Icon size={16} className="shrink-0 mt-0.5 text-accent" />
                                         <div className="flex-1 min-w-0">
                                             <div className="text-xs text-text-secondary leading-snug">{n.message}</div>
-                                            <div className="text-[10px] text-text-dim mt-1">{formatRelativeTime(n.created_at)}</div>
+                                            <div className="text-[10px] text-text-muted mt-1">{formatRelativeTime(n.created_at)}</div>
                                         </div>
                                         {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 mt-1.5" />}
                                     </div>

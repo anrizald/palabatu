@@ -28,19 +28,24 @@ type Crag struct {
 // CragListItem is the shape returned by GET /crags and GET /crags/:id.
 // BoulderCount/ProblemCount let a future frontend render the dimmed
 // empty-crag state (handoff.md open item 1) without a second round-trip.
+// ApproachCount is the same idea for "is there a way in mapped", which
+// handoff-directory.md decision 7 names as one of the four things a spot
+// card must answer -- without it every spot surface would need a per-crag
+// GET /crags/:id/approaches just to render one word.
 type CragListItem struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Lat          float64   `json:"lat"`
-	Lng          float64   `json:"lng"`
-	Directions   *string   `json:"directions"`
-	AccessNotes  *string   `json:"access_notes"`
-	ImageURLs    []string  `json:"image_urls"`
-	CreatedBy    *string   `json:"created_by"`
-	CreatorName  *string   `json:"creator_name"`
-	BoulderCount int       `json:"boulder_count"`
-	ProblemCount int       `json:"problem_count"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Lat           float64   `json:"lat"`
+	Lng           float64   `json:"lng"`
+	Directions    *string   `json:"directions"`
+	AccessNotes   *string   `json:"access_notes"`
+	ImageURLs     []string  `json:"image_urls"`
+	CreatedBy     *string   `json:"created_by"`
+	CreatorName   *string   `json:"creator_name"`
+	BoulderCount  int       `json:"boulder_count"`
+	ProblemCount  int       `json:"problem_count"`
+	ApproachCount int       `json:"approach_count"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 const cragListSelect = `
@@ -49,6 +54,7 @@ const cragListSelect = `
 		c.created_by, pr.username AS creator_name,
 		COALESCE((SELECT COUNT(*) FROM boulders WHERE crag_id = c.id), 0)::int AS boulder_count,
 		COALESCE((SELECT COUNT(*) FROM problems WHERE crag_id = c.id), 0)::int AS problem_count,
+		COALESCE((SELECT COUNT(*) FROM approaches WHERE crag_id = c.id), 0)::int AS approach_count,
 		c.created_at
 	FROM crags c
 	LEFT JOIN profiles pr ON c.created_by = pr.id
@@ -66,7 +72,7 @@ func listCrags(ctx context.Context) ([]CragListItem, error) {
 		var c CragListItem
 		if err := rows.Scan(
 			&c.ID, &c.Name, &c.Lat, &c.Lng, &c.Directions, &c.AccessNotes, &c.ImageURLs,
-			&c.CreatedBy, &c.CreatorName, &c.BoulderCount, &c.ProblemCount, &c.CreatedAt,
+			&c.CreatedBy, &c.CreatorName, &c.BoulderCount, &c.ProblemCount, &c.ApproachCount, &c.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -79,7 +85,7 @@ func getCrag(ctx context.Context, id string) (*CragListItem, error) {
 	var c CragListItem
 	err := db.Pool.QueryRow(ctx, cragListSelect+" WHERE c.id = $1", id).Scan(
 		&c.ID, &c.Name, &c.Lat, &c.Lng, &c.Directions, &c.AccessNotes, &c.ImageURLs,
-		&c.CreatedBy, &c.CreatorName, &c.BoulderCount, &c.ProblemCount, &c.CreatedAt,
+		&c.CreatedBy, &c.CreatorName, &c.BoulderCount, &c.ProblemCount, &c.ApproachCount, &c.CreatedAt,
 	)
 	if err != nil {
 		return nil, err

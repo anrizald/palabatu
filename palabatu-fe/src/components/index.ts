@@ -4,5 +4,4 @@ export { default as ErrorBoundary } from './ErrorBoundary.js';
 export { default as Toast } from './Toast.js';
 export { default as PinpointMarker } from './PinpointMarker.js';
 export { default as LocationPicker } from './LocationPicker.js';
-export { default as AddSheet } from './add-sheet/AddSheet.js';
 export { default as NotificationBell } from './NotificationBell.js';

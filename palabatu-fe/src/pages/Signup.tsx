@@ -121,7 +121,7 @@ export default function Signup() {
                         fontSize: '28px', fontWeight: 900,
                         color: '#f0e0c8', marginBottom: '8px'
                     }}>Join Palabatu</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>
                         Create your bouldering community account
                     </p>
 
@@ -286,7 +286,7 @@ export default function Signup() {
                             }}
                         >{isLoading ? 'Signing up...' : 'Sign Up'}</button>
 
-                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
+                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#967b6a', marginTop: '4px' }}>
                             Already have an account?{' '}
                             <a href="/login" style={{ color: '#c87a30', textDecoration: 'none' }}>Log in</a>
                         </p>

@@ -70,14 +70,6 @@ export function invalidateCragCache() {
     approachListCache.clear()
 }
 
-// Resolves a problem's map point via its crag -- always present since a
-// crag's lat/lng are required (handoff.md decision 4).
-export async function getCragCoords(cragId: string): Promise<{ lat: number; lng: number } | null> {
-    const crags = await getAllCrags()
-    const crag = crags.find(c => c.id === cragId)
-    return crag ? { lat: crag.lat, lng: crag.lng } : null
-}
-
 // Batch enrichment for card grids/rows showing many problems at once
 // (Directory.tsx, ProblemList.tsx, Landing.tsx). Used to also resolve each
 // problem's thumbnail via a per-*distinct*-crag getBouldersForCrag() fan-out
