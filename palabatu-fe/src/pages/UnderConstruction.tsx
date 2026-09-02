@@ -68,15 +68,15 @@ export default function UnderConstruction() {
                     margin-bottom: 14px;
                 }
                 .uc-mark {
-                    width: clamp(38px, 10vw, 54px);
-                    height: clamp(38px, 10vw, 54px);
+                    width: clamp(44px, 12vw, 68px);
+                    height: clamp(44px, 12vw, 68px);
                     object-fit: contain;
                     flex-shrink: 0;
                     filter: drop-shadow(0 3px 8px rgba(200,122,48,0.40));
                 }
                 .uc-wordmark {
                     font-family: 'Playfair Display', serif;
-                    font-size: clamp(19px, 5vw, 26px);
+                    font-size: clamp(20px, 5.2vw, 30px);
                     font-weight: 900;
                     letter-spacing: 0.02em;
                     color: #f0e0c8;
@@ -136,11 +136,12 @@ export default function UnderConstruction() {
             `}</style>
 
                 <svg className="uc-topo" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                    <g fill="none" stroke="#f0e0c8" strokeWidth={1.1} transform="translate(-185,60)">
+                    <g fill="none" stroke="#f0e0c8" strokeWidth={1.1}>
                         <path opacity="0.05" d="M780,140 C920,120 1040,220 1030,340 C1020,460 900,540 770,520 C640,500 560,400 580,290 C598,192 660,155 780,140 Z" />
                         <path opacity="0.06" transform="translate(600,400) scale(0.8) translate(-600,-400)" d="M780,140 C920,120 1040,220 1030,340 C1020,460 900,540 770,520 C640,500 560,400 580,290 C598,192 660,155 780,140 Z" />
                         <path opacity="0.07" transform="translate(600,400) scale(0.6) translate(-600,-400)" d="M780,140 C920,120 1040,220 1030,340 C1020,460 900,540 770,520 C640,500 560,400 580,290 C598,192 660,155 780,140 Z" />
                         <path opacity="0.08" transform="translate(600,400) scale(0.4) translate(-600,-400)" d="M780,140 C920,120 1040,220 1030,340 C1020,460 900,540 770,520 C640,500 560,400 580,290 C598,192 660,155 780,140 Z" />
+                        <path opacity="0.09" transform="translate(600,400) scale(0.22) translate(-600,-400)" d="M780,140 C920,120 1040,220 1030,340 C1020,460 900,540 770,520 C640,500 560,400 580,290 C598,192 660,155 780,140 Z" />
                     </g>
                 </svg>
 
