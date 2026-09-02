@@ -16,10 +16,56 @@ Everything on the original deployability punch list (validation, rate limiting, 
 - **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
 - ~~**Feedback / bug report form**~~ — **built 2026-07-28.** A global "Feedback" entry point in `Header.tsx` (desktop) and `Sidebar.tsx` (mobile), opening `FeedbackModal.tsx` (mirrors `ReportModal.tsx`'s visual language). Open to logged-out visitors as well as signed-in users: `POST /api/feedback` (`internal/feedback/`) sits behind `middleware.RateLimit` (per-IP, same pattern as `internal/waitlist`) instead of `middleware.RequireAuth`, and runs the new `middleware.OptionalAuth` so a logged-in submitter's `user_id` gets attached without requiring a session. Submissions land in their own `feedback` table (migrations/0012) and trigger an immediate email via `mailer.SendFeedbackNotification`, sent to whatever inbox `OWNER_USER_ID` resolves to (`auth.GetUserEmail`) rather than a second owner-email env var. Review list is a 5th tab ("Feedback") on the Developer page, listing open submissions and marking them reviewed via `POST /api/feedback/:id/reviewed` — same owner-only gate as the rest of that page.
 
+## Phase 1.5 — Crags/boulders/problems restructure (done 2026-08-08)
+
+Full design in `handoff.md` at the repo root — read that file for the
+complete decision record, not this summary. Restructured `problems` (was
+flat: name/grade/free-text location/lat-lng/image_urls) into a
+`crags -> boulders -> problems` hierarchy: a crag is the place you park and
+walk in from, a boulder is one rock, a problem is one way up that rock. This
+was the item `handoff.md`'s own sequencing section called out as needing to
+land before the first production deploy — inserting a level into the
+hierarchy (and moving photo ownership) only gets more expensive once real
+contributions exist. Both schema/backend and frontend are now complete.
+
+- **Schema + backend — done 2026-08-07.** Migrations 0014/0015 applied and
+  verified against the local Docker DB; the one-off `cmd/backfill-crags`
+  script backfilled every existing problem (centroid coordinates per crag,
+  one boulder per problem, singleton crag for any problem with no location
+  string) and was hand-checked before 0015 dropped the old columns. New
+  `internal/crags` and `internal/boulders` domains (the latter including
+  the full boulder-merge sub-flow: suggest / object / admin-only resolve
+  with a 48h objection hold), `internal/problems` rewritten for the new
+  shape, `internal/report`'s image-report flow updated for boulder-owned
+  photos, three new notification types. `docs/swagger.json` and
+  `palabatu-fe/src/types/api.d.ts` regenerated. Smoke-tested end to end
+  (crag/boulder/problem CRUD, image add/remove, merge suggest → object →
+  resolve) against the local DB. A small follow-on addition landed with the
+  frontend pass below: `GET /boulders/:id/merge-requests`
+  (creator-or-admin gated), so a boulder's own creator can actually see and
+  object to a request filed against their rock (the admin-wide listing
+  alone left that right unreachable).
+- **Frontend — done 2026-08-08.** `AddProblemModal` replaced by a
+  three-step wizard (`components/add-flow/`: spot search/create → boulder
+  photo-grid picker, auto-skipped when there's nothing to choose → climb
+  details) per `handoff.md`'s UX principles; `Map.tsx`/`PinpointMarker`/
+  `ClusterCardRail` rewritten for one-pin-per-crag with a dimmed
+  empty-crag state; new `CragDetailPage`/`BoulderDetailPage` routes
+  (boulder photo grid, combined per-boulder annotation view, "these are
+  the same rock" suggest CTA + objection banner); `ProblemDetailPage`/
+  `ProblemEditForm` rewritten for the new field set (the old `ProblemDetails`
+  modal was deleted, not ported — `ProblemDetailPage` is now the only
+  problem-detail surface); `Directory`/`ProblemList`/`Landing`/`ProblemCard`
+  rejoined to crag/boulder data via a small client-side `cragCache.ts`
+  helper rather than a backend denormalization; a new admin same-rock
+  review page (`AdminMergeRequests`); the three merge notification types
+  wired into the existing bell/page icon maps. tsc/eslint/go vet clean;
+  smoke-tested live against the local Docker DB (not just typechecked).
+
 ## Phase 2 — Post-launch, near-term
 
 - **RBAC/badge rework** — split `profiles.title` (currently doing double duty as both the admin-permission gate and a public badge) into real permission tiers (Warden/Chief Warden, backend-only) plus a separate cosmetic badge system (Council/Associate repurposed as showable badges, room for more). Design already agreed, not built.
-- **Follow a crag** — notify users when a new problem is added near a map spot they've marked as followed. Needs a `crag_follows` table, follow/unfollow UI on the map, and a geospatial "within X km" check on problem creation.
+- **Follow a crag** — notify users when a new problem is added at a crag they've marked as followed. Originally specced as a geospatial "within X km" check; the Phase 1.5 `crags` table makes this a plain FK join instead (`crag_follows(user_id, crag_id)`, notify on `POST /problems` for that crag) — nearly free now that a crag is a real entity.
 
 ## Phase 3 — Community features
 

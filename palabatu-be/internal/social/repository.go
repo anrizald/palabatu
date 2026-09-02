@@ -44,6 +44,24 @@ func deleteSend(ctx context.Context, problemID, userID string) error {
 	return err
 }
 
+func listSentProblemIDs(ctx context.Context, userID string) ([]string, error) {
+	rows, err := db.Pool.Query(ctx, `SELECT problem_id FROM sends WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func listComments(ctx context.Context, problemID string) ([]Comment, error) {
 	rows, err := db.Pool.Query(ctx, `
 		SELECT c.id, c.content, c.created_at, COALESCE(p.username, 'Climber'), c.user_id, u.slug

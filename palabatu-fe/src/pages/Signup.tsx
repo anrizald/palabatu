@@ -18,7 +18,7 @@ const legalLinkStyle = {
     font: 'inherit', color: '#c87a30', cursor: 'pointer'
 };
 
-type FieldKey = 'email' | 'username' | 'password' | 'confirmPassword' | 'terms';
+type FieldKey = 'email' | 'username' | 'password' | 'confirmPassword' | 'terms' | 'guidelines';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,22 +29,24 @@ export default function Signup() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
+    const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const [invalidField, setInvalidField] = useState<FieldKey | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
     const [shakeNonce, setShakeNonce] = useState(0);
-    const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
+    const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | 'guidelines' | null>(null);
 
     const emailRef = useRef<HTMLInputElement>(null);
     const usernameRef = useRef<HTMLInputElement>(null);
     const passwordRef = useRef<HTMLInputElement>(null);
     const confirmPasswordRef = useRef<HTMLInputElement>(null);
     const termsRef = useRef<HTMLInputElement>(null);
+    const guidelinesRef = useRef<HTMLInputElement>(null);
     const fieldRefs: Record<FieldKey, React.RefObject<HTMLInputElement | null>> = {
         email: emailRef, username: usernameRef, password: passwordRef,
-        confirmPassword: confirmPasswordRef, terms: termsRef
+        confirmPassword: confirmPasswordRef, terms: termsRef, guidelines: guidelinesRef
     };
 
     // Focus happens after the field remounts (its `key` changes below to
@@ -69,10 +71,12 @@ export default function Signup() {
         if (!confirmPassword) return { field: 'confirmPassword', message: 'Please confirm your password' };
         if (password !== confirmPassword) return { field: 'confirmPassword', message: 'Passwords do not match' };
         if (!termsAccepted) return { field: 'terms', message: 'You must accept the Terms of Service and Privacy Policy' };
+        if (!guidelinesAccepted) return { field: 'guidelines', message: 'You must accept the Community Guidelines' };
         return null;
     };
 
-    const submit = () => {
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
         const error = getError();
         if (error) {
             setInvalidField(error.field);
@@ -81,7 +85,7 @@ export default function Signup() {
             return;
         }
         setInvalidField(null);
-        handleSignup(email, password, username.trim(), termsAccepted);
+        handleSignup(email, password, username.trim(), termsAccepted, guidelinesAccepted);
     };
 
     const borderColor = (field: FieldKey) => invalidField === field ? '#c85a5a' : '#2a2420';
@@ -101,7 +105,7 @@ export default function Signup() {
         .field-shake { animation: field-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
     `}</style>
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px'
             }}>
@@ -117,16 +121,17 @@ export default function Signup() {
                         fontSize: '28px', fontWeight: 900,
                         color: '#f0e0c8', marginBottom: '8px'
                     }}>Join Palabatu</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>
                         Create your bouldering community account
                     </p>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <input
                             key={shakeKey('email')}
                             ref={emailRef}
                             type="email"
                             placeholder="Email"
+                            autoComplete="email"
                             className={shakeClass('email')}
                             value={email}
                             onChange={(e) => { setEmail(e.target.value); clearInvalid('email'); }}
@@ -141,6 +146,7 @@ export default function Signup() {
                             ref={usernameRef}
                             type="text"
                             placeholder="Username"
+                            autoComplete="username"
                             className={shakeClass('username')}
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); clearInvalid('username'); }}
@@ -155,6 +161,7 @@ export default function Signup() {
                                 ref={passwordRef}
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="Password"
+                                autoComplete="new-password"
                                 value={password}
                                 onChange={(e) => { setPassword(e.target.value); clearInvalid('password'); }}
                                 style={{ ...inputStyle, padding: '11px 40px 11px 14px', borderColor: borderColor('password') }}
@@ -182,6 +189,7 @@ export default function Signup() {
                                 ref={confirmPasswordRef}
                                 type={showConfirmPassword ? 'text' : 'password'}
                                 placeholder="Confirm password"
+                                autoComplete="new-password"
                                 value={confirmPassword}
                                 onChange={(e) => { setConfirmPassword(e.target.value); clearInvalid('confirmPassword'); }}
                                 style={{ ...inputStyle, padding: '11px 40px 11px 14px', borderColor: borderColor('confirmPassword') }}
@@ -237,8 +245,35 @@ export default function Signup() {
                         </label>
                         {invalidField === 'terms' && <p style={errorTextStyle}>{errorMessage}</p>}
 
+                        <label
+                            key={shakeKey('guidelines')}
+                            className={shakeClass('guidelines')}
+                            style={{
+                                display: 'flex', alignItems: 'flex-start', gap: '8px',
+                                fontSize: '12px', color: invalidField === 'guidelines' ? '#c85a5a' : '#8a7860',
+                                cursor: 'pointer', lineHeight: 1.4
+                            }}
+                        >
+                            <input
+                                ref={guidelinesRef}
+                                type="checkbox"
+                                checked={guidelinesAccepted}
+                                onChange={(e) => { setGuidelinesAccepted(e.target.checked); clearInvalid('guidelines'); }}
+                                style={{ marginTop: '2px', flexShrink: 0, cursor: 'pointer' }}
+                            />
+                            <span>
+                                I agree to follow the{' '}
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLegalDoc('guidelines'); }}
+                                    style={legalLinkStyle}
+                                >Community Guidelines</button>
+                            </span>
+                        </label>
+                        {invalidField === 'guidelines' && <p style={errorTextStyle}>{errorMessage}</p>}
+
                         <button
-                            onClick={submit}
+                            type="submit"
                             disabled={isLoading}
                             style={{
                                 background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
@@ -251,11 +286,11 @@ export default function Signup() {
                             }}
                         >{isLoading ? 'Signing up...' : 'Sign Up'}</button>
 
-                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
+                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#967b6a', marginTop: '4px' }}>
                             Already have an account?{' '}
                             <a href="/login" style={{ color: '#c87a30', textDecoration: 'none' }}>Log in</a>
                         </p>
-                    </div>
+                    </form>
                 </div>
             </div>
 

@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palabatu — Jalan masuk (approach guide) prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0f0d0b; --panel:#141210; --surface:#1a1612; --border:#2a2420; --border2:#3a322c;
+  --text:#f0e0c8; --text2:#d8c8b8;
+  --muted:#967b6a;            /* raised for AA - see add-flow-v2.html + handoff decision 12 */
+  --dim:#6a5848; --faint:#4a3c30;   /* non-text roles only */
+  --accent:#c87a30; --umber:#8b4a18; --on-accent:#fef3e6;
+  --moss:#5dbb6a; --red:#e07060;
+  --r-sm:8px; --r-md:10px; --r-lg:16px; --r-xl:20px;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'DM Sans',system-ui,-apple-system,sans-serif;
+  --tap:44px;
+
+  /* ---- PHOTOGRAPHIC STAND-INS — deliberately outside the palette ----
+     Not UI colour, and not design-system drift. Each stands in for a real
+     uploaded photograph of the walk in (a warung, a track, a fork, a
+     river crossing, the rocks). In the app these are real image tags
+     served from Cloudinary. Collected here so the exception is reviewable
+     in one place rather than scattered through the rules. */
+  --ph-warung:linear-gradient(165deg,#6b5540 0%,#4a3a2b 45%,#241d16 100%);
+  --ph-track:linear-gradient(155deg,#57604a 0%,#39402f 50%,#1e2118 100%);
+  --ph-fork:linear-gradient(150deg,#5e5340 0%,#3d3629 55%,#201c15 100%);
+  --ph-river:linear-gradient(160deg,#46564f 0%,#2c3a36 50%,#181f1d 100%);
+  --ph-rocks:radial-gradient(70% 60% at 40% 30%,#6a5a49 0%,#41372c 55%,#231d18 100%);
+  --ph-gate:linear-gradient(140deg,#5c5348 0%,#38322a 55%,#1c1815 100%);
+  --map-ground:#171310;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+
+/* ---------- prototype chrome ---------- */
+.proto-bar{position:sticky;top:0;z-index:40;background:rgba(15,13,11,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px}
+.proto-bar h1{font-family:var(--serif);font-weight:700;font-size:15px;line-height:1.15}
+.proto-bar p{font-size:11px;color:var(--muted);margin-top:2px}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.states button{font-weight:500;font-size:11px;line-height:1.3;padding:7px 11px;border-radius:9999px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.states button:hover{border-color:var(--accent);color:var(--text2)}
+.states button[aria-current="true"]{background:var(--surface);border-color:var(--accent);color:var(--text)}
+.stage{display:flex;flex-wrap:wrap;gap:28px;padding:24px 16px 64px;align-items:flex-start;justify-content:center}
+.phone{width:100%;max-width:400px;flex:1 1 340px;background:var(--ink);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;position:relative;height:780px;display:flex;flex-direction:column;box-shadow:0 40px 80px rgba(0,0,0,.6)}
+
+/* ================= READING VIEW — the trailhead ================= */
+/* Everything here is tuned for: standing at a junction, direct sun, one
+   bar of signal, one hand, possibly wet. Big, dumb, and legible. */
+.read{display:flex;flex-direction:column;height:100%}
+.rt{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
+.rt-m{flex:1;min-width:0}
+.rt-n{display:block;font-size:15px;font-weight:500;color:var(--text);line-height:1.25}
+.rt-s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.icon-btn{flex-shrink:0;width:var(--tap);height:var(--tap);border-radius:9999px;border:0;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{background:var(--surface);color:var(--text2)}
+.icon-btn svg{width:20px;height:20px;flex-shrink:0}
+
+.offline{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(93,187,106,.08);border-bottom:1px solid rgba(93,187,106,.22);font-size:12px;color:var(--text2)}
+.offline svg{width:15px;height:15px;flex-shrink:0;color:var(--moss)}
+.offline.warn{background:rgba(200,122,48,.09);border-bottom-color:rgba(200,122,48,.28)}
+.offline.warn svg{color:var(--accent)}
+.offline button{margin-left:auto;min-height:32px;padding:5px 11px;border:1px solid var(--accent);border-radius:var(--r-sm);background:transparent;color:var(--accent);font-size:12px;font-weight:500;cursor:pointer}
+
+/* the photo is the content: portrait, because a phone shoots portrait and
+   because you hold it up and compare it to the junction in front of you */
+.frame{flex:1;position:relative;overflow:hidden;background:var(--ink);display:flex;flex-direction:column}
+.shot{flex:1;position:relative;background:var(--ph-track);min-height:0}
+.shot .num{position:absolute;top:12px;left:12px;min-width:30px;height:30px;padding:0 9px;border-radius:9999px;background:rgba(15,13,11,.82);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.here{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:9999px;background:rgba(200,122,48,.92);color:var(--on-accent);font-size:12px;font-weight:500}
+.here svg{width:13px;height:13px;flex-shrink:0}
+
+/* Caption sits on solid ground, never over the photograph. You cannot
+   guarantee contrast against arbitrary photographic content in direct
+   sun, and this is the one screen where that failure is expensive. */
+.cap{flex-shrink:0;background:var(--panel);border-top:1px solid var(--border);padding:14px 16px 12px}
+.cap p{font-size:17px;line-height:1.4;color:var(--text)}
+.cap .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:9999px;padding:5px 10px}
+.pill svg{width:13px;height:13px;flex-shrink:0;color:var(--muted)}
+.pill.alert{border-color:rgba(224,112,96,.4);color:var(--text)}
+.pill.alert svg{color:var(--red)}
+
+.bar{flex-shrink:0;display:flex;gap:2px;padding:0 16px 10px;background:var(--panel)}
+.bar i{flex:1;height:3px;border-radius:9999px;background:var(--border2)}
+.bar i.on{background:var(--accent)}
+
+.nav{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 14px calc(14px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--border)}
+.nav button{min-height:52px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-weight:500;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.nav .prev{width:64px}
+.nav .next{flex:1;border:0;background:linear-gradient(145deg,var(--accent),var(--umber));color:var(--on-accent);box-shadow:0 2px 16px rgba(200,122,48,.3)}
+.nav button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.nav svg{width:18px;height:18px;flex-shrink:0}
+.nav .done{flex:1;background:var(--surface);border:1px solid rgba(93,187,106,.45);color:var(--moss)}
+
+/* ================= MAP OVERVIEW ================= */
+.mapview{display:flex;flex-direction:column;height:100%}
+.mapbox{position:relative;height:280px;flex-shrink:0;background:var(--map-ground);border-bottom:1px solid var(--border)}
+.mapbox svg{display:block;width:100%;height:100%}
+.steplist{flex:1;overflow-y:auto;padding:10px 14px 20px}
+.sl{display:flex;align-items:center;gap:11px;width:100%;min-height:var(--tap);padding:9px 10px;background:transparent;border:1px solid transparent;border-radius:var(--r-md);cursor:pointer;text-align:left;margin-top:4px}
+.sl:hover,.sl[aria-current="true"]{background:var(--surface);border-color:var(--border)}
+.sl .n{flex-shrink:0;width:26px;height:26px;border-radius:9999px;background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.sl[aria-current="true"] .n{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.sl .t{flex:1;min-width:0;font-size:14px;color:var(--text2);line-height:1.35}
+.sl .th{flex-shrink:0;width:44px;height:44px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--ph-track)}
+
+/* ================= CAPTURE VIEW ================= */
+.cap-v{display:flex;flex-direction:column;height:100%}
+.ch{flex-shrink:0;padding:14px 16px 12px;border-bottom:1px solid var(--border)}
+.ch h2{font-family:var(--serif);font-weight:700;font-size:20px;line-height:1.15}
+.ch p{font-size:12.5px;color:var(--muted);margin-top:3px}
+.cb{flex:1;overflow-y:auto;padding:16px 16px 20px}
+.label{display:block;font-weight:500;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.label .opt{font-weight:400;opacity:.85}
+.field{margin-bottom:20px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{min-height:var(--tap);padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-weight:500;font-size:13.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:linear-gradient(145deg,var(--accent),var(--umber));border-color:transparent;color:var(--on-accent)}
+.input{width:100%;min-height:var(--tap);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text2);font-size:15px;padding:11px 14px}
+.input::placeholder{color:var(--dim)}
+.input:focus{outline:none;border-color:var(--accent)}
+.help{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.45}
+
+.step{display:flex;gap:11px;padding:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:9px}
+.step .grip{flex-shrink:0;width:26px;display:flex;align-items:center;justify-content:center;color:var(--dim);cursor:grab}
+.step .grip svg{width:16px;height:16px}
+.step .ph{flex-shrink:0;width:64px;height:80px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--ph-track)}
+.step .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.step .m input{width:100%;min-height:38px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text2);font-size:13.5px;padding:8px 10px}
+.step .m input:focus{outline:none;border-color:var(--accent)}
+.step .m input::placeholder{color:var(--dim)}
+.srow{display:flex;gap:6px}
+.mini{min-height:34px;padding:6px 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:transparent;color:var(--muted);font-size:11.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.mini:hover{border-color:var(--accent);color:var(--text2)}
+.mini svg{width:12px;height:12px;flex-shrink:0}
+.mini[aria-pressed="true"]{border-color:rgba(93,187,106,.45);color:var(--moss)}
+.drop{width:100%;min-height:var(--tap);border:1px dashed var(--border2);border-radius:var(--r-md);background:var(--surface);color:var(--text2);font-size:14px;padding:18px 14px;cursor:pointer;text-align:center}
+.drop:hover{border-color:var(--accent)}
+.cf{flex-shrink:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--panel)}
+.submit{width:100%;min-height:48px;border:0;border-radius:var(--r-md);background:linear-gradient(145deg,var(--accent),var(--umber));color:var(--on-accent);font-weight:500;font-size:15.5px;cursor:pointer;box-shadow:0 2px 16px rgba(200,122,48,.35)}
+.submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.fh{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+
+/* ================= CRAG PAGE ENTRY ================= */
+.crag{display:flex;flex-direction:column;height:100%;overflow-y:auto}
+.crag-hero{height:150px;flex-shrink:0;background:var(--ph-rocks);position:relative}
+.crag-b{padding:16px}
+.crag-b h2{font-family:var(--serif);font-weight:700;font-size:23px;line-height:1.15}
+.crag-b .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.sec{margin-top:22px}
+.sec h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:10px}
+.empty{border:1px dashed var(--border2);border-radius:var(--r-md);padding:18px 16px;text-align:center}
+.empty p{font-size:14px;color:var(--text2);line-height:1.45}
+.empty .why{font-size:12px;color:var(--muted);margin-top:7px}
+.empty button{margin-top:13px;min-height:var(--tap);width:100%;border:0;border-radius:var(--r-md);background:linear-gradient(145deg,var(--accent),var(--umber));color:var(--on-accent);font-weight:500;font-size:14.5px;cursor:pointer;box-shadow:0 2px 16px rgba(200,122,48,.3)}
+.appr{display:flex;align-items:center;gap:12px;width:100%;min-height:var(--tap);padding:11px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);cursor:pointer;text-align:left;margin-bottom:8px}
+.appr:hover{border-color:var(--accent)}
+.appr .strip{flex-shrink:0;display:flex;gap:2px}
+.appr .strip i{width:22px;height:30px;border-radius:var(--r-sm);background:var(--ph-track);display:block}
+.appr .m{flex:1;min-width:0}
+.appr .n{display:block;font-size:14.5px;color:var(--text);line-height:1.3}
+.appr .s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.addmore{width:100%;min-height:var(--tap);border:1px solid var(--border);border-radius:var(--r-md);background:transparent;color:var(--muted);font-size:13.5px;font-weight:500;cursor:pointer}
+.addmore:hover{border-color:var(--accent);color:var(--text2)}
+
+/* ---------- notes ---------- */
+.notes{flex:1 1 320px;max-width:460px;font-size:13px}
+.notes h2{font-family:var(--serif);font-weight:700;font-size:17px;line-height:1.15;margin-bottom:4px}
+.notes .lead{color:var(--muted);font-size:12px;margin-bottom:16px}
+.note{border:1px solid var(--border);background:var(--panel);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px}
+.note h3{font-weight:500;font-size:13px;color:var(--text);margin-bottom:9px}
+.note ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+.note li{font-size:12px;color:var(--text2);line-height:1.5;padding-left:14px;position:relative}
+.note li::before{content:"";position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:9999px;background:var(--accent);opacity:.75}
+.note li b{color:var(--text);font-weight:500}
+.ref{display:inline-block;font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:9999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.ref.new{color:var(--accent);border-color:rgba(200,122,48,.45)}
+.disclaimer{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:14px}
+</style>
+</head>
+<body>
+
+<header class="proto-bar">
+  <h1>Jalan masuk &mdash; approach guide</h1>
+  <p>handoff.md decision 21. The reading view is the point; capture follows from it.</p>
+  <nav class="states" id="states">
+    <button data-s="read" aria-current="true">At the trailhead</button>
+    <button data-s="here">&hellip; GPS knows where you are</button>
+    <button data-s="online">&hellip; not saved offline yet</button>
+    <button data-s="map">Map overview</button>
+    <button data-s="crag">On the crag page</button>
+    <button data-s="empty">&hellip; nobody's mapped it</button>
+    <button data-s="capture">Building one</button>
+  </nav>
+</header>
+
+<main class="stage">
+  <div class="phone" id="phone"></div>
+
+  <aside class="notes">
+    <h2>What this is</h2>
+    <p class="lead">An approach guide: photograph the walk in, so somebody at a junction knows which way. Notes name the reasoning.</p>
+    <div id="notes"></div>
+    <p class="disclaimer">
+      Static prototype. Photos are gradient stand-ins for real uploads; the map is drawn SVG
+      standing in for Leaflet. Production build should go through the <code>impeccable</code>
+      skill against the app's real components &mdash; this is the interaction spec.
+    </p>
+  </aside>
+</main>
+
+<script>
+(function () {
+'use strict';
+
+var I = {
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  map:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m9 4-6 3v13l6-3 6 3 6-3V4l-6 3z"/><path d="M9 4v13M15 7v13"/></svg>',
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 6-6 6 6 6"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 6 6 6-6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v14m0 0 5-5m-5 5-5-5M4 21h16"/></svg>',
+  wifi:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>',
+  loc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3 2 20h20z"/><path d="M12 9v5m0 3h.01"/></svg>',
+  grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  tick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>'
+};
+
+var STEPS = [
+  { ph:'--ph-warung', t:'Turun angkot di warung Pak Asep, yang atapnya biru.', pin:true,
+    meta:[['loc','turun di sini']] },
+  { ph:'--ph-gate',   t:'Masuk lewat gerbang di sebelah warung. Bilang mau manjat &mdash; parkir motor Rp5.000.',
+    meta:[['warn','izin dulu']] },
+  { ph:'--ph-track',  t:'Ikuti jalan setapak lurus, sekitar 8 menit.', meta:[['clock','8 menit']] },
+  { ph:'--ph-fork',   t:'Di pertigaan, ambil yang KIRI. Yang kanan ke sawah.', meta:[['warn','sering kelewat']] },
+  { ph:'--ph-river',  t:'Sebrangi kali kecil. Kalau habis hujan, lewat batu yang di atas.',
+    meta:[['warn','licin kalau hujan']] },
+  { ph:'--ph-rocks',  t:'Batunya kelihatan dari sini. 2 menit lagi.', meta:[['clock','2 menit']] }
+];
+
+var S = { view:'read', i:0, here:-1, saved:true, cap:{ start:'angkot', mins:'15' } };
+var $ = function (s, r) { return (r || document).querySelector(s); };
+function el(t, c, h) { var e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; }
+
+// ------------------------------------------------------------- reading
+function viewRead() {
+  var w = el('div','read'), st = STEPS[S.i], last = S.i === STEPS.length - 1;
+
+  var top = el('div','rt');
+  top.innerHTML =
+    '<span class="rt-m"><span class="rt-n">Jalan masuk &mdash; Citatah</span>' +
+    '<span class="rt-s">dari angkot Jalan Raya &middot; 15 menit &middot; 6 langkah</span></span>';
+  var mb = el('button','icon-btn', I.map); mb.type='button'; mb.title='see all on a map';
+  mb.onclick = function () { S.view='map'; draw(); };
+  var xb = el('button','icon-btn', I.x); xb.type='button';
+  top.appendChild(mb); top.appendChild(xb);
+  w.appendChild(top);
+
+  var off = el('div','offline' + (S.saved ? '' : ' warn'));
+  if (S.saved) {
+    off.innerHTML = I.tick + '<span>Saved on your phone &mdash; works with no signal.</span>';
+  } else {
+    off.innerHTML = I.wifi + '<span>Not saved yet. Do it before you lose signal.</span>';
+    var sb = el('button','','Save'); sb.type='button';
+    sb.onclick = function () { S.saved = true; draw(); };
+    off.appendChild(sb);
+  }
+  w.appendChild(off);
+
+  var fr = el('div','frame');
+  var shot = el('div','shot');
+  shot.style.background = 'var(' + st.ph + ')';
+  shot.appendChild(el('span','num', (S.i + 1) + ' / ' + STEPS.length));
+  if (S.here === S.i) {
+    var h = el('span','here', I.loc + 'you\'re about here');
+    shot.appendChild(h);
+  }
+  fr.appendChild(shot);
+
+  var cap = el('div','cap');
+  cap.appendChild(el('p','', st.t));
+  if (st.meta && st.meta.length) {
+    var m = el('div','meta');
+    st.meta.forEach(function (x) {
+      m.appendChild(el('span','pill' + (x[0]==='warn' ? ' alert' : ''), I[x[0]] + '<span>' + x[1] + '</span>'));
+    });
+    cap.appendChild(m);
+  }
+  fr.appendChild(cap);
+  w.appendChild(fr);
+
+  var bar = el('div','bar');
+  STEPS.forEach(function (_, k) { bar.appendChild(el('i', k <= S.i ? 'on' : '')); });
+  w.appendChild(bar);
+
+  var nav = el('div','nav');
+  var p = el('button','prev', I.left); p.type='button'; p.disabled = S.i === 0;
+  p.onclick = function () { S.i--; draw(); };
+  nav.appendChild(p);
+  if (last) {
+    nav.appendChild(el('button','done', I.tick + '<span>Sampai! Lihat batunya</span>'));
+  } else {
+    var n = el('button','next','<span>Berikutnya</span>' + I.right); n.type='button';
+    n.onclick = function () { S.i++; draw(); };
+    nav.appendChild(n);
+  }
+  w.appendChild(nav);
+  return w;
+}
+
+// ----------------------------------------------------------- map view
+function viewMap() {
+  var w = el('div','mapview');
+  var top = el('div','rt');
+  top.innerHTML = '<span class="rt-m"><span class="rt-n">Jalan masuk &mdash; Citatah</span>' +
+                  '<span class="rt-s">6 langkah &middot; tap one to see the photo</span></span>';
+  var bb = el('button','icon-btn', I.x); bb.type='button';
+  bb.onclick = function () { S.view='read'; draw(); };
+  top.appendChild(bb); w.appendChild(top);
+
+  var mb = el('div','mapbox');
+  var pts = [[16,84],[27,72],[42,60],[55,45],[70,36],[84,20]];
+  var svg = '<svg viewBox="0 0 340 280" preserveAspectRatio="xMidYMid slice">' +
+    '<rect width="340" height="280" fill="#171310"/>' +
+    '<path d="M-10 265 C 60 240, 90 220, 140 180 S 240 120, 350 55" stroke="#2a2420" stroke-width="10" fill="none"/>' +
+    '<path d="M-10 265 C 60 240, 90 220, 140 180 S 240 120, 350 55" stroke="#3a322c" stroke-width="1.6" fill="none" stroke-dasharray="7 7"/>' +
+    '<path d="M0 120 C 90 150, 160 110, 340 145" stroke="#231e1a" stroke-width="1.4" fill="none"/>';
+  pts.forEach(function (p, k) {
+    var x = p[0]/100*340, y = p[1]/100*280, on = k === S.i;
+    svg += '<circle cx="'+x+'" cy="'+y+'" r="'+(on?11:8)+'" fill="'+(on?'#c87a30':'#2a2420')+'" stroke="'+(on?'#fef3e6':'#3a322c')+'" stroke-width="'+(on?2:1)+'"/>' +
+           '<text x="'+x+'" y="'+(y+4)+'" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" fill="'+(on?'#fef3e6':'#967b6a')+'">'+(k+1)+'</text>';
+  });
+  svg += '</svg>';
+  mb.innerHTML = svg; w.appendChild(mb);
+
+  var list = el('div','steplist');
+  STEPS.forEach(function (st, k) {
+    var b = el('button','sl'); b.type='button'; b.setAttribute('aria-current', String(k === S.i));
+    var th = el('span','th'); th.style.background = 'var(' + st.ph + ')';
+    b.innerHTML = '<span class="n">' + (k+1) + '</span><span class="t">' + st.t + '</span>';
+    b.appendChild(th);
+    b.onclick = function () { S.i = k; S.view = 'read'; draw(); };
+    list.appendChild(b);
+  });
+  w.appendChild(list);
+  return w;
+}
+
+// ----------------------------------------------------------- crag page
+function viewCrag(empty) {
+  var w = el('div','crag');
+  w.appendChild(el('div','crag-hero'));
+  var b = el('div','crag-b');
+  b.appendChild(el('h2','','Citatah'));
+  b.appendChild(el('p','sub','14 problems &middot; 4 rocks &middot; Bandung Barat'));
+
+  var sec = el('div','sec');
+  sec.appendChild(el('h3','','Jalan masuk'));
+  if (empty) {
+    var e = el('div','empty');
+    e.appendChild(el('p','','Nobody has mapped the walk in yet.'));
+    e.appendChild(el('p','why','If you\'ve been, your photos are the difference between someone finding this place and giving up at a junction.'));
+    var eb = el('button','','Add the way in'); eb.type='button';
+    eb.onclick = function () { S.view='capture'; draw(); };
+    e.appendChild(eb);
+    sec.appendChild(e);
+  } else {
+    [['dari angkot Jalan Raya','15 menit &middot; 6 langkah &middot; oleh Rizal'],
+     ['dari kampung, bawa motor','8 menit &middot; 4 langkah &middot; oleh Wina']].forEach(function (a, k) {
+      var r = el('button','appr'); r.type='button';
+      var strip = el('span','strip');
+      ['--ph-warung','--ph-track','--ph-rocks'].forEach(function (p) {
+        var i = el('i'); i.style.background = 'var(' + p + ')'; strip.appendChild(i);
+      });
+      r.appendChild(strip);
+      r.innerHTML += '<span class="m"><span class="n">' + a[0] + '</span><span class="s">' + a[1] + '</span></span>';
+      r.onclick = function () { S.view='read'; S.i=0; draw(); };
+      sec.appendChild(r);
+    });
+    var am = el('button','addmore','+ Add another way in'); am.type='button';
+    am.onclick = function () { S.view='capture'; draw(); };
+    sec.appendChild(am);
+    sec.appendChild(el('p','help','More than one is fine &mdash; people arrive from different directions.'));
+  }
+  b.appendChild(sec);
+
+  var sec2 = el('div','sec');
+  sec2.appendChild(el('h3','','Patokan'));
+  sec2.appendChild(el('p','','<span style="font-size:14px;color:var(--text2)">Belok di warung Pak Asep, 300 m naik.</span>'));
+  b.appendChild(sec2);
+  w.appendChild(b);
+  return w;
+}
+
+// ------------------------------------------------------------ capture
+function viewCapture() {
+  var w = el('div','cap-v');
+  var h = el('div','ch');
+  h.innerHTML = '<h2>The way in</h2><p>Citatah &middot; photograph the walk so the next person finds it</p>';
+  w.appendChild(h);
+
+  var b = el('div','cb');
+
+  var f0 = el('div','field');
+  f0.appendChild(el('span','label','Where does this start?'));
+  var ch = el('div','chips');
+  [['angkot','Turun angkot'],['ojek','Diantar ojek'],['motor','Parkir motor'],
+   ['mobil','Parkir mobil'],['kaki','Jalan kaki']].forEach(function (o) {
+    var c = el('button','chip', o[1]); c.type='button';
+    c.setAttribute('aria-pressed', String(S.cap.start === o[0]));
+    c.onclick = function () { S.cap.start = o[0]; draw(); };
+    ch.appendChild(c);
+  });
+  f0.appendChild(ch);
+  f0.appendChild(el('p','help','Most guidebooks assume you drove. Plenty of people here don\'t.'));
+  b.appendChild(f0);
+
+  var f1 = el('div','field');
+  f1.appendChild(el('span','label','How long does it take? <span class="opt">&mdash; roughly</span>'));
+  var i1 = el('input','input'); i1.type='text'; i1.value = S.cap.mins ? S.cap.mins + ' menit' : '';
+  i1.placeholder='15 menit'; f1.appendChild(i1);
+  b.appendChild(f1);
+
+  var f2 = el('div','field');
+  f2.appendChild(el('span','label','The walk, in order'));
+  STEPS.slice(0, 4).forEach(function (st, k) {
+    var s = el('div','step');
+    var g = el('span','grip', I.grip); s.appendChild(g);
+    var p = el('span','ph'); p.style.background = 'var(' + st.ph + ')'; s.appendChild(p);
+    var m = el('div','m');
+    var inp = el('input'); inp.type='text'; inp.value = st.t.replace(/&mdash;/g,'—');
+    inp.placeholder='what do you see here?';
+    m.appendChild(inp);
+    var row = el('div','srow');
+    var pinb = el('button','mini', I.pin + '<span>' + (k===0?'pinned':'pin it') + '</span>'); pinb.type='button';
+    if (k===0) pinb.setAttribute('aria-pressed','true');
+    var warnb = el('button','mini', I.warn + '<span>careful here</span>'); warnb.type='button';
+    row.appendChild(pinb); row.appendChild(warnb);
+    m.appendChild(row);
+    s.appendChild(m);
+    f2.appendChild(s);
+  });
+  var d = el('button','drop','+ add photos from the walk'); d.type='button';
+  f2.appendChild(d);
+  f2.appendChild(el('p','help','Pick them all at once, then caption. Drag to reorder if they came out wrong.'));
+  b.appendChild(f2);
+
+  w.appendChild(b);
+
+  var f = el('div','cf');
+  var sub = el('button','submit','Save the way in'); sub.type='button';
+  sub.onclick = function () { S.view='crag'; draw(); };
+  f.appendChild(sub);
+  f.appendChild(el('p','fh','Do this at home on wifi &mdash; it\'s a lot of photos.'));
+  w.appendChild(f);
+  return w;
+}
+
+// -------------------------------------------------------------- notes
+var N = {
+  read: { h:'Reading it — at the junction', l:[
+    ['<b>The photo is the whole product.</b> It gets the screen; everything else is a strip. You hold the phone up and compare it to what\'s in front of you.','new'],
+    ['<b>Portrait, not landscape.</b> Phones shoot portrait, and a portrait frame matches the act of holding it up against a junction.','new'],
+    ['<b>Captions never sit on the photograph.</b> You cannot guarantee contrast against arbitrary photo content in direct sun, and this is the one screen where that failure costs someone their afternoon. Solid ground, 17px, high contrast.','principle: sunlight'],
+    ['<b>One step at a time, not a scrolling article.</b> At a junction you care about exactly one step. A 6-photo scroll makes you find your place every time you pull the phone out.','new'],
+    ['<b>Offline is stated, not assumed.</b> "Saved on your phone — works with no signal" is the single most reassuring string on the screen, and PRODUCT.md names patchy data as the default case. If it isn\'t saved, the app says so <i>while you still have signal</i>.','PRODUCT.md'],
+    ['<b>Indonesian, because this is a local product.</b> "Turun angkot di warung Pak Asep" is the actual sentence. Translating it to "alight from the minibus" would be worse in every way.','principle 6']
+  ]},
+  here: { h:'GPS knows where you are', l:[
+    ['<b>Steps carry optional coordinates, so the guide can open on the step you\'re nearest.</b> Pull the phone out at the fork and it\'s already showing the fork. That is the whole feature in one interaction.','new'],
+    ['Shown as a claim the app can back up ("you\'re about here"), hedged, because a fix under tree cover is ±30 m.','decision 20'],
+    ['Never auto-advances past a step on its own — being told you\'ve arrived when you haven\'t is worse than saying nothing.','new']
+  ]},
+  online: { h:'Not saved offline yet', l:[
+    ['<b>The warning fires while signal still exists</b>, which is the only moment it can be acted on. A "no connection" error at the trailhead is useless.','PRODUCT.md'],
+    ['Save is one tap and lives in the banner, not buried in a menu.','new'],
+    ['This is the strongest PWA argument in the product: a guide that won\'t load at the trailhead is worth nothing.','new']
+  ]},
+  map: { h:'Map overview', l:[
+    ['A second way to read the same steps, for planning at home rather than walking. Numbered pins match the numbered steps exactly.','new'],
+    ['Tapping a pin or a row jumps straight into that step\'s photo &mdash; the map is an index, not a separate feature.','new'],
+    ['Only steps that were pinned appear. Pinning is optional at capture time; a guide of pure photos still works.','new']
+  ]},
+  crag: { h:'Where it lives', l:[
+    ['<b>On the crag page, not in the add flow.</b> The approach is captured on the walk in, by someone who often didn\'t create the spot — usually the tenth visitor who noticed the directions were bad. Coupling it to creation guarantees the wrong author.','decision 21'],
+    ['<b>Several are fine.</b> "From the angkot" and "from the village with a motor" are different walks. Multiple approaches also sidestep the collaborative-editing deferral: you add yours alongside, you don\'t edit anyone\'s words.','open item 11'],
+    ['<b>Patokan stays as it is</b> — one line, in the add sheet. It answers "which turning"; this answers "the whole walk". Different jobs, don\'t merge them.','decision 9'],
+    ['<b>Rocks get one line, not a sequence.</b> Crag → rock is one or two hops. If a rock needs six steps it\'s really its own crag.','decision 21']
+  ]},
+  empty: { h:'Nobody has mapped it', l:[
+    ['Same dimmed-empty-with-CTA treatment as an empty crag, and the primary action on the section rather than a line of grey text.','open item 1'],
+    ['<b>The empty state states the stakes.</b> "the difference between someone finding this place and giving up at a junction" — this is volunteer labour, so the ask has to be worth doing, not just possible.','new']
+  ]},
+  capture: { h:'Building one', l:[
+    ['<b>Photos first, captions second.</b> You arrive with eight shots from the walk; pick them all, then write. Not eight rounds of a one-photo form.','new'],
+    ['<b>"Do this at home on wifi" is said out loud.</b> Uploading eight photos on 3G at a crag is miserable. Naming the right moment is kinder than letting someone discover it.','PRODUCT.md'],
+    ['<b>Start type is the local-first bit.</b> Turun angkot / diantar ojek / parkir motor. Every global climbing app assumes a car; a guide starting at "get off the angkot at the warung with the blue roof" is something none of them will ever write.','positioning'],
+    ['<b>"Careful here" is a per-step flag, not a prose warning.</b> Slippery after rain, easy to miss, ask permission — these are the bits people actually need, and a flag survives skim-reading where a sentence doesn\'t.','new'],
+    ['Pinning a step is optional and per-step. Photos alone make a usable guide; coordinates make a better one.','new']
+  ]}
+};
+
+function notes() {
+  var w = $('#notes'); w.innerHTML = '';
+  var key = S.view === 'read' ? (S.here >= 0 ? 'here' : (S.saved ? 'read' : 'online')) : S.view;
+  [N[key], key !== 'crag' && key !== 'empty' ? null : null].filter(Boolean);
+  var n = N[key] || N.read;
+  var d = el('div','note');
+  d.appendChild(el('h3','',n.h));
+  var u = el('ul');
+  n.l.forEach(function (i) {
+    u.appendChild(el('li','', i[0] + ' <span class="ref' +
+      (i[1]==='new'||i[1].indexOf('decision 21')===0||i[1]==='positioning' ? ' new':'') + '">' + i[1] + '</span>'));
+  });
+  d.appendChild(u); w.appendChild(d);
+  if (key !== 'read') { var r = el('div','note'); r.appendChild(el('h3','',N.read.h));
+    var u2 = el('ul'); N.read.l.slice(0,3).forEach(function(i){ u2.appendChild(el('li','',i[0])); });
+    r.appendChild(u2); w.appendChild(r); }
+}
+
+function draw() {
+  var p = $('#phone'); p.innerHTML = '';
+  p.appendChild(
+    S.view === 'read'    ? viewRead() :
+    S.view === 'map'     ? viewMap() :
+    S.view === 'capture' ? viewCapture() :
+    S.view === 'empty'   ? viewCrag(true) : viewCrag(false)
+  );
+  notes();
+}
+
+$('#states').onclick = function (e) {
+  var t = e.target.closest('[data-s]'); if (!t) return;
+  [].forEach.call(this.children, function (c) { c.setAttribute('aria-current', String(c === t)); });
+  var s = t.dataset.s;
+  S.here = -1; S.saved = true; S.i = 0;
+  if (s === 'read')    { S.view='read'; }
+  if (s === 'here')    { S.view='read'; S.i=3; S.here=3; }
+  if (s === 'online')  { S.view='read'; S.saved=false; S.i=0; }
+  if (s === 'map')     { S.view='map'; S.i=3; }
+  if (s === 'crag')    { S.view='crag'; }
+  if (s === 'empty')   { S.view='empty'; }
+  if (s === 'capture') { S.view='capture'; }
+  draw();
+};
+
+draw();
+})();
+</script>
+</body>
+</html>

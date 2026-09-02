@@ -1,12 +1,8 @@
 import { createContext } from 'react';
 import type { ToastProps } from '../components/Toast.js';
+import type { User as AuthUser } from '../types/auth.js';
 
-export type User = {
-    id: string;
-    email: string;
-    username: string;
-    slug: string;
-} | null;
+export type User = AuthUser | null;
 
 export type AuthContextType = {
     user: User;
@@ -15,7 +11,7 @@ export type AuthContextType = {
     setToast: (toast: ToastProps | null) => void;
     showToast: (message: string, type?: "success" | "error") => void;
     handleLogin: (email: string, password: string) => Promise<void>;
-    handleSignup: (email: string, password: string, username: string, termsAccepted: boolean) => Promise<void>;
+    handleSignup: (email: string, password: string, username: string, termsAccepted: boolean, guidelinesAccepted: boolean) => Promise<void>;
     handleLogout: () => void;
 };
 

@@ -15,6 +15,7 @@ import (
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/boulders"
 	"palabatu-be/internal/notification"
 	"palabatu-be/internal/problems"
 	"palabatu-be/internal/social"
@@ -74,8 +75,16 @@ func CreateImageReport(ctx context.Context, reporterID, problemID, imageURL, rea
 		return nil, err
 	}
 
+	// The photo belongs to the problem's boulder now, not the problem
+	// itself (handoff.md's photo-ownership move) -- membership is checked
+	// against the boulder's image_urls.
+	b, err := boulders.GetBoulder(ctx, p.BoulderID)
+	if err != nil {
+		return nil, err
+	}
+
 	found := false
-	for _, url := range p.ImageURLs {
+	for _, url := range b.ImageURLs {
 		if url == imageURL {
 			found = true
 			break
@@ -118,12 +127,16 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 
 	// Best-effort lookup for notification text/routing only — a failure
 	// here (e.g. the problem was already deleted) must never block
-	// resolving the report itself.
+	// resolving the report itself. BoulderID is also captured here since an
+	// "image" report's removal now needs it -- photos belong to the
+	// boulder, not the problem (handoff.md's photo-ownership move).
 	var problemName string
 	var problemOwnerID *string
+	var problemBoulderID string
 	if p, err := problems.GetProblem(ctx, problemID); err == nil {
 		problemName = p.Name
 		problemOwnerID = p.CreatedBy
+		problemBoulderID = p.BoulderID
 	}
 
 	if action == "dismiss" {
@@ -152,9 +165,11 @@ func Resolve(ctx context.Context, adminID, reportID, action string) error {
 			}
 		}
 	} else {
-		if err := problems.DeleteProblemImage(ctx, adminID, problemID, *imageURL); err != nil &&
-			!errors.Is(err, problems.ErrNotFound) && !errors.Is(err, problems.ErrImageNotFound) {
-			return err
+		if problemBoulderID != "" {
+			if err := boulders.DeleteBoulderImage(ctx, adminID, problemBoulderID, *imageURL); err != nil &&
+				!errors.Is(err, boulders.ErrNotFound) && !errors.Is(err, boulders.ErrImageNotFound) {
+				return err
+			}
 		}
 		notifyContentRemoved(ctx, problemOwnerID, problemID, problemName, "a photo you added")
 	}

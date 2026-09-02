@@ -1,12 +1,16 @@
 import L from 'leaflet'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Compass, Layers } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import type { ProblemRow } from '../types/problem.js'
+import type { CragListItem } from '../types/crag.js'
 
+// Rail of nearby crags shown when several crag pins cluster together at low
+// zoom (handoff.md decision 3: one pin per crag -- boulders/problems don't
+// cluster on the map at all, so there's nothing to fetch a thumbnail for
+// here; crags have no photo of their own, only boulders do).
 type Props = {
-    items: ProblemRow[]
-    onSelect: (item: ProblemRow) => void
+    items: CragListItem[]
+    onSelect: (item: CragListItem) => void
 }
 
 const CARD_WIDTH = 160
@@ -73,7 +77,7 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                 >
                     {items.map((item, i) => {
                         const isActive = items.length <= 1 || i === activeIndex
-                        const hasPhoto = !!item.image_urls?.[0]
+                        const isEmpty = item.problem_count === 0
                         return (
                             <button
                                 key={item.id}
@@ -92,7 +96,7 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                                     cursor: 'pointer',
                                     padding: 0,
                                     fontFamily: "'DM Sans', sans-serif",
-                                    opacity: isActive ? 1 : 0.55,
+                                    opacity: isActive ? (isEmpty ? 0.7 : 1) : 0.55,
                                     transform: isActive ? 'translateY(-2px)' : 'none',
                                     boxShadow: isActive
                                         ? '0 8px 18px rgba(0,0,0,0.45), 0 0 0 2px rgba(200,122,48,0.55)'
@@ -101,43 +105,13 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                                     WebkitTapHighlightColor: 'transparent',
                                 }}
                             >
-                                <div style={{ position: 'relative', width: '100%', height: '128px', background: 'linear-gradient(135deg, #23201b, #171410)' }}>
-                                    {hasPhoto ? (
-                                        <img
-                                            src={item.image_urls![0]}
-                                            alt=""
-                                            draggable={false}
-                                            loading="lazy"
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', WebkitUserDrag: 'none' } as React.CSSProperties}
-                                        />
-                                    ) : (
-                                        <>
-                                            <span
-                                                aria-hidden
-                                                style={{
-                                                    position: 'absolute',
-                                                    right: '-6px',
-                                                    bottom: '18px',
-                                                    fontFamily: "'Playfair Display', serif",
-                                                    fontSize: '44px',
-                                                    fontWeight: 700,
-                                                    color: 'rgba(240,224,200,0.07)',
-                                                    transform: 'rotate(-8deg)',
-                                                    whiteSpace: 'nowrap',
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                {item.grade}
-                                            </span>
-                                            <MapPin
-                                                size={18}
-                                                color="#4a3f35"
-                                                style={{ position: 'absolute', left: '12px', top: '12px', flexShrink: 0 }}
-                                            />
-                                        </>
-                                    )}
+                                <div style={{ position: 'relative', width: '100%', height: '104px', background: 'linear-gradient(135deg, #23201b, #171410)' }}>
+                                    <Compass
+                                        size={20}
+                                        color="#4a3f35"
+                                        style={{ position: 'absolute', left: '12px', top: '12px', flexShrink: 0 }}
+                                    />
 
-                                    {/* Scrim + overlaid text, same treatment for photo and placeholder cards */}
                                     <div
                                         style={{
                                             position: 'absolute',
@@ -145,26 +119,6 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                                             background: 'linear-gradient(to top, rgba(15,12,10,0.95) 0%, rgba(15,12,10,0.35) 55%, rgba(15,12,10,0) 85%)',
                                         }}
                                     />
-
-                                    {item.grade && (
-                                        <span
-                                            style={{
-                                                position: 'absolute',
-                                                top: '8px',
-                                                right: '8px',
-                                                background: 'rgba(20,16,12,0.7)',
-                                                backdropFilter: 'blur(4px)',
-                                                color: '#ffb870',
-                                                border: '1px solid rgba(200,122,48,0.5)',
-                                                padding: '2px 7px',
-                                                borderRadius: '10px',
-                                                fontSize: '10px',
-                                                fontWeight: 700,
-                                            }}
-                                        >
-                                            {item.grade}
-                                        </span>
-                                    )}
 
                                     <div style={{ position: 'absolute', left: '10px', right: '10px', bottom: '8px' }}>
                                         <strong
@@ -194,8 +148,8 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                                                 whiteSpace: 'nowrap',
                                             }}
                                         >
-                                            <MapPin size={10} style={{ flexShrink: 0 }} />
-                                            {item.location_name}
+                                            <Layers size={10} style={{ flexShrink: 0 }} />
+                                            {isEmpty ? 'No problems yet' : `${item.boulder_count} rock${item.boulder_count === 1 ? '' : 's'} · ${item.problem_count} problem${item.problem_count === 1 ? '' : 's'}`}
                                         </div>
                                     </div>
                                 </div>
@@ -207,7 +161,7 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                 {showArrows && (
                     <>
                         <button
-                            aria-label="Previous location"
+                            aria-label="Previous spot"
                             onClick={() => selectAdjacent(-1)}
                             disabled={activeIndex === 0}
                             style={arrowButtonStyle('left', activeIndex === 0)}
@@ -215,7 +169,7 @@ export default function ClusterCardRail({ items, onSelect }: Props) {
                             <ChevronLeft size={16} color="#f0e0c8" style={{ flexShrink: 0 }} />
                         </button>
                         <button
-                            aria-label="Next location"
+                            aria-label="Next spot"
                             onClick={() => selectAdjacent(1)}
                             disabled={activeIndex === items.length - 1}
                             style={arrowButtonStyle('right', activeIndex === items.length - 1)}

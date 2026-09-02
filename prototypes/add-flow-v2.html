@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palabatu — Add flow v2 (handoff revision g)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0f0d0b; --panel:#141210; --surface:#1a1612; --border:#2a2420; --border2:#3a322c;
+  --text:#f0e0c8; --text2:#d8c8b8;
+  /* muted RAISED from DESIGN.md's #8a7060 -> #967b6a: 4.58:1 on surface,
+     4.75:1 on panel, i.e. WCAG AA for small text. The old value measured
+     3.91:1 and this app is used in sunlight on cheap panels. */
+  --muted:#967b6a;
+  /* dim + faint are now NON-TEXT roles only: borders, disabled, decoration.
+     No sentence in this file uses them. */
+  --dim:#6a5848; --faint:#4a3c30;
+  --accent:#c87a30; --umber:#8b4a18; --on-accent:#fef3e6;
+  --moss:#5dbb6a; --red:#e07060;
+  --r-sm:8px; --r-md:10px; --r-lg:16px; --r-xl:20px;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'DM Sans',system-ui,-apple-system,sans-serif;
+  --tap:44px;
+
+  /* ---- PHOTOGRAPHIC STAND-INS — deliberately outside the palette ----
+     These are not UI colour and must not be read as design-system drift.
+     They stand in for uploaded JPEGs (a rock, another rock, a cliff face)
+     and for map terrain — in the app all of these are real image tags
+     served from Cloudinary, plus Leaflet tiles. There is no design answer
+     to "what colour is a photograph of limestone", so they sit outside
+     DESIGN.md on purpose, and they are collected here so that decision is
+     reviewable in one place instead of scattered through the rules. */
+  --photo-a:radial-gradient(70% 60% at 35% 25%,#5b4d40 0%,#3a3028 55%,#241e19 100%);
+  --photo-b:radial-gradient(65% 70% at 60% 35%,#524537 0%,#332b23 60%,#201b17 100%);
+  --photo-wall:linear-gradient(100deg,#4a3f34 0%,#2e2721 60%,#1e1a16 100%);
+  --map-ground:#171310;
+  --map-contour:#231e1a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,textarea{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+
+/* ---------- prototype chrome (not part of the app) ---------- */
+.proto-bar{position:sticky;top:0;z-index:40;background:rgba(15,13,11,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px}
+.proto-bar h1{font-family:var(--serif);font-weight:700;font-size:15px;line-height:1.15}
+.proto-bar p{font-size:11px;color:var(--muted);margin-top:2px}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.states button{font-weight:500;font-size:11px;line-height:1.3;padding:7px 11px;border-radius:9999px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.states button:hover{border-color:var(--accent);color:var(--text2)}
+.states button[aria-current="true"]{background:var(--surface);border-color:var(--accent);color:var(--text)}
+.stage{display:flex;flex-wrap:wrap;gap:28px;padding:24px 16px 64px;align-items:flex-start;justify-content:center}
+
+/* ---------- phone shell ---------- */
+.phone{width:100%;max-width:400px;flex:1 1 340px;background:var(--ink);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;position:relative;height:720px;display:flex;flex-direction:column;box-shadow:0 40px 80px rgba(0,0,0,.6)}
+.phone-bg{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 20% 10%,#1c1713 0%,transparent 60%),
+  radial-gradient(90% 60% at 85% 30%,#17130f 0%,transparent 55%),
+  repeating-linear-gradient(115deg,#131110 0 12px,#151211 12px 24px);opacity:.9}
+.phone-bg::after{content:"map behind the sheet";position:absolute;top:14px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+
+/* ---------- sheet: scrolling body + STICKY FOOTER ---------- */
+.sheet{position:absolute;left:0;right:0;bottom:0;top:64px;background:var(--panel);border:1px solid var(--border);border-bottom:0;border-radius:var(--r-xl) var(--r-xl) 0 0;display:flex;flex-direction:column;overflow:hidden}
+.grabber{width:36px;height:4px;border-radius:9999px;background:var(--border2);margin:8px auto 10px;flex-shrink:0}
+.sheet-head{flex-shrink:0;padding:0 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sheet-title{font-family:var(--serif);font-weight:700;font-size:21px;line-height:1.15}
+.x{flex-shrink:0;width:var(--tap);height:var(--tap);margin:-7px -10px 0 0;border-radius:9999px;border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.x:hover{color:var(--text2);background:var(--surface)}
+
+/* intent as a segmented control: zero taps for the default case,
+   one tap for the other two. Replaces the blocking intent menu. */
+.tabs{flex-shrink:0;display:flex;gap:0;margin:12px 16px 0;padding:3px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md)}
+.tabs button{flex:1;min-height:38px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font-weight:500;font-size:13px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+.body{flex:1;overflow-y:auto;padding:14px 16px 20px;scrollbar-width:thin}
+
+/* ---------- breadcrumb: ONE line, not two rows ---------- */
+.crumb{display:flex;align-items:center;gap:10px;width:100%;min-height:var(--tap);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);cursor:pointer;text-align:left;color:inherit}
+.crumb:hover{border-color:var(--accent)}
+.crumb-ic{flex-shrink:0;width:18px;height:18px;color:var(--muted)}
+.crumb-txt{flex:1;min-width:0;font-size:14px;color:var(--text2);line-height:1.35}
+.crumb-txt b{font-weight:500;color:var(--text)}
+.crumb-txt .sep{color:var(--dim)}
+.crumb-sub{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.chev{flex-shrink:0;width:16px;height:16px;color:var(--muted)}
+.crumb.warn{border-color:rgba(224,112,96,.45)}
+.crumb.warn .crumb-ic{color:var(--red)}
+
+.rule{height:1px;background:var(--border);margin:16px 0}
+
+/* ---------- fields ---------- */
+.field{margin-bottom:16px}
+.label{display:block;font-weight:500;font-size:12.5px;color:var(--muted);margin-bottom:7px}
+.label .opt{color:var(--muted);font-weight:400;opacity:.85}
+.input{width:100%;min-height:var(--tap);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text2);font-size:15px;padding:11px 14px}
+.input::placeholder{color:var(--dim)}
+.input:focus{outline:none;border-color:var(--accent)}
+textarea.input{resize:vertical;min-height:70px;font-size:14px}
+.help{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.45}
+
+/* grade chips: 44px tall, and the scale switches on rock type */
+.grades{display:flex;flex-wrap:wrap;gap:7px}
+.grade{min-height:var(--tap);min-width:var(--tap);padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-weight:500;font-size:14px;cursor:pointer}
+.grade:hover{border-color:var(--accent)}
+.grade[aria-pressed="true"]{background:linear-gradient(145deg,var(--accent),var(--umber));border-color:transparent;color:var(--on-accent)}
+.grade-more{min-height:var(--tap);padding:8px 4px;border:0;background:transparent;color:var(--accent);font-weight:500;font-size:13px;cursor:pointer}
+
+/* segmented binary (batu/tebing) - deliberately NOT the grade chip */
+.seg{display:flex;padding:3px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md)}
+.seg button{flex:1;min-height:38px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font-weight:500;font-size:13.5px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+/* ---------- photo ---------- */
+.drop{width:100%;min-height:var(--tap);border:1px dashed var(--border2);border-radius:var(--r-md);background:var(--surface);color:var(--text2);font-size:14px;padding:22px 14px;cursor:pointer;text-align:center}
+.drop:hover{border-color:var(--accent)}
+.topo{border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.topo-img{aspect-ratio:16/10;background:var(--photo-a);position:relative}
+.topo-img.b{background:var(--photo-b)}
+.topo-img.wall{background:var(--photo-wall)}
+.topo-line{position:absolute;inset:0}
+.topo-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border-top:1px solid var(--border)}
+.topo-bar .t{flex:1;font-size:12px;color:var(--muted)}
+.btn-line{min-height:var(--tap);padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:500;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn-line:hover{background:rgba(200,122,48,.1)}
+.btn-line[data-done="1"]{border-color:rgba(93,187,106,.5);color:var(--moss)}
+.thumbs{display:flex;gap:8px;margin-top:9px}
+.thumbs .t{width:52px;height:52px;border-radius:var(--r-sm);border:1px solid var(--border);flex-shrink:0;background:var(--photo-b)}
+.thumbs .add{width:52px;height:52px;border-radius:var(--r-sm);border:1px dashed var(--border2);background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
+.thumbs .add:hover{border-color:var(--accent);color:var(--accent)}
+
+details.more{border-top:1px solid var(--border);margin-top:4px}
+details.more>summary{list-style:none;cursor:pointer;min-height:var(--tap);display:flex;align-items:center;justify-content:space-between;font-weight:500;font-size:13.5px;color:var(--muted)}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::after{content:"";width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg) translateY(-2px)}
+details.more[open]>summary::after{transform:rotate(-135deg) translateY(-2px)}
+details.more .in{padding:6px 0 4px}
+
+/* ---------- sticky footer ---------- */
+.foot{flex-shrink:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--border);box-shadow:0 -8px 20px rgba(15,13,11,.7)}
+.submit{width:100%;min-height:48px;border:0;border-radius:var(--r-md);background:linear-gradient(145deg,var(--accent),var(--umber));color:var(--on-accent);font-weight:500;font-size:15.5px;cursor:pointer;box-shadow:0 2px 16px rgba(200,122,48,.35)}
+.submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.foot-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+
+/* ---------- success banner (replaces the takeover screen) ---------- */
+.banner{border:1px solid rgba(93,187,106,.35);background:linear-gradient(180deg,rgba(93,187,106,.09),transparent);border-radius:var(--r-md);padding:12px 14px;margin-bottom:16px}
+.banner .top{display:flex;align-items:center;gap:9px}
+.banner .tick{flex-shrink:0;width:20px;height:20px;color:var(--moss)}
+.banner .msg{flex:1;font-size:14px;color:var(--text)}
+.banner .see{min-height:var(--tap);padding:6px 10px;border:0;background:transparent;color:var(--muted);font-weight:500;font-size:12.5px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.banner .cta{width:100%;min-height:var(--tap);margin-top:11px;border-radius:var(--r-sm);border:1px solid var(--accent);background:rgba(200,122,48,.1);color:var(--accent);font-weight:500;font-size:14px;cursor:pointer}
+.banner .cta:hover{background:rgba(200,122,48,.18)}
+.banner .sub{font-size:12px;color:var(--muted);margin-top:8px}
+
+/* ---------- location overlay ---------- */
+.ov{position:absolute;inset:0;z-index:10;background:rgba(15,13,11,.55);backdrop-filter:blur(3px);display:flex;flex-direction:column;justify-content:flex-end}
+.ov[hidden]{display:none}
+.ov-sheet{background:var(--panel);border:1px solid var(--border);border-bottom:0;border-radius:var(--r-xl) var(--r-xl) 0 0;max-height:88%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -20px 60px rgba(0,0,0,.6)}
+.ov-head{flex-shrink:0;padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border)}
+.ov-head h3{font-family:var(--serif);font-weight:700;font-size:17px;line-height:1.15}
+.ov-body{flex:1;overflow-y:auto;padding:12px 16px 18px;scrollbar-width:thin}
+.search{width:100%;min-height:var(--tap);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text2);font-size:14px;padding:11px 13px}
+.search::placeholder{color:var(--dim)}
+.search:focus{outline:none;border-color:var(--accent)}
+.ov-hint{font-size:12px;color:var(--muted);margin:9px 0 4px}
+
+.spot{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:11px 12px;background:transparent;border:1px solid transparent;border-radius:var(--r-md);cursor:pointer;text-align:left;margin-top:4px}
+.spot:hover{background:var(--surface);border-color:var(--border)}
+.spot[aria-expanded="true"]{background:var(--surface);border-color:var(--border2)}
+.spot-m{flex:1;min-width:0}
+.spot-n{display:block;font-size:15px;color:var(--text);line-height:1.3}
+.spot-s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.spot-d{flex-shrink:0;font-size:13px;font-weight:500;color:var(--text2)}
+.spot-d small{display:block;font-size:10.5px;font-weight:400;color:var(--muted);text-align:right}
+
+/* rocks: SINGLE COLUMN, 16:9, full width - a 140px tile is not recognisable */
+.rocks{padding:2px 0 10px 0}
+.rock{display:block;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;cursor:pointer;text-align:left;margin-top:8px}
+.rock:hover{border-color:var(--accent)}
+.rock-img{aspect-ratio:16/9;background:var(--photo-a);position:relative}
+.rock-img.b{background:var(--photo-b)}
+.rock-img.wall{background:var(--photo-wall)}
+.rock-img.none{aspect-ratio:auto;height:0}
+.rock-cap{padding:10px 12px;display:flex;align-items:center;gap:10px}
+.rock-cap .m{flex:1;min-width:0}
+.rock-n{display:block;font-size:14.5px;color:var(--text);line-height:1.35}
+.rock-s{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.tag{flex-shrink:0;font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border2);border-radius:9999px;padding:3px 8px}
+.rock.alt{background:transparent;border-style:dashed;border-color:var(--border2)}
+.rock.alt .rock-n{color:var(--accent);font-weight:500}
+
+/* new-spot panel, with a real map */
+.newspot{border:1px solid var(--border2);border-radius:var(--r-md);background:var(--surface);padding:14px;margin-top:10px}
+.newspot h4{font-size:14px;font-weight:500;color:var(--text);margin-bottom:12px}
+.map{position:relative;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;background:var(--map-ground);height:172px}
+.map svg{display:block;width:100%;height:100%}
+/* below the frame, not floating over it - an overlay note sat on top of the
+   very pins it is telling you about */
+.map-note{margin-top:8px;border:1px solid var(--border2);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;color:var(--text2);line-height:1.45;background:var(--surface)}
+.map-note b{font-weight:500;color:var(--text)}
+.map-note.alarm{border-color:rgba(224,112,96,.5)}
+.map-note.alarm b{color:var(--red)}
+.mini{display:flex;gap:8px;margin-top:10px}
+.mini button{flex:1;min-height:40px;border:1px solid var(--border);border-radius:var(--r-sm);background:transparent;color:var(--text2);font-size:12.5px;font-weight:500;cursor:pointer}
+.mini button:hover{border-color:var(--accent);color:var(--text)}
+
+.ov-foot{flex-shrink:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--panel)}
+
+/* ---------- notes ---------- */
+.notes{flex:1 1 320px;max-width:460px;font-size:13px}
+.notes h2{font-family:var(--serif);font-weight:700;font-size:17px;line-height:1.15;margin-bottom:4px}
+.notes .lead{color:var(--muted);font-size:12px;margin-bottom:16px}
+.note{border:1px solid var(--border);background:var(--panel);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px}
+.note[hidden]{display:none}
+.note h3{font-weight:500;font-size:13px;color:var(--text);margin-bottom:9px}
+.note ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+.note li{font-size:12px;color:var(--text2);line-height:1.5;padding-left:14px;position:relative}
+.note li::before{content:"";position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:9999px;background:var(--accent);opacity:.75}
+.note li b{color:var(--text);font-weight:500}
+.ref{display:inline-block;font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:9999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.ref.new{color:var(--accent);border-color:rgba(200,122,48,.45)}
+.disclaimer{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:14px}
+</style>
+</head>
+<body>
+
+<header class="proto-bar">
+  <h1>Add flow v2</h1>
+  <p>Revised against handoff.md (f) + the v1 prototype. Live: tabs, picker, map, grade-scale switch, submit gating, repeat-add.</p>
+  <nav class="states" id="states">
+    <button data-s="default" aria-current="true">Standing at Citatah</button>
+    <button data-s="far">14 km from anything</button>
+    <button data-s="wall">Rock is a wall</button>
+    <button data-s="norock">Spot has no rocks</button>
+    <button data-s="saved">Just saved one</button>
+  </nav>
+</header>
+
+<main class="stage">
+  <div class="phone">
+    <div class="phone-bg"></div>
+
+    <section class="sheet">
+      <div class="grabber"></div>
+      <div class="sheet-head">
+        <div class="sheet-title" id="title">Add a problem</div>
+        <button class="x" type="button" title="Close">&times;</button>
+      </div>
+
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" data-i="problem" aria-selected="true">A problem</button>
+        <button role="tab" data-i="spot" aria-selected="false">A spot</button>
+        <button role="tab" data-i="rock" aria-selected="false">A rock</button>
+      </div>
+
+      <div class="body" id="body"></div>
+
+      <div class="foot">
+        <button class="submit" type="button" id="submit" disabled>Add problem</button>
+        <p class="foot-hint" id="hint">Give it a name first</p>
+      </div>
+    </section>
+
+    <!-- ============ LOCATION OVERLAY ============ -->
+    <div class="ov" id="ov" hidden>
+      <div class="ov-sheet">
+        <div class="ov-head">
+          <h3 id="ov-title">Where is it?</h3>
+          <button class="x" type="button" id="ov-x">&times;</button>
+        </div>
+        <div class="ov-body" id="ov-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h2>What changed, and why</h2>
+    <p class="lead">Each note names the handoff decision it serves &mdash; or, where marked, deliberately departs from.</p>
+    <div id="notes"></div>
+    <p class="disclaimer">
+      Static prototype. The map is drawn SVG standing in for Leaflet, which the app already ships.
+      Per handoff.md's implementation note the production sheet should be built through the
+      <code>impeccable</code> skill against the app's real components &mdash; this file is the
+      interaction spec, not the markup to copy.
+    </p>
+  </aside>
+</main>
+
+<script>
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------- data
+var SPOTS = [
+  { id:'citatah', name:'Citatah', dist:80, problems:14, rocks:[
+    { id:'crack',  name:'the one with the crack', type:'boulder', problems:4, photo:'',     topo:true },
+    { id:'over',   name:'the big overhang',       type:'boulder', problems:2, photo:'b',    topo:true },
+    { id:'tebing', name:'the wall by the road',   type:'wall',    problems:5, photo:'wall', topo:true },
+    { id:'slab',   name:null, lead:'Slab Mantap, Sit Start',      type:'boulder', problems:2, photo:null, topo:false }
+  ]},
+  { id:'c125', name:'Citatah 125', dist:1200, problems:3, rocks:[
+    { id:'c125a', name:null, lead:'Kelelawar', type:'boulder', problems:1, photo:null, topo:false }
+  ]},
+  { id:'goa', name:'Goa Agung', dist:14000, problems:21, rocks:[
+    { id:'goaa', name:'the cave boulder', type:'boulder', problems:9, photo:'b', topo:true }
+  ]},
+  { id:'empty', name:'Batu Kalong', dist:340, problems:0, rocks:[] }
+];
+var V     = ['V0','V1','V2','V3','V4','V5','V6','V7','V8'];
+var ROPE  = ['5','5+','6a','6a+','6b','6b+','6c','7a','7b'];
+// Beyond this, "the nearest spot" stops being a safe default (see note 6).
+var NEAR_M = 500;
+
+// ---------------------------------------------------------------- state
+var S = {
+  intent:'problem',
+  spotId:'citatah', rockId:'crack',
+  name:'', grade:null, photo:false, line:false,
+  rockName:'', rockPhoto:false, rockType:'boulder',
+  spotName:'',
+  justSaved:null, savedCount:0,
+  pinMoved:false
+};
+
+var $  = function (s, r) { return (r||document).querySelector(s); };
+var el = function (t, c, h) { var e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+var spot = function () { return SPOTS.filter(function(s){return s.id===S.spotId;})[0]; };
+var rock = function () { var sp=spot(); if(!sp)return null; return sp.rocks.filter(function(r){return r.id===S.rockId;})[0]||null; };
+var km   = function (m) { return m>=1000 ? (m/1000).toFixed(1)+' km' : m+' m'; };
+var isWall = function () { var r=rock(); return !!r && r.type==='wall'; };
+// A wall's children are routes, not problems - decision 1's switch-on-type
+// rule applied to the noun as well as to "which rock?" (closes open item 10).
+var noun = function () { return isWall() ? 'route' : 'problem'; };
+
+var ICON = {
+  pin:'<svg class="crumb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>',
+  tick:'<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4 10-10"/></svg>'
+};
+
+// ---------------------------------------------------------------- render
+function render() {
+  var b = $('#body'); b.innerHTML = '';
+  if (S.intent === 'problem') renderProblem(b);
+  if (S.intent === 'spot')    renderSpot(b);
+  if (S.intent === 'rock')    renderRock(b);
+  $('#title').textContent =
+    S.intent === 'problem' ? 'Add a ' + noun() :
+    S.intent === 'spot'    ? 'Add a spot' : 'Add a rock';
+  gate();
+  notes();
+}
+
+function crumb() {
+  var sp = spot();
+  var far = sp && sp.dist > NEAR_M && !S.spotName;
+  var c = el('button', 'crumb' + (far ? ' warn' : ''));
+  c.type = 'button';
+  var txt;
+  if (S.spotName) {
+    txt = '<b>' + S.spotName + '</b> <span class="sep">&middot;</span> a new spot'
+        + '<span class="crumb-sub">pin dropped here</span>';
+  } else {
+    var r = rock();
+    var sub = S.intent === 'rock' ? km(sp.dist) + ' away'
+            : r ? r.name || r.lead : (sp.rocks.length ? 'pick a rock' : 'first rock here');
+    txt = '<b>' + sp.name + '</b> <span class="sep">&middot;</span> ' + km(sp.dist) + ' away'
+        + '<span class="crumb-sub">' + sub + '</span>';
+  }
+  c.innerHTML = ICON.pin + '<span class="crumb-txt">' + txt + '</span>' + ICON.chev;
+  c.onclick = openOverlay;
+  return c;
+}
+
+function renderProblem(b) {
+  if (S.justSaved) b.appendChild(banner());
+  b.appendChild(crumb());
+
+  var sp = spot();
+  if (!S.spotName && sp.dist > NEAR_M) {
+    var w = el('p', 'help', 'Nothing of yours is nearby &mdash; the closest is ' + km(sp.dist)
+      + ' away. If you\'re standing somewhere new, tap above and add it.');
+    w.style.marginTop = '8px'; b.appendChild(w);
+  }
+
+  b.appendChild(el('div', 'rule'));
+
+  // name
+  var f1 = el('div', 'field');
+  f1.appendChild(el('label', 'label', 'Name'));
+  var i1 = el('input', 'input'); i1.type='text'; i1.placeholder='Slab Mantap'; i1.value=S.name;
+  i1.oninput = function () { S.name = this.value; gate(); };
+  f1.appendChild(i1); b.appendChild(f1);
+
+  // grade - scale switches on rock type
+  var scale = isWall() ? ROPE : V;
+  var f2 = el('div', 'field');
+  f2.appendChild(el('span', 'label',
+    'Grade <span class="opt">&mdash; skip it if it\'s still a project</span>'));
+  var g = el('div', 'grades');
+  scale.forEach(function (v) {
+    var c = el('button', 'grade', v); c.type='button';
+    c.setAttribute('aria-pressed', String(S.grade === v));
+    c.onclick = function () { S.grade = (S.grade === v ? null : v); render(); };
+    g.appendChild(c);
+  });
+  var m = el('button', 'grade-more', isWall() ? 'other scales' : 'more');
+  m.type = 'button'; g.appendChild(m);
+  f2.appendChild(g);
+  if (isWall()) f2.appendChild(el('p','help','French, because this one\'s a wall.'));
+  b.appendChild(f2);
+
+  // photo - the default action depends on whether the rock already has a topo
+  b.appendChild(photoField());
+
+  // more
+  var d = el('details','more');
+  d.innerHTML =
+    '<summary>More details (optional)</summary><div class="in">' +
+    fieldHTML('First ascent','who climbed it first') +
+    fieldHTML('Height','4 m') +
+    fieldHTML('Landing','flat, one pad is enough') +
+    fieldHTML('Getting down','walk off the back') +
+    '<div class="field" style="margin-bottom:0"><span class="label">Anything else</span>' +
+    '<textarea class="input" placeholder="beta, conditions, when it\'s dry"></textarea></div></div>';
+  b.appendChild(d);
+}
+
+function fieldHTML(l, p) {
+  return '<div class="field"><span class="label">'+l+'</span>' +
+         '<input class="input" type="text" placeholder="'+p+'"></div>';
+}
+
+function photoField() {
+  var f = el('div', 'field');
+  var r = rock();
+  var hasTopo = r && r.topo && !S.spotName;
+
+  if (hasTopo) {
+    // The rock already has a topo. Uploading a second wide shot is the exact
+    // duplicate-photo failure decision 2 exists to kill - so DRAWING is
+    // primary here and "another angle" is a 52px afterthought.
+    f.appendChild(el('span','label','Photo <span class="opt">&mdash; this rock already has one</span>'));
+    var t = el('div','topo');
+    t.appendChild(el('div','topo-img ' + (r.photo||'')));
+    var bar = el('div','topo-bar');
+    bar.appendChild(el('span','t', S.line ? 'your line is on it' : 'every ' + noun() + ' here draws on this'));
+    var btn = el('button','btn-line', S.line ? 'line drawn' : 'Draw your line');
+    btn.type='button'; if (S.line) btn.setAttribute('data-done','1');
+    btn.onclick = function () { S.line = !S.line; render(); };
+    bar.appendChild(btn); t.appendChild(bar); f.appendChild(t);
+    var th = el('div','thumbs');
+    var add = el('button','add','+'); add.type='button'; add.title='add another angle';
+    th.appendChild(add); f.appendChild(th);
+    f.appendChild(el('p','help','Another angle is welcome, but the line goes on the shot above.'));
+  } else if (S.photo) {
+    f.appendChild(el('span','label','Photo'));
+    var t2 = el('div','topo');
+    t2.appendChild(el('div','topo-img'));
+    var bar2 = el('div','topo-bar');
+    bar2.appendChild(el('span','t','this becomes the rock\'s photo'));
+    var b2 = el('button','btn-line', S.line ? 'line drawn' : 'Draw your line');
+    b2.type='button'; if (S.line) b2.setAttribute('data-done','1');
+    b2.onclick = function () { S.line = !S.line; render(); };
+    bar2.appendChild(b2); t2.appendChild(bar2); f.appendChild(t2);
+  } else {
+    f.appendChild(el('span','label','Photo <span class="opt">&mdash; a wide shot of the rock</span>'));
+    var d = el('button','drop','+ add a photo of the rock'); d.type='button';
+    d.onclick = function () { S.photo = true; render(); };
+    f.appendChild(d);
+    var why = (spot().rocks.length === 0 || S.spotName)
+      ? 'Nobody has photographed this one yet &mdash; yours is how the next person finds it.'
+      : 'The photo belongs to the rock. Every ' + noun() + ' on it draws on the same picture.';
+    f.appendChild(el('p','help', why));
+  }
+  return f;
+}
+
+function renderSpot(b) {
+  var f1 = el('div','field');
+  f1.appendChild(el('label','label',"What's it called?"));
+  var i = el('input','input'); i.type='text'; i.placeholder='Batu Kalong'; i.value=S.spotName;
+  i.oninput=function(){ S.spotName=this.value; gate(); };
+  f1.appendChild(i); b.appendChild(f1);
+
+  var f2 = el('div','field');
+  f2.appendChild(el('span','label','Where is it?'));
+  f2.appendChild(mapWidget());
+  b.appendChild(f2);
+
+  var f3 = el('div','field');
+  f3.appendChild(el('span','label','Photo <span class="opt">&mdash; how it looks when you arrive</span>'));
+  var d = el('button','drop','+ add a photo'); d.type='button'; f3.appendChild(d);
+  f3.appendChild(el('p','help','The approach shot, so the next person recognises the place.'));
+  b.appendChild(f3);
+
+  var dt = el('details','more');
+  dt.innerHTML = '<summary>More details (optional)</summary><div class="in">' +
+    fieldHTML('Patokan','turn at the warung, 300 m up the track') +
+    '<div class="field" style="margin-bottom:0"><span class="label">Access</span>' +
+    '<input class="input" type="text" placeholder="ask the owner first, park by the gate"></div></div>';
+  b.appendChild(dt);
+}
+
+function renderRock(b) {
+  b.appendChild(crumb());
+  b.appendChild(el('div','rule'));
+
+  var f0 = el('div','field');
+  f0.appendChild(el('span','label','Is it a rock or a wall?'));
+  var sg = el('div','seg');
+  [['boulder','Batu &mdash; a rock'],['wall','Tebing &mdash; a wall']].forEach(function (o) {
+    var t = el('button', '', o[1]); t.type='button';
+    t.setAttribute('aria-pressed', String(S.rockType === o[0]));
+    t.onclick = function () { S.rockType = o[0]; render(); };
+    sg.appendChild(t);
+  });
+  f0.appendChild(sg); b.appendChild(f0);
+
+  var f1 = el('div','field');
+  f1.appendChild(el('span','label','Photo <span class="opt">&mdash; the wide shot lines get drawn on</span>'));
+  if (S.rockPhoto) {
+    var t = el('div','topo'); t.appendChild(el('div','topo-img ' + (S.rockType==='wall'?'wall':'')));
+    var bar = el('div','topo-bar'); bar.appendChild(el('span','t','added'));
+    t.appendChild(bar); f1.appendChild(t);
+  } else {
+    var d = el('button','drop','+ add a photo'); d.type='button';
+    d.onclick=function(){ S.rockPhoto=true; render(); };
+    f1.appendChild(d);
+  }
+  b.appendChild(f1);
+
+  var f2 = el('div','field');
+  f2.appendChild(el('label','label','Name it? <span class="opt">&mdash; most aren\'t named</span>'));
+  var i = el('input','input'); i.type='text';
+  i.placeholder = S.rockType==='wall' ? 'the wall by the road' : 'the one with the crack';
+  i.value = S.rockName;
+  i.oninput=function(){ S.rockName=this.value; gate(); };
+  f2.appendChild(i);
+  f2.appendChild(el('p','help','A photo or a name &mdash; either one is enough. Without either, nobody can tell which '
+    + (S.rockType==='wall'?'wall':'rock') + ' this is.'));
+  b.appendChild(f2);
+
+  var f3 = el('div','field');
+  f3.appendChild(el('label','label','What kind of stone? <span class="opt">&mdash; optional</span>'));
+  var i2 = el('input','input'); i2.type='text'; i2.placeholder='batu kapur';
+  f3.appendChild(i2); b.appendChild(f3);
+}
+
+// ------------------------------------------------------------- the map
+function mapWidget(nearby) {
+  var w = el('div','map');
+  var pins = nearby || [{ x:22, y:34, n:'Citatah', d:'80 m' }, { x:78, y:70, n:'Citatah 125', d:'1.2 km' }];
+  var svg =
+    '<svg viewBox="0 0 300 172" preserveAspectRatio="xMidYMid slice">' +
+      '<rect width="300" height="172" fill="#171310"/>' +
+      '<path d="M-10 130 C 60 118, 120 140, 200 106 S 290 70, 320 78" stroke="#2a2420" stroke-width="9" fill="none"/>' +
+      '<path d="M-10 130 C 60 118, 120 140, 200 106 S 290 70, 320 78" stroke="#3a322c" stroke-width="1.5" fill="none" stroke-dasharray="6 6"/>' +
+      '<path d="M40 20 C 90 44, 140 18, 200 40" stroke="#231e1a" stroke-width="1.5" fill="none"/>' +
+      '<path d="M20 60 C 80 84, 150 52, 230 76" stroke="#231e1a" stroke-width="1.5" fill="none"/>';
+  pins.forEach(function (p) {
+    var x = p.x/100*300, y = p.y/100*172;
+    svg += '<g opacity=".85"><circle cx="'+x+'" cy="'+y+'" r="4.5" fill="#6a5848"/>' +
+           '<text x="'+(x+9)+'" y="'+(y+4)+'" font-family="DM Sans,sans-serif" font-size="10" fill="#967b6a">'+p.n+' &#183; '+p.d+'</text></g>';
+  });
+  // the user's own pin, with its accuracy radius
+  svg += '<circle cx="150" cy="86" r="34" fill="rgba(200,122,48,.10)" stroke="rgba(200,122,48,.35)" stroke-dasharray="4 4"/>' +
+         '<circle cx="150" cy="86" r="7" fill="#c87a30" stroke="#fef3e6" stroke-width="2"/>' +
+         '</svg>';
+  w.innerHTML = svg;
+
+  var close = pins.filter(function (p) { return p.d.indexOf('km') === -1; })[0];
+  var note = el('div','map-note' + (close ? ' alarm' : ''));
+  note.innerHTML = close
+    ? '<b>' + close.n + ' is ' + close.d + ' from your pin.</b> Same place? Adding it twice splits it in two.'
+    : '<b>Accurate to about 30 m.</b> Drag the pin if you know better &mdash; nearest other spot is 1.2 km.';
+
+  var row = el('div','mini');
+  ['Use my location','Drag to place'].forEach(function (t) {
+    var bt = el('button','',t); bt.type='button'; row.appendChild(bt);
+  });
+  var wrap = el('div');
+  wrap.appendChild(w); wrap.appendChild(note); wrap.appendChild(row);
+  return wrap;
+}
+
+// ------------------------------------------------------------ overlay
+function openOverlay() {
+  var ov = $('#ov'), body = $('#ov-body');
+  $('#ov-title').textContent = S.intent === 'rock' ? 'Which spot?' : 'Where is it?';
+  body.innerHTML = '';
+
+  var s = el('input','search'); s.type='text'; s.placeholder='Search spots';
+  body.appendChild(s);
+  body.appendChild(el('p','ov-hint','Nearest first. Search if you\'re adding from home.'));
+
+  SPOTS.slice().sort(function (a, b) { return a.dist - b.dist; }).forEach(function (sp) {
+    var open = sp.id === S.spotId && !S.spotName;
+    var row = el('button','spot'); row.type='button';
+    row.setAttribute('aria-expanded', String(open));
+    row.innerHTML =
+      '<span class="spot-m"><span class="spot-n">' + sp.name + '</span>' +
+      '<span class="spot-s">' + (sp.problems ? sp.problems + ' problems &middot; ' + sp.rocks.length + ' rock' + (sp.rocks.length===1?'':'s') : 'nothing here yet') + '</span></span>' +
+      '<span class="spot-d">' + km(sp.dist) + '<small>away</small></span>';
+    body.appendChild(row);
+
+    var holder = el('div','rocks');
+    body.appendChild(holder);
+    if (open) fillRocks(holder, sp);
+
+    row.onclick = function () {
+      if (S.intent === 'rock') { S.spotId = sp.id; S.spotName=''; closeOverlay(); return; }
+      // Picking a spot ALWAYS re-derives the rock - it can never go stale.
+      S.spotId = sp.id; S.spotName = ''; S.line = false;
+      if (sp.rocks.length === 0)      { S.rockId = null; closeOverlay(); }   // decision 12, generalised
+      else if (sp.rocks.length === 1) { S.rockId = sp.rocks[0].id; closeOverlay(); } // principle 4
+      else                            { S.rockId = null; openOverlay(); }    // the one open question
+    };
+  });
+
+  // new spot, in-place, with the map
+  var alt = el('button','rock alt');
+  alt.type = 'button';
+  alt.innerHTML = '<span class="rock-cap"><span class="m"><span class="rock-n">It\'s a new spot</span>' +
+                  '<span class="rock-s">name it and check the pin</span></span></span>';
+  alt.onclick = function () { showNewSpot(body, alt); };
+  body.appendChild(alt);
+
+  ov.hidden = false;
+}
+
+function fillRocks(holder, sp) {
+  sp.rocks.forEach(function (r) {
+    var b = el('button','rock'); b.type='button';
+    if (r.photo !== null) b.appendChild(el('div','rock-img ' + (r.photo||'')));
+    var cap = el('div','rock-cap');
+    cap.innerHTML =
+      '<span class="m"><span class="rock-n">' + (r.name || r.lead) + '</span>' +
+      '<span class="rock-s">' + r.problems + ' ' + (r.type==='wall'?'route':'problem') + (r.problems===1?'':'s') +
+      (r.name ? '' : ' &middot; no name yet') + (r.photo===null ? ' &middot; no photo yet' : '') + '</span></span>' +
+      (r.type === 'wall' ? '<span class="tag">tebing</span>' : '');
+    b.appendChild(cap);
+    b.onclick = function () { S.rockId = r.id; S.line = false; closeOverlay(); };
+    holder.appendChild(b);
+  });
+  [['It\'s a new rock','your photo becomes its topo'],
+   ['Not sure which one','file it now &mdash; a photo lets someone match it up later']]
+   .forEach(function (o) {
+    var b = el('button','rock alt'); b.type='button';
+    b.innerHTML = '<span class="rock-cap"><span class="m"><span class="rock-n">'+o[0]+
+                  '</span><span class="rock-s">'+o[1]+'</span></span></span>';
+    b.onclick = function () { S.rockId = null; S.line = false; closeOverlay(); };
+    holder.appendChild(b);
+  });
+}
+
+function showNewSpot(body, after) {
+  if ($('#np')) return;
+  var p = el('div','newspot'); p.id='np';
+  p.appendChild(el('h4','',"What's this place called?"));
+  var i = el('input','input'); i.type='text'; i.placeholder='Batu Kalong';
+  i.oninput = function () { S.spotName = this.value; $('#np-go').disabled = !this.value.trim(); };
+  p.appendChild(i);
+  var sp = el('div'); sp.style.height='12px'; p.appendChild(sp);
+  p.appendChild(mapWidget());
+  var go = el('button','submit','Use this spot'); go.type='button'; go.id='np-go';
+  go.style.marginTop='12px'; go.disabled = true;
+  go.onclick = function () { S.rockId = null; S.line = false; closeOverlay(); };
+  p.appendChild(go);
+  after.after(p);
+  i.focus();
+}
+
+function closeOverlay() { $('#ov').hidden = true; render(); }
+
+// --------------------------------------------------------------- gate
+function gate() {
+  var b = $('#submit'), h = $('#hint'), ok, hint;
+  if (S.intent === 'problem') {
+    b.textContent = 'Add ' + noun();
+    ok = S.name.trim() !== '';
+    hint = ok ? 'Grade, photo and the rest are optional.' : 'Give it a name first';
+  } else if (S.intent === 'spot') {
+    b.textContent = 'Add spot';
+    ok = S.spotName.trim() !== '';
+    hint = ok ? 'Saves on its own. Rocks and problems whenever you like.' : 'Give the place a name first';
+  } else {
+    b.textContent = 'Add rock';
+    // photo OR name - never both, never neither (see note 5)
+    ok = S.rockPhoto || S.rockName.trim() !== '';
+    hint = ok ? 'Saves on its own. A rock with no problems yet is fine.'
+              : 'Add a photo or a name, so people can find it again';
+  }
+  b.disabled = !ok; h.textContent = hint;
+}
+
+function banner() {
+  var j = S.justSaved;
+  var w = el('div','banner');
+  var top = el('div','top');
+  top.innerHTML = ICON.tick + '<span class="msg"><b>' + j.name + '</b> is up</span>';
+  var see = el('button','see','see it'); see.type='button'; top.appendChild(see);
+  w.appendChild(top);
+  if (j.photo && !j.line) {
+    var c = el('button','cta','Draw the line on the photo'); c.type='button';
+    c.onclick = function () { S.justSaved.line = true; render(); };
+    w.appendChild(c);
+    w.appendChild(el('p','sub','Do it now &mdash; you\'re standing at the rock. It\'s the one thing you can\'t add from home.'));
+  } else {
+    w.appendChild(el('p','sub', S.savedCount > 1
+      ? j.spot + ' &middot; ' + j.rock + ' &mdash; ' + S.savedCount + ' added this session. Next one\'s ready below.'
+      : 'Still on ' + j.rock + '. The next one\'s ready below.'));
+  }
+  return w;
+}
+
+// -------------------------------------------------------------- notes
+var NOTES = {
+  problem: {
+    h: 'Add a problem — one sheet, one crumb',
+    l: [
+      ['<b>The two context rows became one breadcrumb.</b> Spot and rock are one question ("where is this climb?"), not two, and a single line can\'t be swallowed by its own picker the way stacked rows were.', 'decision 14'],
+      ['<b>The picker is an overlay, not an inline expansion.</b> It returns you to the exact scroll position, so "nothing is discarded" is true in feel as well as in state. Decision 14 rejected <i>steps</i> — a corridor you must walk — not overlays.', 'decision 14'],
+      ['<b>Changing the spot always re-derives the rock.</b> 0 rocks → no rock question at all; 1 → auto-picked; 2+ → the picker stays open, because that\'s now the only thing left to answer. A stale pairing is unreachable.', 'new'],
+      ['<b>The submit never leaves the screen.</b> Sticky footer, with the reason underneath it. A permanently visible disabled button teaches the requirement; a hidden one just isn\'t there when you reach.', 'new'],
+      ['<b>If the rock already has a topo, drawing is primary and uploading is a 52px square.</b> A second wide shot of the same rock is exactly the duplicate decision 2 exists to kill.', 'decision 2'],
+      ['<b>Grade scale switches on rock type</b>, and so does the noun — pick the wall and the sheet says "Add a route" in French. Same switch-on-type rule already agreed for "which rock?" vs "which wall?".', 'closes item 10']
+    ]
+  },
+  spot: {
+    h: 'Add a spot — now with a map',
+    l: [
+      ['<b>The pin is the only thing this app writes that can\'t be undone</b> — open item 8: duplicate spots have no merge, no delete, and strand every rock under them. It had the weakest control on the sheet. Now it has a map.', 'open item 8'],
+      ['<b>Duplicate prevention you can see.</b> Nearby spots are drawn <i>on the map</i> with their distance. A distance-sorted text list is the weak form of the same idea.', 'decision 14'],
+      ['<b>GPS accuracy is shown, not implied.</b> Under limestone on a cheap Android a fix is ±30 m or worse; "dropped where you\'re standing" claimed a precision the device doesn\'t have.', 'new'],
+      ['Still saves and stops — a dimmed pin reading "no problems yet".', 'decision 11']
+    ]
+  },
+  rock: {
+    h: 'Add a rock — can no longer save nothing',
+    l: [
+      ['<b>Requires a photo <i>or</i> a name.</b> The handoff made every field but the spot optional, so this intent could write an unnamed photoless rock — precisely what open item 9 calls the signal that somebody wasn\'t sure. It was a machine for making the mess.', 'open item 9'],
+      ['Either one, never both, and the footer says why in plain words rather than flagging a "required field".', 'principle 7'],
+      ['Batu / tebing gets a real segmented control, not a grade chip wearing the same clothes — one is a required binary, the other optional single-select.', 'new']
+    ]
+  },
+  shared: {
+    h: 'Across the whole flow',
+    l: [
+      ['<b>The intent menu became a segmented control.</b> Zero taps for the common case instead of one tap for everyone, all three still first-class and still committing on their own. A menu you must clear before typing is demanded, not offered.', 'decision 11'],
+      ['<b>The success screen became a banner on an already-reset sheet.</b> Repeat-adding is the highest-value affordance in the flow and a full-screen takeover between problem 1 and problem 2 is eight interruptions for eight lines. It also gives "draw the line" somewhere to live after submit, which it had nowhere.', 'departs from handoff'],
+      ['<b>Nearest-spot is only a default when it\'s near.</b> Past 500 m the sheet stops asserting and says so — auto-filing onto a spot 14 km away is the same un-mergeable duplicate problem in the other direction.', 'new'],
+      ['<b>Muted text raised #8a7060 → #967b6a</b> (3.91:1 → 4.58:1, WCAG AA). Faint Stone no longer carries any sentence. This is a DESIGN.md change, not a screen fix — the old value failed hardest in sunlight, which PRODUCT.md names as the default condition.', 'DESIGN.md'],
+      ['44px minimum on every target, and a focus ring in the accent. A mis-tapped grade is a silent data error nobody notices.', 'new']
+    ]
+  }
+};
+
+function notes() {
+  var w = $('#notes'); w.innerHTML = '';
+  [NOTES[S.intent], NOTES.shared].forEach(function (n) {
+    var d = el('div','note');
+    d.appendChild(el('h3','',n.h));
+    var u = el('ul');
+    n.l.forEach(function (i) {
+      u.appendChild(el('li','', i[0] + ' <span class="ref' +
+        (i[1]==='new'||i[1].indexOf('departs')===0||i[1].indexOf('closes')===0 ? ' new':'') +
+        '">' + i[1] + '</span>'));
+    });
+    d.appendChild(u); w.appendChild(d);
+  });
+}
+
+// --------------------------------------------------------------- wire
+$('#tabs').onclick = function (e) {
+  var t = e.target.closest('[data-i]'); if (!t) return;
+  S.intent = t.dataset.i; S.justSaved = null;
+  [].forEach.call(this.children, function (c) {
+    c.setAttribute('aria-selected', String(c.dataset.i === S.intent));
+  });
+  render();
+};
+
+$('#submit').onclick = function () {
+  if (S.intent !== 'problem') { S.intent = 'problem';
+    [].forEach.call($('#tabs').children, function(c){ c.setAttribute('aria-selected', String(c.dataset.i==='problem')); });
+    render(); return; }
+  var r = rock();
+  S.savedCount++;
+  S.justSaved = { name:S.name, spot:S.spotName||spot().name, rock:r?(r.name||r.lead):'a new rock',
+                  photo:(r&&r.topo)||S.photo, line:S.line };
+  S.name=''; S.grade=null; S.line=false; S.photo=false;   // climb fields only
+  render(); $('#body').scrollTop = 0;
+};
+
+$('#ov-x').onclick = closeOverlay;
+$('#ov').onclick = function (e) { if (e.target === this) closeOverlay(); };
+
+$('#states').onclick = function (e) {
+  var t = e.target.closest('[data-s]'); if (!t) return;
+  [].forEach.call(this.children, function(c){ c.setAttribute('aria-current', String(c===t)); });
+  S.justSaved=null; S.name=''; S.grade=null; S.photo=false; S.line=false; S.spotName='';
+  S.intent='problem'; S.rockPhoto=false; S.rockName='';
+  [].forEach.call($('#tabs').children, function(c){ c.setAttribute('aria-selected', String(c.dataset.i==='problem')); });
+  if (t.dataset.s==='default') { S.spotId='citatah'; S.rockId='crack'; }
+  if (t.dataset.s==='far')     { S.spotId='goa';     S.rockId='goaa'; }
+  if (t.dataset.s==='wall')    { S.spotId='citatah'; S.rockId='tebing'; }
+  if (t.dataset.s==='norock')  { S.spotId='empty';   S.rockId=null; }
+  if (t.dataset.s==='saved')   { S.spotId='citatah'; S.rockId='crack'; S.savedCount=1;
+    S.justSaved={name:'Slab Mantap',spot:'Citatah',rock:'the one with the crack',photo:true,line:false}; }
+  render();
+};
+
+render();
+})();
+</script>
+</body>
+</html>

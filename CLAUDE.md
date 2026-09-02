@@ -60,7 +60,9 @@ Day-to-day, use [scripts/db.ps1](scripts/db.ps1) instead of calling `migrate` di
 .\scripts\db.ps1 force 1   # unstick a "dirty" migration state
 ```
 
-Validated locally: a throwaway `palabatu_test` database on the local Postgres 18 install, confirmed via the VS Code Database Client extension after `up`.
+Postgres runs in Docker, not as a native Windows service (migrated 2026-07-23; the native service is disabled deliberately — don't re-enable it). The container is `kepalabatu-postgres-1`, exposing 5432, database `palabatu`. Reach it directly with `docker exec kepalabatu-postgres-1 psql -U user -d palabatu -c "..."` when you need SQL that isn't a migration.
+
+**`palabatu-be/.env` currently declares `DATABASE_URL` twice** — Neon first, local Docker second, both uncommented. Both `godotenv` and `scripts/db.ps1` take the *last* occurrence, so the local one wins and that's what the running backend and `db.ps1` both use. Swapping targets means reordering (or commenting) those lines, not editing one in place — and check which one is last before assuming which database you just talked to.
 
 The raw CLI form still works if needed, e.g. against Neon directly (read-only operations only — see below):
 ```sh
@@ -69,23 +71,69 @@ migrate -path migrations -database "$DATABASE_URL" version
 ```
 
 - `0001_init` is the schema as it actually exists in the live Neon database (captured via `pg_dump --schema-only`), not a from-scratch design — this repo had no schema file before.
+- Numbering is at `0018` as of 2026-08-30: `0014`/`0015` the crags/boulders/problems hierarchy, `0016` add-flow v2, `0017` approach guides, `0018` feedback type.
 - **Never run `migrate ... down` against the production `DATABASE_URL`** — it drops tables. Point at a local Postgres instance for testing the up/down cycle. `scripts/db.ps1` enforces this automatically.
 - `golang-migrate`'s postgres driver (v4.19.1) registers itself for both the `postgres://` and `postgresql://` URI schemes, so Neon's connection strings work unmodified — no prefix-swapping needed.
+
+## API Contract
+
+`palabatu-be`'s handlers document themselves via [swaggo/swag v2](https://github.com/swaggo/swag) comment annotations, generated into a committed OpenAPI 3.1 spec at `palabatu-be/docs/swagger.json`. This exists so a mismatched request/response shape becomes a documented, generatable contract instead of something hand-copied by eye into `palabatu-fe`'s types (which is how it worked before this existed) — and so a future second client (the Phase 4 React Native app, see ROADMAP.md) has a real spec to generate against instead of a third copy of hand-guessed types.
+
+Rules for every new or changed endpoint:
+- **Named types only** — every request body and every non-trivial response is a named Go struct (in that domain's `dto.go` if it has one, e.g. `internal/auth/dto.go`/`internal/problems/dto.go`, otherwise declared inline near the top of `handler.go`). Never bind into an anonymous `var body struct{...}`, never respond with a bare `gin.H{...}`.
+- **Shared response envelopes** live in `internal/apitypes` (sibling of `internal/middleware`/`internal/authz`, same one-way-import shape — domains import it, it imports nothing domain-specific): `apitypes.ErrorResponse{Error string}` for every non-2xx body, `apitypes.SuccessResponse{Success bool}` for plain "it worked" responses, `apitypes.MessageResponse{Message string}` for a human-readable confirmation, `apitypes.CountResponse{Count int}` for a bare count. Reach for a domain-local named type instead only when the shape is genuinely domain-specific.
+- **Every handler gets a swag doc comment** directly above it: `@Summary`, `@Tags <domain>`, `@Accept`/`@Produce` as applicable, `@Param` per path/query/body/formData parameter, `@Success`/`@Failure` per response, `@Router <path> [method]`, and `@Security BearerAuth` iff the route is wrapped in `middleware.RequireAuth`.
+- **Route mounting** stays as-is: the `/auth` group for auth's own routes (`auth.AuthRoutes`), the `/api` group (`apiGroup`) for everything else including `auth.ProfileRoutes`.
+- **Public (no-auth) endpoints that accept user input** get the existing `middleware.RateLimit(...)` pattern, per the precedent in `waitlist`, `auth`'s signup/signin/forgot-password/reset-password, and `social.handleCreateComment`.
+- After changing any handler's request/response shape or annotations, run `.\scripts\gen-api-docs.ps1` (wraps `swag init` with this repo's required flags — see below) and commit the regenerated `palabatu-be/docs/swagger.json` alongside the code change.
+
+```powershell
+.\scripts\gen-api-docs.ps1
+```
+
+Requires the swag v2 CLI once per machine: `go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5` (installs to `%GOPATH%\bin`, already on PATH per the `migrate` precedent above). `swag` is a codegen tool only — it never touches `go.mod`/`go.sum`.
+
+- Pinned at `v2.0.0-rc5` deliberately: swag's stable v1 line only emits Swagger 2.0, and swag v2 (native OpenAPI 3.1 output, via `swag init`'s `--v3.1` flag) is still a release candidate, not GA. Expect to bump the pin occasionally as it stabilizes.
+- **Known upstream limitation** (swaggo/swag [#1933](https://github.com/swaggo/swag/issues/1933), open as of this writing): a `formData file` param's schema lands under the wrong content-type key in `--v3.1` output — `multipart/form-data`'s schema comes out as an empty object, with the real `type: file` schema misplaced under `application/x-www-form-urlencoded`. Affects `POST /upload/topo` and `POST /upload/avatar` only; the `@Accept multipart/form-data`/`@Param ... formData file` annotations are still correct, and the actual endpoints are unaffected — this is a spec-generation cosmetic issue, not a runtime behavior change. Don't "fix" it with non-standard annotations; revisit once swag v2 addresses the upstream issue.
+- No route serves the spec itself (no Swagger UI, no `/swagger.json` endpoint) — this is deliberately just a committed artifact for other tooling to generate against, not a live docs page.
+
+### Frontend consumption
+
+`palabatu-fe` generates TypeScript types from the committed spec rather than hand-copying shapes by eye:
+
+```powershell
+npm run gen:types   # openapi-typescript ../palabatu-be/docs/swagger.json -o ./src/types/api.d.ts
+```
+
+Run it (from `palabatu-fe/`) after any backend handler shape/annotation change lands and `docs/swagger.json` is regenerated, and commit the resulting `palabatu-fe/src/types/api.d.ts`.
+
+- `src/lib/api.ts`'s `get`/`post`/`put`/`upload`/`delete` all take a **required** generic (`api.get<T>(path)`, no default) — every call site in the codebase supplies a real `T` as of 2026-08-01, so a missing type argument is a compile error, not a silent `any`. (Earlier in the migration this briefly defaulted to `T = any` so untyped call sites could be converted incrementally instead of all at once; once every call site was converted, the default was removed specifically so a future call site can't quietly skip typing — see git history around 2026-08-01 if you need the reasoning.) Where a call's success payload genuinely isn't used by anyone (e.g. a fire-and-forget mutation), that's still a real type — either `Partial<ErrorResponse>` (only the error path is checked) or `unknown` (the result is fully discarded) — never `any`.
+- **`api.d.ts` is not imported directly by call sites.** It's all-optional by construction (swag doesn't emit `required`, and doesn't model Go pointer-vs-value nullability), so using it raw would force defensive optional-chaining everywhere a field is actually guaranteed. Instead, each domain has a small hand-written mirror type in `src/types/` (`problem.ts`, `social.ts`, `report.ts`, `apitypes.ts` mirroring `internal/apitypes`, etc.) — named after and doc-commented with a pointer to the Go struct and the generated schema name it mirrors, with optionality/nullability resolved against the actual Go field types (no `omitempty` → always present; `*T` → `| null`), not guessed. Add new response/request shapes there, colocated by domain, rather than declaring a local `type X = {...}` inside a page or component file.
+- **Check `src/types/` before hand-writing a type.** A local one-off redefinition of an entity that already has a shared type is exactly the drift this setup exists to prevent (see git history around 2026-08-01 for a case where `ProblemRow` had drifted into two conflicting local definitions, and `Comment` was independently redefined verbatim in two files).
+- Where a call site never reads the success payload (only checks for a possible error), type it narrowly as `Partial<ErrorResponse>` rather than fabricating unused precision.
 
 ## Environment variables
 
 - `palabatu-fe/.env`: `VITE_API_URL` (backend base URL), `VITE_OWNER_EMAIL` (gates the Developer nav link's visibility only — the real enforcement is backend-side, see `OWNER_USER_ID` below).
 - `palabatu-be/.env`: `PORT`, `DATABASE_URL` (Postgres), `JWT_SECRET`, `OWNER_USER_ID` (the single `users.id` allowed to call `/api/dev/*`, see `middleware.RequireOwner`), Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), email credentials — see `palabatu-be/environments/.env.example`, loaded via `godotenv`.
 
+## Copywriting
+
+- Never use em-dashes in any user-facing copy (UI labels, descriptions, tooltips, empty states, marketing/landing pages, emails, etc.). Use a period, comma, or a plain rewrite instead. This is separate from the global no-emoji rule, and applies only to copy users read, not to prose in this file, code comments, or commit messages.
+
 ## Architecture
 
-**Frontend**: React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Routing is a flat `<Routes>` tree in [palabatu-fe/src/App.tsx](palabatu-fe/src/App.tsx). Pages live in `src/pages/`, shared UI in `src/components/`. Map view (`src/pages/Map.tsx`) uses React Leaflet with marker clustering.
+**Frontend**: React 19 + TypeScript + Vite 7 + Tailwind CSS 4. Routing is a flat `<Routes>` tree in [palabatu-fe/src/App.tsx](palabatu-fe/src/App.tsx). Pages live in `src/pages/`, shared UI in `src/components/`. Map view (`src/pages/Map.tsx`) uses React Leaflet.
+
+Clustering on the map is **hand-rolled** (`ProximityClusters` inside `Map.tsx`: container-point distance, zoom-scaled threshold, centroid pins). `leaflet.markercluster`, `react-leaflet-markercluster` and `@changey/react-leaflet-markercluster` are all still in `package.json` but **nothing imports them** — dead dependencies, same as the `@supabase/auth-ui-*` packages. Don't take their presence as the pattern to follow.
+
+Product context (users, positioning, brand commitments) and the visual design system (palette, typography, component patterns, do's/don'ts) live in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) at the repo root, not duplicated here — check them before making product-shape or visual-design decisions. The `impeccable` skill (`.claude/skills/impeccable/`) reads both automatically for its own commands; consult them directly for any other frontend/design work.
 
 When writing or editing CSS/Tailwind (layout, spacing, breakpoints, component styles), always design for responsiveness — check behavior at mobile widths as well as desktop, not just the viewport you're eyeballing. This app is used as an installable PWA on phones, so mobile is a primary target, not an afterthought.
 
 **Auth**: JWT-based, not Supabase (Supabase Auth UI packages are installed but the actual flow is custom JWT). `src/lib/AuthContext.tsx` provides `user`, `handleLogin`, `handleSignup`, `handleLogout`, and a toast helper; on mount it validates any stored token via `GET /auth/session`. Token is stored in `localStorage` under the key `token`.
 
-**API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly (not a `{ data, error }` envelope — some dead code in `App.tsx`'s unused `Home()` still destructures that shape; don't copy that pattern).
+**API client** ([palabatu-fe/src/lib/api.ts](palabatu-fe/src/lib/api.ts)): a thin fetch wrapper (`api.get/post/put/upload/delete`) that attaches `Authorization: Bearer <token>` from `localStorage` on every call and returns the parsed JSON body directly — not a `{ data, error }` envelope. Check for failure with `'error' in res` (or type the call `Partial<ErrorResponse>` where the success payload is unused), never by destructuring `{ data, error }`.
 
 **Backend** (`palabatu-be/`, Go): uses `gin` for routing, `pgx/v5` (`pgxpool`) for Postgres, `golang-jwt/jwt/v5` for auth, `gin-contrib/cors` for CORS, `godotenv` for env loading, `cloudinary-go/v2` for image uploads, `prometheus/client_golang` for metrics.
 
@@ -97,8 +145,15 @@ palabatu-be/
 │   ├── cloudinary/cloudinary.go # upload-to-folder + destroy-by-URL
 │   ├── metrics/metrics.go   # Prometheus HTTP request-count/duration middleware, exposed at GET /metrics
 │   ├── mailer/mailer.go     # SMTP sender (no emoji, see global style rule)
-│   ├── middleware/auth.go   # RequireAuth (JWT) gin middleware + UserFromContext
-│   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditProblem(userID, createdBy, titles).
+│   ├── apitypes/            # shared response envelopes (ErrorResponse/SuccessResponse/MessageResponse/
+│   │                        # CountResponse) — see the API Contract section above
+│   ├── middleware/          # auth.go: RequireAuth (JWT) + OptionalAuth (same parse, but a missing/invalid
+│   │                        # token is not an error — used by public endpoints that still want to attribute
+│   │                        # a signed-in submitter, e.g. feedback) + UserFromContext;
+│   │                        # owner.go: RequireOwner; ratelimit.go: RateLimit
+│   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditOwned(userID, ownerID, titles),
+│   │                        # CanContribute(userID, kind, ownerID, titles) — the last one is the widen-later seam for
+│   │                        # additive acts (adding a photo) that need not stay creator-or-admin forever.
 │   │                        # Takes already-fetched data as args — never reaches into another domain's repository,
 │   │                        # so problems/social/auth -> authz stays one-way with no import cycle possible.
 │   ├── auth/                # users, sessions, JWT issuance/verification, signup/signin, email verification,
@@ -107,24 +162,88 @@ palabatu-be/
 │   │   ├── service.go       # Signup/Signin/Session/VerifyEmail/ForgotPassword/ResetPassword/GetProfile/UpsertProfile
 │   │   ├── repository.go    # `users` + `profiles` table queries; GetUserTitles() exported for internal/problems
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
-│   ├── problems/            # map spots/routes, problem CRUD, image uploads, "Founder" (creator) authorization,
-│   │   │                    # topo photo annotation (drawn route lines/holds)
-│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /upload/topo, /upload/avatar, /problems/:id/annotations
+│   ├── crags/                # top level of the crags -> boulders -> problems hierarchy (see handoff.md at the repo
+│   │   │                     # root for the full design): the place you drive to and park at. Create is open to any
+│   │   │                     # signed-in user; edit is creator-or-admin, same authz.CanEditOwned policy as problems.
+│   │   ├── handler.go        # Routes(rg) mounted at /api — /crags, /crags/:id
+│   │   ├── service.go        # ListCrags/GetCrag/CreateCrag/UpdateCrag; authorizeCragEdit mirrors
+│   │   │                     # problems.authorizeProblemEdit exactly (per-domain helper, not shared)
+│   │   ├── repository.go     # `crags` table queries; CragListItem includes boulder_count/problem_count so a dimmed
+│   │   │                     # empty-crag UI doesn't need a second round-trip
+│   │   ├── validate.go       # Indonesia bounding-box lat/lng check, this domain's own copy (see boulders/validate.go)
+│   │   └── errors.go         # ErrNotFound, ErrForbidden, ErrInvalidLocation
+│   ├── boulders/              # middle level of the hierarchy: one rock, and the thing that actually owns the topo
+│   │   │                      # photo(s) problems on it draw their lines on (moved here from problems -- two problems
+│   │   │                      # on the same rock used to mean two uploads of the same photograph). Also owns the
+│   │   │                      # boulder-merge sub-flow (duplicate rocks are expected, not exceptional -- the backfill
+│   │   │                      # creates one boulder per pre-existing problem, and contributors standing at the same
+│   │   │                      # rock keep creating new ones): anyone signed in may suggest "these are the same rock",
+│   │   │                      # only the source/target boulder's own creator may object, only an admin executes a
+│   │   │                      # merge (choosing which boulder survives), gated by a 48h objection hold an admin can
+│   │   │                      # override. problems and boulders never import each other's Go package in either
+│   │   │                      # direction -- each reaches into the other's table with its own direct SQL instead
+│   │   │                      # (mirrors devtools/auth.getProfileStats' "own SQL, no cross-domain repository calls"
+│   │   │                      # precedent), so the dependency graph stays acyclic without a shared package.
+│   │   ├── handler.go         # Routes(rg) mounted at /api — /boulders, /crags/:id/boulders, /boulders/:id/images,
+│   │   │                      # /boulders/:id/annotations (every problem-on-this-boulder's line together).
+│   │   │                      # Also calls registerMergeRoutes onto the same group.
+│   │   ├── service.go         # ListBoulders/GetBoulder/CreateBoulder/UpdateBoulder/Add|DeleteBoulderImages/
+│   │   │                      # ListAnnotationsForBoulder
+│   │   ├── repository.go      # `boulders` table queries, plus direct SQL against problems/topo_annotations for
+│   │   │                      # image-delete cascade and the annotations-by-boulder listing
+│   │   ├── merge.go / merge_repository.go / merge_handler.go
+│   │   │                      # SuggestMerge/ObjectToMerge/ListPendingMergeRequests/ResolveMergeRequest for
+│   │   │                      # `boulder_merge_requests`/`boulder_merge_objections`, plus
+│   │   │                      # ListPendingMergeRequestsForBoulder (GET /boulders/:id/merge-requests,
+│   │   │                      # creator-or-admin) — without it a boulder's own creator can't see a request
+│   │   │                      # filed against their rock and the objection right is unexercisable;
+│   │   │                      # requireAdmin mirrors
+│   │   │                      # report.requireAdmin (second package to call authz.IsAdmin directly, not
+│   │   │                      # authz.CanEditOwned, since resolving a merge isn't "owned" by anyone)
+│   │   ├── validate.go        # Indonesia bounding-box lat/lng check (only when both are provided -- a boulder's
+│   │   │                      # coordinates are optional, unlike a crag's)
+│   │   └── errors.go          # ErrNotFound, ErrForbidden, ErrCragNotFound, ErrHoldNotExpired, etc.
+│   ├── problems/            # bottom level of the hierarchy: one way up a rock. Problem CRUD and topo photo
+│   │   │                    # annotation (drawn route lines/holds on the *boulder's* photo); "Founder" (creator)
+│   │   │                    # authorization. crag_id is denormalized onto every problem (also reachable via
+│   │   │                    # boulder_id -> boulders.crag_id) since every hot list/filter/map query wants it without
+│   │   │                    # a two-hop join. The topo photo a problem's line is drawn on belongs to its *boulder*,
+│   │   │                    # not to it (see internal/boulders) -- but POST/DELETE /problems/:id/images still exist
+│   │   │                    # here on purpose: 0015 dropped problems.image_urls and 0016 deliberately re-added it
+│   │   │                    # with a different meaning, beta/action shots (crux hold, start position), never the
+│   │   │                    # canonical topo. Don't route boulder-topo work through them.
+│   │   ├── handler.go       # Routes(rg) mounted at /api — /problems, /problems/:id/images, /upload/topo,
+│   │   │                    # /upload/avatar, /problems/:id/annotations
 │   │   ├── upload.go        # handleUpload multipart parsing, shared by topo/avatar handlers
 │   │   ├── service.go       # ListProblems/CreateProblem/UpdateProblem/DeleteProblem; authorizeProblemEdit fetches
 │   │   │                    # titles via auth.GetUserTitles() then defers the decision to authz.CanEditProblem
 │   │   ├── annotation.go / annotation_repository.go / annotation_handler.go
 │   │   │                    # ListAnnotations/SaveAnnotation for `topo_annotations` (one vector-shape overlay per
 │   │   │                    # problem image, keyed by (problem_id, image_url) since images have no per-row id — same
-│   │   │                    # precedent as `report`'s image reports); reuses authorizeProblemEdit/getProblemOwnerAndImages
-│   │   │                    # verbatim rather than being a separate domain, since it never reaches into another package
+│   │   │                    # precedent as `report`'s image reports); the image-membership check reads the problem's
+│   │   │                    # *boulder's* image_urls (getProblemOwnerAndBoulderImages), not the problem's own —
+│   │   │                    # problems don't own images anymore
 │   │   ├── repository.go    # `problems` table queries
-│   │   └── errors.go        # ErrNotFound, ErrForbidden
-│   ├── social/               # sends (ticks) and comments today; likes/follows if those get added later
-│   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, comments
-│   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment
-│   │   ├── repository.go     # `sends` + `comments` table queries
+│   │   └── errors.go        # ErrNotFound, ErrForbidden, ErrBoulderNotFound
+│   ├── social/               # sends (ticks), comments, and profile reactions
+│   │   ├── handler.go        # Routes(rg) mounted at /api — send-status/send, sends/mine, comments (list/create/
+│   │   │                     # delete), profiles/:id/reactions (+ /status, + /:type toggle)
+│   │   ├── service.go        # HasSent/ToggleSend/ListComments/CreateComment/DeleteComment/reaction counts+toggle
+│   │   ├── repository.go     # `sends` + `comments` + reaction table queries
 │   │   └── errors.go         # ErrEmptyComment
+│   ├── approaches/           # "jalan masuk" approach guides: a recorded walk-in with a start coordinate, so the
+│   │                         # map's close-zoom layer can show where the trail actually begins (distinct from the
+│   │                         # crag pin, which means "the climbing, approximately"). Routes at /api —
+│   │                         # /crags/:id/approaches, /approaches/:id.
+│   ├── notification/         # in-app notifications (comment/send/report_resolved/content_removed/reaction/
+│   │                         # problem_edited/problem_deleted/mention/merge_suggested/merge_objected/
+│   │                         # merge_resolved — the type CHECK constraint lives in migrations, see 0014)
+│   ├── report/               # user reports on comments and images, plus the admin resolve queue; requireAdmin
+│   │                         # calls authz.IsAdmin directly (the precedent boulders' merge resolution follows)
+│   ├── waitlist/             # public POST /api/waitlist, rate-limited — the marketing-side signup capture
+│   ├── feedback/             # POST /api/feedback (public, rate-limited, middleware.OptionalAuth so a signed-in
+│   │                         # submitter is attributed and an anonymous one still gets through), plus the
+│   │                         # owner-only GET /api/dev/feedback and POST /api/dev/feedback/:id/reviewed
 │   └── devtools/             # owner-only Developer page: fixed data export, analytics, tester-flag management.
 │       │                     # Every route is behind middleware.RequireAuth + middleware.RequireOwner (OWNER_USER_ID
 │       │                     # env var compared against AuthUser.ID) — not an authz role, since this is one account,
@@ -145,17 +264,28 @@ palabatu-be/
 - User-facing error strings (e.g. `"Invalid credentials"`, `"Email registered but not verified"`) are hardcoded at the handler layer with the exact casing `palabatu-fe`'s `AuthContext.tsx` expects (it displays `data.error` directly in a toast) — Go's own `error.Error()` strings stay lowercase/idiomatic and are not surfaced to users.
 - `auth.Signup` requires `email`, `username`, and `password` to be non-empty and `terms_accepted` to be `true` (`ErrMissingFields`/`ErrTermsNotAccepted`), then creates the `users` row and its `profiles` row together in one DB transaction (`insertUserAndProfile` in `repository.go`) — a profile exists from the moment of signup rather than being created lazily on first edit (see `GetProfile`'s doc comment for the pre-existing-account fallback this replaced). `createUser` distinguishes the `users_email_key` and `users_username_key` constraint violations, returning `ErrEmailExists`/`ErrUsernameExists` respectively, so a username collision no longer gets misreported as "email already exists" — that conflation was tolerable back when username was silently derived from the email's local part, but stopped being tenable once `palabatu-fe`'s signup form made username a real, user-typed, user-facing field. If the verification email fails to send, the whole signup (user + profile) is rolled back via `deleteUser`, relying on `profiles_id_fkey`'s `ON DELETE CASCADE` (migrations/0003) to take the profile row with it.
 - `users.terms_accepted_at` (migrations/0009) records ToS/privacy-policy consent at signup — relevant given Indonesia's UU PDP personal-data-protection law. Nullable at the DB level (existing pre-migration accounts have no value and were never asked); enforcement that new signups must accept happens in `auth.Signup`, not via a NOT NULL constraint.
-- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `problems.DeleteProblem` calls it once per `image_urls` entry, best-effort (a destroy failure is logged, not fatal).
+- `users.guidelines_accepted_at` (migrations/0013) records Community Guidelines acceptance at signup, tracked as a separate consent from `terms_accepted_at` since it's a behavioral/etiquette acknowledgment rather than the legal ToS/Privacy agreement — same nullable-at-the-DB-level, enforced-in-`auth.Signup` shape. Content lives in `LegalModal.tsx`'s `GuidelinesContent` (third tab alongside Terms/Privacy) and carries the same "draft — not yet reviewed or final" disclaimer as the other two docs.
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `boulders.DeleteBoulderImage` calls it once per removed URL, best-effort (a destroy failure is logged, not fatal) — moved here from `problems.DeleteProblem` when photo ownership moved to boulders (see the crags/boulders/problems bullet below); deleting a problem no longer touches any Cloudinary images at all, since a boulder's shared photos must survive any single problem on it being deleted.
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `auth.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `auth.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
 - `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
-  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added (`authz.CanEditProblem`).
-- Topo photo annotation (drawing route lines/holds on a problem's photo): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by both `ProblemDetails.tsx` and `ProblemDetailPage.tsx`. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
+  - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added. The policy function is `authz.CanEditOwned(userID, ownerID, titles)` — generic over any creator-owned row, which is why `crags` and `boulders` reuse it verbatim. (There is no `authz.CanEditProblem`; if you see that name referenced anywhere, it's stale.)
+  - **Additive** acts route through `authz.CanContribute(userID, kind, ownerID, titles)` instead — same answer today, but a separate seam so "anyone signed in may add a photo" can be turned on without touching every call site (`boulders.AddBoulderImages` is the live example).
+- **Crags/boulders/problems hierarchy** (shipped end to end 2026-08-08 — schema, backend, and frontend; see `handoff.md` at the repo root for the full design and `ROADMAP.md`'s Phase 1.5 entry): a problem is the bottom level of `crags -> boulders -> problems` (migrations 0014/0015). A crag is the place you park and walk in from (required `lat`/`lng`, optional `directions`/`access_notes`); a boulder is one rock (optional `lat`/`lng`, owns `image_urls` — the photo(s) every problem on it shares); a problem is one way up that rock, with no location of its own (`crag_id`/`boulder_id` FKs only, `crag_id` denormalized so hot queries skip the two-hop join). Duplicate boulders are a normal state, not a bug: the one-off `cmd/backfill-crags` script gave each pre-existing problem its own boulder (no data said which problems shared a rock), contributors standing at the same rock keep creating more, and the add sheet's "Not sure which one" files one too. They're resolved through `internal/boulders`' merge sub-flow — anyone signed in may suggest "these are the same rock", only the two boulders' own creators may object, only an admin executes the merge (picking which boulder survives), gated by a 48h objection hold an admin can override.
+  - Frontend surfaces for it: the single add sheet (`components/add-sheet/` — see the bullet below), `CragDetailPage`/`BoulderDetailPage`/`ProblemDetailPage` (the only problem-detail surface — `ProblemDetails` and `AddProblemModal` were deleted rather than ported), `Map.tsx` (see the map-layers bullet below), `MergeSuggestModal` plus the `AdminMergeRequests` review queue, and `lib/cragCache.ts` — a small client-side join so list/card surfaces resolve crag/boulder names, thumbnails, and "near you" distance through the existing crag/boulder list endpoints rather than new backend denormalization.
+  - **The map is three layers chosen by zoom, not one pin per crag** (handoff.md open item 13, resolved 2026-08-09(g)). Far out: one pin per crag (`PinpointMarker`), dimmed when the crag has no problems yet. Past `DETAIL_ZOOM` (15, in `lib/constants.ts`, shared so `Map.tsx` and `PinpointMarker` can't drift): `CragDetailLayer` mounts that crag's own rocks (`BoulderPinMarker`, a tailless badge — "an object is here") and its approach start points (`ApproachStartMarker`, a teardrop — "you go here"), both drawn from `lib/mapIcons.ts`'s shared badge/teardrop SVG language. The crag pin then de-emphasizes, and hides outright once `onContentAvailability` confirms real detail pins are on screen — but *only* then, because a crag whose rocks all lack coordinates would otherwise lose its only marker. `crags.lat/lng` means "the climbing, approximately"; it is explicitly not the parking spot any more.
+  - **A rock's own `lat`/`lng` is captured in two places, and is optional everywhere** (built 2026-08-30, closing a gap where the close-zoom rock layer existed but nothing could ever feed it — every add-sheet rock was hardcoded to `lat: null, lng: null`, so only `cmd/backfill-crags`-era rocks ever drew a pin). `components/RockPointMap.tsx` is the shared picker, used by the add sheet's `RockFields` and by `BoulderDetailPage`'s edit form (so rocks added before this can be pinned retroactively). It opens on the parent crag rather than on GPS and never auto-stamps a position — per open item 13, draw the rocks that have a coordinate, never invent one for the rest. It is deliberately *not* a mode of `SpotMiniMap`: same appearance, opposite contract (a spot's pin is required, GPS-first, and warns about other spots 300 m away; a rock's is optional, crag-centred, and warns at 15 m). Note `boulders.updateBoulderRow` writes `lat`/`lng` unconditionally — there is no "empty means leave as is" convention for them as there is for the string fields — so **any `PUT /api/boulders/:id` that omits them silently clears the rock's pin**.
+  - **The add flow is one scrolling sheet, `components/add-sheet/`** (`AddSheet` plus `LocationOverlay`, `RockPicker`/`RockList`, `SpotMiniMap`, `ProblemFields`, `SpotFields`, `RockFields`, `DraftsOverlay`, `drafts.ts`), shipped 2026-08-10 per `handoff.md` revision (h). It replaced a three-step wizard at `components/add-flow/`, which was **deleted** — if you see it referenced anywhere, that reference is stale. One sheet, three intents ("a problem" / "a spot" / "a rock") that each save on their own; the spot and rock are one breadcrumb line opening a full-sheet picker overlay; photos live at all three levels but only the rock's is annotatable; cliffs are in scope (`boulders.type` is `boulder | wall`, driving UI copy and which grade scale applies — so the `rope` scales in `lib/constants.ts` are deliberate, not vestigial). Approach guides ("jalan masuk", `internal/approaches` + `ApproachReadingPage`/`ApproachCaptureView`) and re-parenting shipped in the same revision. Build UI changes here via the `impeccable` skill rather than hand-rolling layout.
+  - **Three design handoffs sit alongside `handoff.md`.** [handoff-add-sheet.md](handoff-add-sheet.md): a review punch list against the shipped sheet, 13 findings (three of which broke a path the design treats as load-bearing) written up 2026-08-13 and mostly fixed the same day — A1-A3, B5-B9, C10, C12, C13 are shipped; B4 (mount `AddSheet` at the app root) is deliberately deferred to `handoff-directory.md`'s step 2 below, and C11 is recorded in a code comment but not built pending open item 9. [handoff-drafts.md](handoff-drafts.md): **Milestone 1 is built** — client-side IndexedDB autosave (`add-sheet/drafts.ts` + `DraftsOverlay.tsx`, debounced ~800 ms, lazily creating a draft on the first real keystroke so open-and-close never manufactures junk); it did replace C12's confirm-before-discard dialog. Milestone 2 (backend sync) is still proposed, not built. [handoff-directory.md](handoff-directory.md): unbuilt as of 2026-08-13 — the read surfaces (`Directory.tsx`, `ProblemList.tsx`) were only mechanically rejoined to the new hierarchy and still express the old flat model — 12 findings, 13 decisions, a new spot-index page, and a tiered backend ask.
+- Topo photo annotation (drawing route lines/holds on a boulder's photo, which every problem on that boulder shares — see the hierarchy bullet above): shared frontend components live in `palabatu-fe/src/components/topo-annotations/` (`TopoImage` read-only viewer, `TopoAnnotationEditor` drawing modal, `TopoAnnotationOverlay` the shared SVG renderer used by both, `useContainRect` the geometry hook) and are imported by `ProblemDetailPage.tsx` (`TopoImage`), `BoulderDetailPage.tsx` (`TopoAnnotationOverlay` + `useContainRect`, for the combined every-line-on-this-rock view), and the add sheet's `AddSheet.tsx` (`TopoAnnotationEditor`, opened from `ProblemFields`' photo row and from the post-save banner). **`topo_annotations` was never re-keyed** for the hierarchy change, contrary to what an early draft of `handoff.md` said: its original `(problem_id, image_url)` unique key (migrations/0005) already expresses "one photo, N lines" once the photo belongs to the boulder. The only thing that moved is the membership check — `getProblemOwnerAndBoulderImages` validates a save's URL against the problem's *boulder's* `image_urls`, not the problem's own. Shapes are stored as coordinates normalized to the image's natural width/height (radius/strokeWidth normalized against width for *both* axes, so a circle stays circular regardless of photo aspect ratio) — see `palabatu-fe/src/types/annotation.ts`. `useContainRect` measures the rendered `<img>` box directly via `getBoundingClientRect()` rather than trusting `naturalWidth`/`naturalHeight` math, because those don't reliably match what the browser actually paints for every real-world (often EXIF-oriented) photo.
 - **lucide-react icons inside a `display:flex`/`inline-flex` parent can render at 0 width** (confirmed repeatedly live via `getComputedStyle` — height resolves correctly but width resolves to `0px` — despite correct SVG markup, `currentColor`, and computed `color`) — a real, reproducible rendering bug in this app's environment, not a hypothetical. Any icon that is a child of a flex-display element (inline `style={{display:'flex'}}`, Tailwind `flex`/`inline-flex` classes, or a CSS class rule) needs an explicit `flexShrink:0` (inline) / `shrink-0` (Tailwind) / `flex-shrink: 0` (CSS rule) on the icon itself. `tsc`/`eslint` passing is never sufficient evidence a new icon-in-a-flex-button actually renders — visually verify (screenshot or live) any new one.
+- **Backend abuse protection** (app-level only — see the "not yet deployed" note in Known WIP rough edges for what still needs a network edge): `middleware.RateLimit` is an in-memory per-IP token bucket (`golang.org/x/time/rate`, 10-minute stale-entry sweep), applied at two layers — a blanket backstop on the whole `/api` group (`cmd/api/main.go`, 10 req/s sustained, burst 20, mounted via `apiGroup.Use` before any domain's `Routes` registers onto it) covering every otherwise-unthrottled `GET` listing, plus tighter per-endpoint limits domains apply to their own write-heavy or costed routes: `auth` credentials endpoints, `waitlist`, `feedback`, `social` comment creation, `report` creation, and `problems`' two upload endpoints (`/upload/topo`, `/upload/avatar` — rate-limited separately from other problem routes since a burst there is billed Cloudinary traffic, not just DB load). Its own doc comment states the ceiling: fine at today's single-instance scale, needs a shared store (Redis or similar) the moment there's more than one backend replica, since each replica would otherwise track independent counters. `auth`'s credential-endpoint limiter (`limitCredentialEndpoints`, 1 req/12s, burst 5) is a **single shared bucket per IP across all of signup/signin/forgot-password/reset-password/change-password/delete-account** — spamming login also eats into the budget for the other five, by design (one combined brute-force/spam budget, not five independent ones), and it's a continuous drip rather than a lockout-then-reset window: once the burst of 5 is spent, exactly one more request is allowed every 12s, with the bucket only returning to full after 60s of that IP making no requests at all. Beyond rate limiting, `cmd/api/main.go`'s `http.Server` sets `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`/`IdleTimeout` (5s/30s/30s/60s) to close the Slowloris gap where an unbounded server lets a client hold a connection open indefinitely — the read/write values are deliberately generous to still allow an 8MB topo/avatar upload over a slow mobile connection. `gin.SetMode(gin.ReleaseMode)` is the default now (quieter logging, no debug-mode warnings) unless `GIN_MODE` is already set in the environment. `middleware.BodyLimit` (mounted at the root in `main.go`, ahead of both `/auth` and `/api`) caps every request body via `http.MaxBytesReader`, content-type-aware: 2MB for everything except `multipart/form-data`, which gets 10MB (mirroring `problems.maxUploadMemory`, the existing multipart buffering ceiling) since the two upload endpoints legitimately carry an image file — an oversized body surfaces through the same "invalid request body"/"Invalid upload" 400 branch every handler's `ShouldBindJSON`/`ParseMultipartForm` error check already has, no handler changes needed. `internal/db/db.go`'s `pgxpool.Connect` uses `pgxpool.ParseConfig` + explicit `MaxConns`(10)/`MinConns`(2)/`MaxConnLifetime`(1h)/`MaxConnIdleTime`(15m)/`HealthCheckPeriod`(1m) rather than pgx's NumCPU-scaled defaults — deliberately conservative given `DATABASE_URL` sometimes points at Neon (see Database migrations above), whose lower tiers cap total connections.
 
 ## Known WIP rough edges
 
-- `App.tsx` has an unused `Home()`/`About()` component pair left over from an earlier Supabase-based setup — not wired into any route.
 - `req.user`-equivalent context on the backend has no shared typed augmentation yet beyond `middleware.UserFromContext`.
+- Dead dependencies still in `palabatu-fe/package.json`: the three markercluster packages and `@supabase/auth-ui-*`. Nothing imports any of them.
+- The em-dash rule in Copywriting above post-dates a lot of existing UI copy — `RockFields`, `SpotFields` and others still contain `&mdash;` in visible labels. Not a regression to chase in bulk; fix as you touch them, and don't add new ones.
+- **Backend hardening gaps not yet covered** (see the Backend abuse protection bullet above for what is, including the now-tuned DB pool and body size cap): no per-request query timeout wraps pgx calls, so a pile of slow/hanging queries still has nothing stopping it from exhausting the pool short of the new `MaxConns` ceiling — that's a larger change (a shared `context.WithTimeout` helper or per-call timeouts across every repository function) than pool sizing alone, deliberately not bundled into that pass. And no network-edge protection at all — no reverse proxy, CDN, or WAF in this repo, so there's currently zero defense against volumetric/L3-L4 traffic; that's expected given nothing is deployed yet (per the Project section above), but it needs to be a real decision made at hosting time (e.g. Cloudflare or a load balancer with its own protections in front), not something the Go app alone can provide.

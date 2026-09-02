@@ -1,0 +1,24 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cue-bounce",
+        "createdAt": "2026-08-06T14:20:29.028Z",
+        "reason": "User confirmed cue-bounce is intentional"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "prototypes/add-flow-v2.html",
+          "prototypes/approach-guide.html"
+        ],
+        "createdAt": "2026-08-09T15:58:44.377Z",
+        "reason": "Photo stand-in gradients: CSS placeholders for uploaded JPEGs, consolidated in one commented --ph-*/--photo-* block per file. Prototypes only, never ship. User confirmed 2026-08-09."
+      }
+    ]
+  }
+}

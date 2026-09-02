@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, Wrench, MessageSquare, X } from 'lucide-react';
+import { Map as MapIcon, Users, User, LogIn, UserPlus, LogOut, Flag, Bell, Wrench, MessageSquare, X, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 
@@ -19,7 +19,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
     const [unreadCount, setUnreadCount] = useState(0);
 
     const isMapActive = location.pathname === '/map';
-    const isDirectoryActive = location.pathname === '/directory';
+    const isDirectoryActive = location.pathname.startsWith('/directory');
     const isProfileActive = !!user && location.pathname === `/profile/${user.slug}`;
     const isNotificationsActive = location.pathname === '/notifications';
 
@@ -93,7 +93,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                 .sidebar-close {
                     background: none;
                     border: none;
-                    color: #8a7060;
+                    color: #967b6a;
                     cursor: pointer;
                     padding: 6px;
                     border-radius: 8px;
@@ -123,7 +123,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                     border-left: 3px solid transparent;
                     transition: background 0.2s, color 0.2s;
                 }
-                .sidebar-item svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
+                .sidebar-item svg { color: #967b6a; transition: color 0.2s; flex-shrink: 0; }
                 .sidebar-item:hover { background: rgba(240,224,200,0.06); }
                 .sidebar-item.active {
                     color: #f0e0c8;
@@ -164,7 +164,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                     transition: background 0.2s, color 0.2s;
                     text-align: left;
                 }
-                .sidebar-feedback-btn svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
+                .sidebar-feedback-btn svg { color: #967b6a; transition: color 0.2s; flex-shrink: 0; }
                 .sidebar-feedback-btn:hover { background: rgba(240,224,200,0.06); }
 
                 .sidebar-footer {
@@ -187,7 +187,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                 .sidebar-logout-btn {
                     font-family: 'DM Sans', sans-serif;
                     font-size: 15px;
-                    color: #8a7060;
+                    color: #967b6a;
                     background: none;
                     border: none;
                     cursor: pointer;
@@ -200,7 +200,7 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                     transition: background 0.2s, color 0.2s;
                     text-align: left;
                 }
-                .sidebar-logout-btn svg { color: #8a7060; transition: color 0.2s; flex-shrink: 0; }
+                .sidebar-logout-btn svg { color: #967b6a; transition: color 0.2s; flex-shrink: 0; }
                 .sidebar-logout-btn:hover { background: rgba(224,112,96,0.08); color: #e07060; }
                 .sidebar-logout-btn:hover svg { color: #e07060; }
             `}</style>
@@ -251,6 +251,11 @@ export default function Sidebar({ isOpen, onClose, isAdmin = false, isOwner = fa
                                 {isAdmin && (
                                     <Link to="/admin/reports" className="sidebar-item" onClick={onClose}>
                                         <Flag size={18} /> Reports
+                                    </Link>
+                                )}
+                                {isAdmin && (
+                                    <Link to="/admin/merge-requests" className="sidebar-item" onClick={onClose}>
+                                        <GitCompare size={18} /> Merges
                                     </Link>
                                 )}
                                 {isOwner && (

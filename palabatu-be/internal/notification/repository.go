@@ -18,6 +18,9 @@ const (
 	TypeProblemEdited  Type = "problem_edited"
 	TypeProblemDeleted Type = "problem_deleted"
 	TypeMention        Type = "mention"
+	TypeMergeSuggested Type = "merge_suggested"
+	TypeMergeObjected  Type = "merge_objected"
+	TypeMergeResolved  Type = "merge_resolved"
 )
 
 type Notification struct {

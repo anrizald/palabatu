@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import FooterSection from '../components/Footer.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 const STORAGE_KEY = 'palabatu_waitlist_email';
 const INSTAGRAM_URL = 'https://instagram.com/palbat.id';
@@ -51,7 +52,7 @@ export default function ComingSoon() {
         setError('');
         setSubmitting(true);
         try {
-            const data = await api.post('/api/waitlist', { email });
+            const data = await api.post<Partial<ErrorResponse>>('/api/waitlist', { email });
             if (data.error) {
                 setError(data.error);
                 return;
@@ -107,7 +108,7 @@ export default function ComingSoon() {
                     margin: 0 0 14px; letter-spacing: -0.01em;
                 }
                 .cs-sub {
-                    font-size: 15px; color: #8a7060; line-height: 1.7;
+                    font-size: 15px; color: #967b6a; line-height: 1.7;
                     font-family: 'DM Sans', sans-serif;
                     margin: 0 0 36px;
                 }
@@ -161,7 +162,7 @@ export default function ComingSoon() {
                     display: flex; align-items: center; justify-content: center;
                     color: #c87a30;
                 }
-                .cs-done p { font-size: 14px; color: #8a7060; font-family: 'DM Sans', sans-serif; margin: 0; }
+                .cs-done p { font-size: 14px; color: #967b6a; font-family: 'DM Sans', sans-serif; margin: 0; }
                 .cs-done b { color: #f0e0c8; }
 
                 @media (max-width: 480px) {

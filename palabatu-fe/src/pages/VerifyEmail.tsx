@@ -2,6 +2,7 @@ import { api } from '../lib/api.js';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CircleX } from 'lucide-react';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 export default function VerifyEmail() {
     const [searchParams] = useSearchParams();
@@ -12,7 +13,7 @@ export default function VerifyEmail() {
         const token = searchParams.get('token');
         if (!token) { setStatus('error'); return; }
 
-        api.get(`/auth/verify-email?token=${token}`)
+        api.get<Partial<ErrorResponse>>(`/auth/verify-email?token=${token}`)
             .then(data => {
                 if (data.error) setStatus('error');
                 else {
@@ -20,6 +21,9 @@ export default function VerifyEmail() {
                     setTimeout(() => navigate('/login'), 3000);
                 }
             });
+        // navigate/searchParams intentionally excluded: verify tokens are single-use,
+        // this should only ever run once on mount, not re-fire if either gets a new reference.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -28,7 +32,7 @@ export default function VerifyEmail() {
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
     `}</style>
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px',
@@ -43,7 +47,7 @@ export default function VerifyEmail() {
                     {status === 'loading' && (
                         <>
                             <div style={{ fontSize: '36px', marginBottom: '16px' }}>⏳</div>
-                            <p style={{ color: '#8a7060', fontSize: '14px' }}>Verifying your email...</p>
+                            <p style={{ color: '#967b6a', fontSize: '14px' }}>Verifying your email...</p>
                         </>
                     )}
                     {status === 'success' && (

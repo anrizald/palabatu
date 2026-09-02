@@ -5,9 +5,9 @@ const headingStyle = {
     fontFamily: "'DM Sans', sans-serif", fontSize: '16px', fontWeight: 500,
     color: '#f0e0c8', marginBottom: '8px'
 };
-const bodyStyle = { fontSize: '14px', color: '#8a7060', lineHeight: 1.7 };
+const bodyStyle = { fontSize: '14px', color: '#967b6a', lineHeight: 1.7 };
 
-type Doc = 'terms' | 'privacy';
+type Doc = 'terms' | 'privacy' | 'guidelines';
 
 type LegalModalProps = {
     initialDoc: Doc;
@@ -54,7 +54,7 @@ function TermsContent() {
                     Bouldering carries inherent risk. Grades, spot locations, and route/hold
                     information are community-submitted and may be inaccurate or outdated.
                     Palabatu is not responsible for injuries, access disputes, or land-use
-                    issues arising from use of information on this app — always exercise your
+                    issues arising from use of information on this app. Always exercise your
                     own judgment and verify conditions on site.
                 </p>
             </div>
@@ -108,9 +108,82 @@ function PrivacyContent() {
                 <h2 style={headingStyle}>Your controls</h2>
                 <p style={bodyStyle}>
                     You can edit or clear your profile fields at any time, and permanently
-                    delete your account (with password confirmation) from account settings —
-                    this removes your profile and personal data; problems you added stay on
-                    the map for the community but are no longer attributed to you.
+                    delete your account (with password confirmation) from account settings.
+                    Deleting removes your profile and personal data; problems you added stay
+                    on the map for the community but are no longer attributed to you.
+                </p>
+            </div>
+        </>
+    );
+}
+
+function GuidelinesContent() {
+    return (
+        <>
+            <div style={sectionStyle}>
+                <h1 style={headingStyle}>DON'T BE LAME</h1>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>1. Be accurate</h2>
+                <p style={bodyStyle}>
+                    Post grades, spot locations, approach info, and route/hold details as
+                    accurately as you can. Other climbers rely on what you submit to find a
+                    spot and know what they're getting into. Deliberately wrong or exaggerated
+                    info, like sandbagging a grade or mismarking a hazard, isn't a joke at
+                    Palabatu's scale: it's someone else's bad day at the crag.
+                </p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>2. Respect the rock and the land</h2>
+                <p style={bodyStyle}>
+                    Pack out what you bring in, including tape and food waste. Brush
+                    excess chalk and tick marks when you're done with a problem. If a spot
+                    is on private or adat (customary) land, follow whatever access
+                    arrangement exists. Ask first if you're not sure, and don't post a spot
+                    publicly if the community or landowner wants it kept low-profile.
+                </p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>3. Respect other climbers</h2>
+                <p style={bodyStyle}>
+                    Share pads and spots at busy crags, and don't hog a problem when others
+                    are waiting. Give beta if it's asked for, and hold back when it's not;
+                    for a lot of climbers, working it out themselves is half the point.
+                    Palabatu is for everyone regardless of experience, gender, background, or
+                    how hard they climb. Harassment, gatekeeping, or belittling newer
+                    climbers isn't welcome here.
+                </p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>4. Respect first ascents and existing problems</h2>
+                <p style={bodyStyle}>
+                    Don't chip, glue, or otherwise manufacture holds. Don't rename or
+                    re-grade an established problem on your own. If you think a grade is off,
+                    say so in the comments and let the community weigh in. Credit the first
+                    ascentionist where it's known.
+                </p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>5. Safety comes first</h2>
+                <p style={bodyStyle}>
+                    Spot and pad seriously, not for show. If you know about a loose hold,
+                    bad landing, or other hazard on a problem, say so in its listing. Don't
+                    let someone else find out the hard way, and don't pressure anyone into a
+                    try they're not ready for.
+                </p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h2 style={headingStyle}>6. Reporting a problem</h2>
+                <p style={bodyStyle}>
+                    Use the in-app report option on a listing, photo, or comment to flag
+                    content that breaks these guidelines. Violations can lead to content
+                    being removed or, for repeated or serious cases, account restrictions.
                 </p>
             </div>
         </>
@@ -123,7 +196,7 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
     const tabStyle = (active: boolean) => ({
         background: 'none', border: 'none', cursor: 'pointer', padding: '10px 4px 12px',
         fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500,
-        color: active ? '#f0e0c8' : '#6a5848',
+        color: active ? '#f0e0c8' : '#967b6a',
         borderBottom: active ? '2px solid #c87a30' : '2px solid transparent'
     });
 
@@ -155,12 +228,15 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
                     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                     padding: '20px 24px 0', flexShrink: 0
                 }}>
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
                         <button className="legal-tab" style={tabStyle(doc === 'terms')} onClick={() => setDoc('terms')}>
                             Terms of Service
                         </button>
                         <button className="legal-tab" style={tabStyle(doc === 'privacy')} onClick={() => setDoc('privacy')}>
                             Privacy Policy
+                        </button>
+                        <button className="legal-tab" style={tabStyle(doc === 'guidelines')} onClick={() => setDoc('guidelines')}>
+                            Community Guidelines
                         </button>
                     </div>
                     <button
@@ -179,13 +255,15 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
                         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
                         color: '#c87a30', fontWeight: 500, marginBottom: '10px'
                     }}>Draft — not yet reviewed or final</p>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '4px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '4px' }}>
                         Palabatu is still in development and this text has not been reviewed by
-                        a lawyer — treat every section below as a stub to be replaced before the
+                        a lawyer. Treat every section below as a stub to be replaced before the
                         app is publicly launched, not as a binding agreement.
                     </p>
 
-                    {doc === 'terms' ? <TermsContent /> : <PrivacyContent />}
+                    {doc === 'terms' && <TermsContent />}
+                    {doc === 'privacy' && <PrivacyContent />}
+                    {doc === 'guidelines' && <GuidelinesContent />}
                 </div>
             </div>
         </div>

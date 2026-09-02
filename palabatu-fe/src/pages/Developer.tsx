@@ -2,38 +2,11 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/useAuth.js';
 import Toast, { type ToastProps } from '../components/Toast.js';
+import type { Analytics, DailyCount, TesterCandidate, ToggleTesterResponse } from '../types/devtools.js';
+import { FEEDBACK_TYPES, type FeedbackItem } from '../types/feedback.js';
+import type { ErrorResponse } from '../types/apitypes.js';
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-
-type DailyCount = { day: string; count: number };
-
-type Analytics = {
-    signups_per_day: DailyCount[];
-    problems_per_day: DailyCount[];
-    sends_per_day: DailyCount[];
-    verification: { verified: number; unverified: number };
-    top_problems: { id: string; name: string; sends: number }[];
-    active_users: { user_id: string; username: string | null; sends: number; comments: number; problems: number }[];
-};
-
-type TesterCandidate = {
-    id: string;
-    email: string;
-    username: string;
-    slug: string;
-    is_tester: boolean;
-};
-
-type FeedbackItem = {
-    id: string;
-    user_id: string | null;
-    username: string | null;
-    email: string | null;
-    message: string;
-    page_url: string | null;
-    status: string;
-    created_at: string;
-};
 
 const EXPORT_TABLES = ['users', 'problems', 'sends', 'comments', 'reports'] as const;
 
@@ -56,6 +29,7 @@ const API_DOCS: { method: string; route: string; auth: string; purpose: string }
     { method: 'POST', route: '/api/problems', auth: 'Auth', purpose: 'Create a problem.' },
     { method: 'PUT', route: '/api/problems/:id', auth: 'Auth (Founder/admin)', purpose: 'Edit a problem.' },
     { method: 'DELETE', route: '/api/problems/:id', auth: 'Auth (Founder/admin)', purpose: 'Delete a problem.' },
+    { method: 'POST', route: '/api/problems/:id/images', auth: 'Auth (Founder/admin)', purpose: 'Attach already-uploaded images to a problem.' },
     { method: 'DELETE', route: '/api/problems/:id/images', auth: 'Auth (Founder/admin)', purpose: 'Remove one image from a problem.' },
     { method: 'GET', route: '/api/problems/:id/annotations', auth: 'Public', purpose: 'List topo-photo annotations.' },
     { method: 'PUT', route: '/api/problems/:id/annotations', auth: 'Auth (Founder/admin)', purpose: 'Save topo-photo annotations.' },
@@ -92,13 +66,13 @@ const API_DOCS: { method: string; route: string; auth: string; purpose: string }
 type Tab = 'analytics' | 'export' | 'testers' | 'feedback' | 'docs';
 
 function BarRows({ data }: { data: DailyCount[] }) {
-    if (data.length === 0) return <div className="text-xs text-text-dim italic">No activity in this window.</div>;
+    if (data.length === 0) return <div className="text-xs text-text-muted italic">No activity in this window.</div>;
     const max = Math.max(...data.map(d => d.count), 1);
     return (
         <div className="flex flex-col gap-1.5">
             {data.map(d => (
                 <div key={d.day} className="flex items-center gap-2 text-xs">
-                    <span className="w-[84px] shrink-0 text-text-dim tabular-nums">{d.day}</span>
+                    <span className="w-[84px] shrink-0 text-text-muted tabular-nums">{d.day}</span>
                     <div className="flex-1 h-[14px] bg-surface rounded-full overflow-hidden">
                         <div
                             className="h-full bg-accent rounded-full"
@@ -115,7 +89,7 @@ function BarRows({ data }: { data: DailyCount[] }) {
 function StatTile({ label, value }: { label: string; value: number | string }) {
     return (
         <div className="bg-surface border border-border rounded-xl px-4 py-3 flex flex-col gap-1 min-w-[120px]">
-            <span className="text-[11px] uppercase tracking-wide text-text-dim">{label}</span>
+            <span className="text-[11px] uppercase tracking-wide text-text-muted">{label}</span>
             <span className="font-serif text-2xl font-black text-text">{value}</span>
         </div>
     );
@@ -145,16 +119,16 @@ export default function Developer() {
 
     useEffect(() => {
         if (!isOwner) return;
-        api.get('/api/dev/analytics').then(data => {
-            if (data?.error) setAnalyticsError(data.error);
+        api.get<Analytics | ErrorResponse>('/api/dev/analytics').then(data => {
+            if ('error' in data) setAnalyticsError(data.error);
             else setAnalytics(data);
         });
     }, [isOwner]);
 
     useEffect(() => {
         if (!isOwner) return;
-        api.get('/api/feedback').then(data => {
-            if (data?.error) setFeedbackError(data.error);
+        api.get<FeedbackItem[] | ErrorResponse>('/api/feedback').then(data => {
+            if (!Array.isArray(data) && 'error' in data) setFeedbackError(data.error);
             else setFeedbackItems(Array.isArray(data) ? data : []);
         });
     }, [isOwner]);
@@ -162,7 +136,7 @@ export default function Developer() {
     const markFeedbackReviewed = async (id: string) => {
         setReviewingId(id);
         try {
-            const res = await api.post(`/api/feedback/${id}/reviewed`, {});
+            const res = await api.post<Partial<ErrorResponse>>(`/api/feedback/${id}/reviewed`, {});
             if (res.error) {
                 showError(res.error);
                 return;
@@ -182,7 +156,7 @@ export default function Developer() {
         }
         setSearching(true);
         try {
-            const data = await api.get(`/api/dev/testers/search?q=${encodeURIComponent(query.trim())}`);
+            const data = await api.get<TesterCandidate[] | ErrorResponse>(`/api/dev/testers/search?q=${encodeURIComponent(query.trim())}`);
             setCandidates(Array.isArray(data) ? data : []);
         } finally {
             setSearching(false);
@@ -192,8 +166,8 @@ export default function Developer() {
     const toggleTester = async (candidate: TesterCandidate) => {
         setTogglingId(candidate.id);
         try {
-            const res = await api.post(`/api/dev/testers/${candidate.id}/toggle`, {});
-            if (res.error) {
+            const res = await api.post<ToggleTesterResponse | ErrorResponse>(`/api/dev/testers/${candidate.id}/toggle`, {});
+            if ('error' in res) {
                 showError(res.error);
                 return;
             }
@@ -229,17 +203,17 @@ export default function Developer() {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center px-6 text-center">
-                <div className="text-text-dim text-sm">Log in to view this page.</div>
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
+                <div className="text-text-muted text-sm">Log in to view this page.</div>
             </div>
         );
     }
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <div className="font-serif text-2xl font-black text-text">Owner only</div>
-                <div className="text-sm text-text-dim">This page isn't available on your account.</div>
+                <div className="text-sm text-text-muted">This page isn't available on your account.</div>
             </div>
         );
     }
@@ -253,7 +227,7 @@ export default function Developer() {
     ];
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
 
             <div className="max-w-[900px] mx-auto flex flex-col gap-5">
@@ -267,7 +241,7 @@ export default function Developer() {
                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide cursor-pointer border transition-colors ${
                                 tab === t.id
                                     ? 'bg-accent/15 text-accent border-accent/40'
-                                    : 'bg-surface text-text-dim border-border hover:text-text-secondary'
+                                    : 'bg-surface text-text-muted border-border hover:text-text-secondary'
                             }`}
                         >
                             {t.label}
@@ -278,7 +252,7 @@ export default function Developer() {
                 {tab === 'analytics' && (
                     <div className="flex flex-col gap-6">
                         {analyticsError && <div className="text-sm text-danger">{analyticsError}</div>}
-                        {!analytics && !analyticsError && <div className="text-sm text-text-dim">Loading analytics...</div>}
+                        {!analytics && !analyticsError && <div className="text-sm text-text-muted">Loading analytics...</div>}
                         {analytics && (
                             <>
                                 <div className="flex gap-3 flex-wrap">
@@ -305,7 +279,7 @@ export default function Developer() {
                                     <div className="bg-panel border border-border rounded-2xl p-4 flex flex-col gap-3">
                                         <h2 className="text-sm font-bold text-text-secondary">Top sent problems</h2>
                                         {analytics.top_problems.length === 0 ? (
-                                            <div className="text-xs text-text-dim italic">No sends yet.</div>
+                                            <div className="text-xs text-text-muted italic">No sends yet.</div>
                                         ) : (
                                             <ol className="flex flex-col gap-1.5 text-sm">
                                                 {analytics.top_problems.map((p, i) => (
@@ -320,13 +294,13 @@ export default function Developer() {
                                     <div className="bg-panel border border-border rounded-2xl p-4 flex flex-col gap-3">
                                         <h2 className="text-sm font-bold text-text-secondary">Most active users</h2>
                                         {analytics.active_users.length === 0 ? (
-                                            <div className="text-xs text-text-dim italic">No activity yet.</div>
+                                            <div className="text-xs text-text-muted italic">No activity yet.</div>
                                         ) : (
                                             <ol className="flex flex-col gap-1.5 text-sm">
                                                 {analytics.active_users.map((u, i) => (
                                                     <li key={u.user_id} className="flex justify-between gap-3 text-text-secondary">
                                                         <span>{i + 1}. {u.username || 'Climber'}</span>
-                                                        <span className="text-text-dim text-xs">
+                                                        <span className="text-text-muted text-xs">
                                                             {u.sends} sends &middot; {u.comments} comments &middot; {u.problems} added
                                                         </span>
                                                     </li>
@@ -348,13 +322,13 @@ export default function Developer() {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => downloadExport(table, 'json')}
-                                        className="px-3 py-2 bg-surface border border-border text-text-dim rounded-lg text-xs cursor-pointer hover:text-text transition-colors"
+                                        className="px-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-xs cursor-pointer hover:text-text transition-colors"
                                     >
                                         Download JSON
                                     </button>
                                     <button
                                         onClick={() => downloadExport(table, 'csv')}
-                                        className="px-3 py-2 bg-surface border border-border text-text-dim rounded-lg text-xs cursor-pointer hover:text-text transition-colors"
+                                        className="px-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-xs cursor-pointer hover:text-text transition-colors"
                                     >
                                         Download CSV
                                     </button>
@@ -387,7 +361,7 @@ export default function Developer() {
                                 <div key={c.id} className="bg-panel border border-border rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap">
                                     <div className="flex flex-col">
                                         <span className="text-sm text-text font-bold">{c.username}</span>
-                                        <span className="text-xs text-text-dim">{c.email}</span>
+                                        <span className="text-xs text-text-muted">{c.email}</span>
                                     </div>
                                     <button
                                         onClick={() => toggleTester(c)}
@@ -395,7 +369,7 @@ export default function Developer() {
                                         className={`px-3 py-2 rounded-lg text-xs font-bold uppercase cursor-pointer border transition-colors disabled:opacity-50 ${
                                             c.is_tester
                                                 ? 'bg-accent/15 text-accent border-accent/40'
-                                                : 'bg-surface text-text-dim border-border hover:text-text-secondary'
+                                                : 'bg-surface text-text-muted border-border hover:text-text-secondary'
                                         }`}
                                     >
                                         {c.is_tester ? 'Tester' : 'Not a tester'}
@@ -403,7 +377,7 @@ export default function Developer() {
                                 </div>
                             ))}
                             {candidates.length === 0 && query.trim() && !searching && (
-                                <div className="text-xs text-text-dim italic">No matches.</div>
+                                <div className="text-xs text-text-muted italic">No matches.</div>
                             )}
                         </div>
                     </div>
@@ -413,12 +387,17 @@ export default function Developer() {
                     <div className="flex flex-col gap-3">
                         {feedbackError && <div className="text-sm text-danger">{feedbackError}</div>}
                         {!feedbackError && feedbackItems.length === 0 && (
-                            <div className="text-sm text-text-dim italic">No open feedback.</div>
+                            <div className="text-sm text-text-muted italic">No open feedback.</div>
                         )}
                         {feedbackItems.map(f => (
                             <div key={f.id} className="bg-panel border border-border rounded-2xl p-4 flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded-full bg-accent/15 border border-accent/40 text-accent text-[10px] font-bold uppercase tracking-wide">
+                                        {FEEDBACK_TYPES.find(t => t.value === f.type)?.label ?? f.type}
+                                    </span>
+                                </div>
                                 <div className="text-sm text-text whitespace-pre-wrap">{f.message}</div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-dim">
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                                     <span>{f.username ? `@${f.username}` : f.email || 'Anonymous'}</span>
                                     {f.page_url && <span>{f.page_url}</span>}
                                     <span>{new Date(f.created_at).toLocaleString()}</span>
@@ -426,7 +405,7 @@ export default function Developer() {
                                 <button
                                     onClick={() => markFeedbackReviewed(f.id)}
                                     disabled={reviewingId === f.id}
-                                    className="self-start px-3 py-2 bg-surface border border-border text-text-dim rounded-lg text-xs cursor-pointer hover:text-text transition-colors disabled:opacity-50"
+                                    className="self-start px-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-xs cursor-pointer hover:text-text transition-colors disabled:opacity-50"
                                 >
                                     {reviewingId === f.id ? 'Marking...' : 'Mark reviewed'}
                                 </button>
@@ -439,7 +418,7 @@ export default function Developer() {
                     <div className="bg-panel border border-border rounded-2xl overflow-x-auto">
                         <table className="w-full text-sm border-collapse min-w-[640px]">
                             <thead>
-                                <tr className="border-b border-border text-left text-text-dim text-xs uppercase">
+                                <tr className="border-b border-border text-left text-text-muted text-xs uppercase">
                                     <th className="p-3">Method</th>
                                     <th className="p-3">Route</th>
                                     <th className="p-3">Auth</th>
@@ -451,8 +430,8 @@ export default function Developer() {
                                     <tr key={`${doc.method} ${doc.route}`} className="border-b border-border/60 last:border-0">
                                         <td className="p-3 text-accent font-bold">{doc.method}</td>
                                         <td className="p-3 text-text-secondary font-mono text-xs">{doc.route}</td>
-                                        <td className="p-3 text-text-dim">{doc.auth}</td>
-                                        <td className="p-3 text-text-dim">{doc.purpose}</td>
+                                        <td className="p-3 text-text-muted">{doc.auth}</td>
+                                        <td className="p-3 text-text-muted">{doc.purpose}</td>
                                     </tr>
                                 ))}
                             </tbody>

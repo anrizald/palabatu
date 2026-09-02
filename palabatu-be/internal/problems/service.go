@@ -1,6 +1,11 @@
-// Package problems owns map spots/routes, problem CRUD, image uploads, and
-// the "Founder" (creator) authorization check. Admin-role policy itself
-// (Council/Associate) lives in internal/authz, not here.
+// Package problems owns the bottom level of the crags -> boulders ->
+// problems hierarchy: one way up a rock. Photos, coordinates, and topo
+// annotation now live on internal/boulders (see handoff.md at the repo
+// root) -- this package only reaches into boulders' table with its own
+// direct SQL (getBoulderCragID, repository.go) to resolve a new problem's
+// crag, never by importing internal/boulders' Go package (see that
+// package's dependency-direction note). Admin-role policy itself lives in
+// internal/authz, not here.
 package problems
 
 import (
@@ -9,6 +14,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
@@ -16,8 +22,8 @@ import (
 	"palabatu-be/internal/notification"
 )
 
-func ListProblems(ctx context.Context) ([]ProblemListItem, error) {
-	return listProblems(ctx)
+func ListProblems(ctx context.Context, cragID, boulderID string) ([]ProblemListItem, error) {
+	return listProblems(ctx, cragID, boulderID)
 }
 
 func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
@@ -32,29 +38,45 @@ func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 }
 
 // CreateProblem intentionally has no role gate: any logged-in user may add a
-// problem for now. (The Node route's commented-out Council/Founder check on
-// POST /problems predates the role model below and is superseded by it, not
-// just left disabled for parity.)
-func CreateProblem(ctx context.Context, createdBy, name, grade, location string, lat, lng float64, imageURLs []string) (*ProblemSummary, error) {
+// problem for now. boulder_id is required; crag_id is derived from it
+// rather than trusted from the client (handoff.md decision 5).
+func CreateProblem(
+	ctx context.Context,
+	createdBy, name, grade, boulderID, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
+	heightM *float64,
+	imageURLs []string,
+) (*ProblemSummary, error) {
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}
-	if err := validateLatLng(lat, lng); err != nil {
+
+	cragID, err := getBoulderCragID(ctx, boulderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrBoulderNotFound
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	return createProblem(ctx, name, grade, location, lat, lng, createdBy, imageURLs)
+	return createProblem(ctx, name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM, imageURLs, createdBy)
 }
 
-func UpdateProblem(ctx context.Context, userID, problemID, name, grade, locationName string, lat, lng float64) (*ProblemRow, error) {
+// UpdateProblem also re-parents the problem to a different boulder when
+// boulderID is non-empty and differs from its current one (handoff.md
+// decision 13) -- the missing inverse of "not sure which rock". Doing so
+// drops every annotation this problem had (reparentProblem, repository.go):
+// a line drawn on the old rock's photo means nothing on the new one, and
+// silently keeping it pointed at the wrong photo is worse than losing it.
+func UpdateProblem(
+	ctx context.Context,
+	userID, problemID, boulderID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
+	heightM *float64,
+) (*ProblemRow, error) {
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}
-	if err := validateLatLng(lat, lng); err != nil {
-		return nil, err
-	}
 
-	createdBy, err := getProblemCreator(ctx, problemID)
+	createdBy, currentBoulderID, err := getProblemOwnerAndBoulder(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -66,7 +88,20 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade, location
 		return nil, err
 	}
 
-	row, err := updateProblemRow(ctx, problemID, name, grade, locationName, lat, lng)
+	if boulderID != "" && boulderID != currentBoulderID {
+		if err := reparentProblem(ctx, problemID, boulderID); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.ConstraintName == "problems_boulder_id_fkey" {
+				return nil, ErrBoulderNotFound
+			}
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrBoulderNotFound
+			}
+			return nil, err
+		}
+	}
+
+	row, err := updateProblemRow(ctx, problemID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM)
 	if err != nil {
 		return nil, err
 	}
@@ -76,48 +111,41 @@ func UpdateProblem(ctx context.Context, userID, problemID, name, grade, location
 	return row, nil
 }
 
-// DeleteProblem authorizes and removes a problem row, best-effort destroying
-// its Cloudinary images first. A destroy failure is logged but doesn't block
-// the deletion, matching the try/catch-per-image loop in the Node route.
-func DeleteProblem(ctx context.Context, userID, problemID string) error {
-	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
+// AddProblemImages authorizes and appends already-uploaded image URLs (from
+// POST /upload/topo) to a problem's image_urls array -- beta/action shots,
+// never the topo base (that stays on the boulder). Gated through
+// authz.CanContribute rather than authorizeProblemEdit directly (handoff.md
+// decision 22: adding a photo is additive, so it's the mechanism that can
+// later widen past creator-or-admin without touching this call site).
+func AddProblemImages(ctx context.Context, userID, problemID string, imageURLs []string) (*ProblemRow, error) {
+	if len(imageURLs) == 0 {
+		return nil, ErrNoImages
+	}
+
+	createdBy, _, err := getProblemOwnerAndImages(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
-		return err
+	titles, err := auth.GetUserTitles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !authz.CanContribute(userID, authz.KindAddPhoto, createdBy, titles) {
+		return nil, ErrForbidden
 	}
 
-	// Best-effort, for the deletion notification's message text only — the
-	// delete itself must proceed even if this lookup fails.
-	var problemName string
-	if p, err := GetProblem(ctx, problemID); err == nil {
-		problemName = p.Name
-	}
-
-	for _, url := range imageURLs {
-		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
-			log.Printf("failed to delete image from Cloudinary: %v", err)
-		}
-	}
-
-	if err := deleteProblemRow(ctx, problemID); err != nil {
-		return err
-	}
-
-	notifyProblemDeleted(ctx, createdBy, userID, problemName)
-
-	return nil
+	return addProblemImages(ctx, problemID, imageURLs)
 }
 
-// DeleteProblemImage authorizes and removes a single image from a problem's
-// image_urls array (the Founder or an admin), best-effort destroying its
-// Cloudinary asset first — mirrors DeleteProblem's per-image cleanup, just
-// scoped to one URL instead of the whole set.
+// DeleteProblemImage authorizes and removes a single beta/action photo from
+// a problem (the problem's creator or an admin), best-effort destroying its
+// Cloudinary asset -- mirrors boulders.DeleteBoulderImage minus the
+// annotation cleanup (problem photos aren't annotatable, so nothing else
+// can be pointing at one).
 func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string) error {
 	createdBy, imageURLs, err := getProblemOwnerAndImages(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -146,17 +174,40 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 		log.Printf("failed to delete image from Cloudinary: %v", err)
 	}
 
-	if err := removeProblemImage(ctx, problemID, imageURL); err != nil {
+	return removeProblemImage(ctx, problemID, imageURL)
+}
+
+// DeleteProblem authorizes and removes a problem row. Unlike before the
+// photo-ownership move, this no longer destroys any Cloudinary images --
+// problems don't own images anymore, and a boulder's shared photos must
+// survive any single problem on it being deleted. topo_annotations rows
+// for this problem cascade-delete via the FK (migrations/0005).
+func DeleteProblem(ctx context.Context, userID, problemID string) error {
+	createdBy, err := getProblemCreator(ctx, problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
 		return err
 	}
 
-	// Best-effort, mirroring the Cloudinary destroy above: an orphaned
-	// annotation row (pointing at a URL no longer in image_urls) is
-	// harmless — nothing ever looks it up, since the frontend only renders
-	// annotations for URLs it iterates from image_urls.
-	if err := deleteAnnotationForImage(ctx, problemID, imageURL); err != nil {
-		log.Printf("failed to delete annotation for image: %v", err)
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+		return err
 	}
+
+	// Best-effort, for the deletion notification's message text only — the
+	// delete itself must proceed even if this lookup fails.
+	var problemName string
+	if p, err := GetProblem(ctx, problemID); err == nil {
+		problemName = p.Name
+	}
+
+	if err := deleteProblemRow(ctx, problemID); err != nil {
+		return err
+	}
+
+	notifyProblemDeleted(ctx, createdBy, userID, problemName)
+
 	return nil
 }
 
