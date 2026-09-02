@@ -21,23 +21,41 @@ export default function UnderConstruction() {
         <>
             <div className="uc-wrap">
                 <style>{`
+                /* The curtain IS the document while it's mounted, so it locks
+                   the shell to the dynamic viewport instead of inheriting
+                   index.css's html/body/#root { height: 100% }. That
+                   percentage resolves against the *large* viewport on a phone
+                   (the one measured with the URL bar hidden), which is taller
+                   than what's actually on screen -- so the page stayed
+                   scrollable by exactly that strip. Global selectors are safe
+                   here because this <style> unmounts with the page. */
+                html, body, #root {
+                    height: 100dvh;
+                    overflow: hidden;
+                    overscroll-behavior: none;
+                }
                 .uc-wrap {
-                    min-height: 100dvh;
+                    height: 100%;
                     width: 100%;
                     box-sizing: border-box;
                     background: #0f0d0b;
                     display: flex;
-                    align-items: center;
                     justify-content: center;
-                    padding: 48px 24px;
+                    /* Bottom padding clears the fixed footer overlay, which
+                       would otherwise sit on the copy on a short screen. */
+                    padding: 48px 24px calc(48px + var(--footer-h));
                     position: relative;
-                    overflow: hidden;
+                    /* Not overflow:hidden -- on a very short (landscape) phone
+                       the block genuinely can't fit, and clipping it would put
+                       the copy permanently out of reach. It scrolls inside
+                       itself only in that case; the document never does. */
+                    overflow: auto;
                 }
                 /* The contour motif carried by the Landing hero and ComingSoon.
                    Inlined rather than shared: extracting it would mean editing
                    two working pages this branch has no other reason to touch. */
                 .uc-topo {
-                    position: absolute;
+                    position: fixed;
                     inset: 0;
                     width: 100%;
                     height: 100%;
@@ -50,6 +68,10 @@ export default function UnderConstruction() {
                     align-items: center;
                     gap: clamp(12px, 3vw, 32px);
                     max-width: 820px;
+                    /* Centers vertically the way align-items:center did, but
+                       without pinning the top edge out of scroll reach when
+                       the block is taller than the viewport. */
+                    margin: auto;
                 }
                 /* Lockup, status, message stack as one left-aligned column
                    beside the sprite, rather than centering above it -- a
