@@ -1,0 +1,67 @@
+# Production stack for the Hostinger VPS. See hostinger_vps_deployment_handoff.md.
+#
+# Not to be confused with the root docker-compose.yml, which is the local dev
+# Postgres + migrate pair. This one runs the real app image (root Dockerfile)
+# behind Caddy, and talks to Neon rather than a database on the box.
+#
+# Deployed from /opt/palabatu on the VPS:
+#   docker compose -f deploy/compose.yml up -d --build
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        # Vite inlines VITE_* at build time, so this MUST be a build arg.
+        # Set only as a runtime env var it silently ships a bundle pointed
+        # at nothing: the site loads fine and every API call fails.
+        VITE_API_URL: https://palabatu.id
+    env_file: .env
+    restart: unless-stopped
+    # Deliberately no `ports:` -- only Caddy is reachable from outside.
+    # That is also what makes the X-Forwarded-For chain trustworthy: if the
+    # app were directly reachable, a client could forge the header and walk
+    # straight past middleware.RateLimit (see TRUSTED_PROXIES in .env).
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificates -- must persist across restarts
+      - caddy_config:/config
+    networks: [edge]
+    depends_on: [app]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    ipam:
+      config:
+        # Pinned so TRUSTED_PROXIES stays stable rather than tracking
+        # whatever subnet Docker happens to hand out on a given boot.
+        - subnet: 172.28.0.0/16
+
+volumes:
+  caddy_data:
+  caddy_config:

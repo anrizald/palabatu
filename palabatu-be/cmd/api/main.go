@@ -75,6 +75,22 @@ func main() {
 
 	r := gin.New()
 
+	// Behind a reverse proxy the app never sees a real client IP on the
+	// connection itself, so it has to read one out of X-Forwarded-For --
+	// but gin's default is to trust *every* proxy (0.0.0.0/0), which means
+	// it equally trusts an X-Forwarded-For a client set itself.
+	// middleware.RateLimit keys its per-IP token buckets on c.ClientIP(),
+	// so that default is a rate-limit bypass: rotate the header, get a
+	// fresh bucket every request. Trust only the network the proxy
+	// actually reaches us over (the Docker bridge subnet in production --
+	// see deploy/compose.yml). Left unset for local dev and direct
+	// `go run`, where there is no proxy and gin's default is harmless.
+	if proxies := os.Getenv("TRUSTED_PROXIES"); proxies != "" {
+		if err := r.SetTrustedProxies(strings.Split(proxies, ",")); err != nil {
+			log.Fatalf("invalid TRUSTED_PROXIES: %v", err)
+		}
+	}
+
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(metrics.Middleware)

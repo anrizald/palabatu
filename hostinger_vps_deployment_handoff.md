@@ -38,9 +38,16 @@ tier from KVM 1 up has full root and a Docker-ready OS template.
   no Cloudflare account. Ask anrizald (ghul) for the real secret values
   (Neon `DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`, Cloudinary keys) —
   don't regenerate blind.
-- **One code change is required before this deploys correctly** — trusted
-  proxies, see step 6. It is not optional; without it the per-IP rate
-  limiters can be bypassed with a forged header.
+- `stage` now carries the merged app (`under-construction-page` merged in),
+  the root `Dockerfile`, `deploy/compose.yml`, `deploy/Caddyfile`, and the
+  trusted-proxies change from step 6. The repo side is ready; what's left is
+  ordering the box, the secrets, DNS, and the Neon migration.
+- **Which curtain ships is still a live decision.** `App.tsx` has both
+  `SITE_LIVE = false` and `UNDER_CONSTRUCTION = true`, and the latter wins.
+  That means `UnderConstruction.tsx`, which is a static screen with no email
+  field. `ComingSoon.tsx` is the one wired to `POST /api/waitlist`. Shipping
+  as currently flagged launches with no email capture at all, leaving the
+  waitlist table, the Resend domain and the confirmation email unused.
 
 ## 1. Order the VPS
 
@@ -114,8 +121,10 @@ git clone -b stage git@github.com:anrizald/palabatu.git /opt/palabatu
 
 ## 5. Deployment files
 
-These live in the repo on `stage` under `deploy/` so they are reviewable and
-version-controlled. Only `.env` stays off GitHub, on the box.
+[deploy/compose.yml](deploy/compose.yml) and [deploy/Caddyfile](deploy/Caddyfile)
+are already in the repo on `stage`, so they are reviewable and
+version-controlled and there is nothing to type on the box. Only `.env` stays
+off GitHub. Reproduced here so this document stands on its own:
 
 `deploy/compose.yml`:
 
@@ -207,9 +216,12 @@ TRUSTED_PROXIES=172.28.0.0/16
 Don't set `PORT` or `STATIC_DIR` — the Dockerfile bakes both
 (`STATIC_DIR=/app/palabatu-fe/dist`, `PORT=3001`) and Caddy proxies to 3001.
 
-## 6. Required code change: trusted proxies
+## 6. Trusted proxies (already applied)
 
-`cmd/api/main.go` never calls `r.SetTrustedProxies`. gin's default is to
+This one is done, recorded here because it is the least obvious thing in the
+whole setup and the failure mode is silent.
+
+`cmd/api/main.go` did not call `r.SetTrustedProxies`. gin's default is to
 trust **every** proxy (`0.0.0.0/0`) and read the client IP out of
 `X-Forwarded-For`. Directly exposed that was harmless. Behind a reverse
 proxy it is not: `c.ClientIP()` will believe an `X-Forwarded-For` value a
@@ -218,7 +230,7 @@ keys its per-IP token buckets on, an attacker can rotate the header and
 bypass every rate limit in the app — the blanket `/api` backstop, the
 credential-endpoint limiter, and the Cloudinary upload limits alike.
 
-Add to `main.go`, right after `r := gin.New()`:
+What landed in `main.go`, right after `r := gin.New()`:
 
 ```go
 // Behind Caddy the app never sees a real client IP on the connection, so
@@ -234,9 +246,11 @@ if proxies := os.Getenv("TRUSTED_PROXIES"); proxies != "" {
 }
 ```
 
-`os`, `strings` and `log` are all already imported. Document
-`TRUSTED_PROXIES` in `palabatu-be/environments/.env.example` in the same
-change.
+Unset (local dev, direct `go run`) it keeps gin's default, so nothing about
+local development changes. `TRUSTED_PROXIES` is documented in
+`palabatu-be/environments/.env.example` and set in `deploy/.env` to match
+the pinned `172.28.0.0/16` subnet in `deploy/compose.yml`. If you ever
+change that subnet, change both.
 
 Sanity check after deploying: hit the site with
 `curl -H 'X-Forwarded-For: 1.2.3.4' https://palabatu.id/healthz` and confirm

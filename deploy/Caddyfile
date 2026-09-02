@@ -1,0 +1,30 @@
+# Reverse proxy + automatic TLS for palabatu.id. See
+# hostinger_vps_deployment_handoff.md. Caddy provisions and renews Let's
+# Encrypt certificates on its own once DNS points at the box -- there is no
+# certbot step and no renewal cron to forget.
+
+palabatu.id, www.palabatu.id {
+	encode zstd gzip
+
+	# /metrics is Prometheus output with no auth in front of it (see
+	# cmd/api/main.go). It leaks route names and traffic volumes, and
+	# nothing external scrapes it yet, so close it at the edge.
+	@metrics path /metrics
+	respond @metrics 404
+
+	reverse_proxy app:3001
+
+	# Once Cloudflare is proxying (step 10 of the handoff), Caddy sees
+	# Cloudflare edge IPs instead of real clients, which collapses every
+	# rate-limit bucket onto a handful of edge nodes. The fix is to take
+	# Cloudflare's own header:
+	#
+	#   reverse_proxy app:3001 {
+	#       header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	#   }
+	#
+	# Only enable that together with restricting ufw to Cloudflare's IP
+	# ranges. Without that restriction anyone hitting the origin IP
+	# directly can set CF-Connecting-IP themselves, which is worse than
+	# leaving this alone.
+}
