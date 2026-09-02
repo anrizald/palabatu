@@ -34,10 +34,15 @@ tier from KVM 1 up has full root and a Docker-ready OS template.
   `EMAIL_FROM=noreply@marketing.palabatu.id`.
 - Domain is registered at Hostinger, currently unpointed (still shows
   Hostinger's parking page).
-- Nothing exists on the hosting side yet: no VPS ordered, no DNS records,
-  no Cloudflare account. Ask anrizald (ghul) for the real secret values
-  (Neon `DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`, Cloudinary keys) —
-  don't regenerate blind.
+- **The box is provisioned and ready** (`148.230.97.16`, steps 1 through 3
+  complete): Ubuntu 24.04.4, `deploy` user with key-only SSH and passwordless
+  sudo, root login and password auth both off, ufw active on 22/80/443,
+  unattended-upgrades on, Docker 29.7.2 + Compose v5.5.0, `/opt/palabatu`
+  created and owned by `deploy`. Nothing is listening on 80/443 yet.
+- Still missing on the hosting side: DNS records, Cloudflare, the GitHub
+  deploy key, and `deploy/.env`. Ask anrizald (ghul) for the real secret
+  values (Neon `DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`, Cloudinary
+  keys) — don't regenerate blind.
 - `stage` now carries the merged app (`under-construction-page` merged in),
   the root `Dockerfile`, `deploy/compose.yml`, `deploy/Caddyfile`, and the
   trusted-proxies change from step 6. The repo side is ready; what's left is
@@ -51,17 +56,32 @@ tier from KVM 1 up has full root and a Docker-ready OS template.
 
 ## 1. Order the VPS
 
-- **Plan:** KVM 1 (1 vCPU / 4 GB RAM / 50 GB NVMe) is enough. The box runs
-  one Go process plus Caddy; Postgres is on Neon. Go to KVM 2 only if you
-  later move Postgres onto the box.
+**Ordered:** KVM 2, `srv1950331.hstgr.cloud`, monthly term (first renewal
+2026-10-02). Pending the Setup wizard, so it has no IP yet.
+
+- **Plan:** KVM 1 (1 vCPU / 4 GB RAM / 50 GB NVMe) would have been enough --
+  the box runs one Go process plus Caddy, with Postgres on Neon. KVM 2
+  (2 vCPU / 8 GB) is what we took, which buys enough headroom that the
+  image build never needs swap and that moving Postgres onto the box later
+  stays an option rather than a re-order.
 - **Location:** Hostinger has **no Singapore VPS region**. Their Asia VPS
   locations are Indonesia (Jakarta), Malaysia (Kuala Lumpur) and India.
   Jakarta is the right pick for the user base. Check which region the Neon
   project sits in first: Neon's SEA region is Singapore, so every query
   crosses Jakarta to Singapore at roughly 20 ms. That is fine for this app,
   but it is a reason not to add chatty per-request query fan-out later.
-- **OS template:** Ubuntu 24.04 with the Docker template, or plain Ubuntu
-  24.04 and install Docker yourself in step 3. Do not pick a cPanel image.
+- **OS template (chosen in the Setup wizard):** Ubuntu 24.04, either plain
+  or with Hostinger's Docker application template. **Do not pick any
+  control panel image** -- cPanel, Plesk, CyberPanel, CloudPanel and Webuzo
+  all install their own nginx or OpenLiteSpeed bound to ports 80 and 443,
+  which is exactly where Caddy needs to be. Recovering from that means
+  reinstalling the OS. Skip the Coolify template too; we went with Compose
+  plus Caddy instead (see this file's git history for that comparison).
+- **SSH key:** paste your public key into the wizard rather than relying on
+  a root password. Still set a strong root password when asked -- Hostinger
+  uses it for browser-console/VNC recovery, which is your way back in if
+  you ever lock yourself out over SSH. Step 2 disables password auth for
+  SSH specifically, not for the console.
 - **Term:** the headline price assumes a 24 to 48 month commitment and the
   renewal rate is materially higher. Read the renewal column before
   committing to four years.
@@ -69,23 +89,66 @@ tier from KVM 1 up has full root and a Docker-ready OS template.
 
 ## 2. First-boot hardening
 
+**Run [scripts/provision-vps.sh](scripts/provision-vps.sh) instead of doing
+this by hand** -- `./scripts/provision-vps.sh <ip>`, idempotent, safe to
+re-run. The commands below are what it does, kept here because two details
+are easy to get wrong and one of them fails silently.
+
+The script exists because applying an OS template in Hostinger's panel
+**reimages the box and wipes all of this**. That happened once already (the
+first provisioning pass was done against a VPS that was mid-reinstall), so
+assume it can happen again. A reimage also changes the SSH host key; the
+script clears the stale `known_hosts` entry itself, but by hand that shows
+up as an alarming man-in-the-middle warning that is, in this one case,
+expected.
+
 ```sh
-ssh root@<vps-ip>
-
-adduser deploy && usermod -aG sudo deploy
-rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
-
-# Disable password + root SSH login, then restart ssh
-# (PermitRootLogin no / PasswordAuthentication no in /etc/ssh/sshd_config)
-systemctl restart ssh
-
-ufw default deny incoming && ufw default allow outgoing
-ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp
-ufw enable
-
-apt update && apt install -y unattended-upgrades
-dpkg-reconfigure -plow unattended-upgrades
+# As root. Additive first -- nothing here can lock you out.
+adduser --disabled-password --gecos "" deploy
+usermod -aG sudo deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+chown deploy:deploy /home/deploy/.ssh/authorized_keys && chmod 600 /home/deploy/.ssh/authorized_keys
+echo "deploy ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-deploy && chmod 440 /etc/sudoers.d/90-deploy
 ```
+
+**Verify `ssh deploy@<ip> 'sudo -n whoami'` returns `root` before running
+anything below.** Disabling root login while the replacement account is
+unproven is the one move here that ends in a support ticket.
+
+```sh
+# Only after that check passes.
+printf "PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n" \
+  > /etc/ssh/sshd_config.d/00-hardening.conf
+sshd -t && systemctl restart ssh
+```
+
+**The filename matters, and this is the silent-failure part.** Hostinger's
+image ships `/etc/ssh/sshd_config.d/50-cloud-init.conf` containing
+`PasswordAuthentication yes`. sshd takes the *first* occurrence of a keyword
+and `Include sshd_config.d/*.conf` sits at the top of the main config, so
+that file beats both `60-cloudimg-settings.conf` (which sets it to `no`) and
+anything you `sed` into `/etc/ssh/sshd_config` itself. Editing the main file
+looks like it worked and changes nothing. A `00-` prefixed drop-in sorts
+first and actually wins. Confirm with `sshd -T | grep -E
+"permitrootlogin|passwordauthentication"` rather than by reading the file.
+
+```sh
+# As deploy, from here on.
+sudo ufw default deny incoming && sudo ufw default allow outgoing
+sudo ufw allow OpenSSH && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
+sudo ufw --force enable      # --force, or it prompts and hangs non-interactively
+
+sudo apt-get update && sudo apt-get install -y unattended-upgrades
+# dpkg-reconfigure is interactive; this is the same thing as a file:
+printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
+  | sudo tee /etc/apt/apt.conf.d/20auto-upgrades
+```
+
+`deploy` gets passwordless sudo because deploys have to run non-interactively
+over SSH. That does mean the SSH key is effectively root on this box, which
+is the standard trade for a single-admin server and the reason password auth
+is off entirely.
 
 **ufw gotcha worth knowing now:** Docker writes its own iptables rules in
 the `DOCKER-USER` chain, which are evaluated *before* ufw's INPUT rules. A
@@ -265,14 +328,13 @@ docker compose logs -f app
 ```
 
 The frontend build (`npm ci` + `vite build`) runs inside the image build and
-is the memory-hungry step. On KVM 1's 4 GB it should fit, but if it gets
-OOM-killed, add swap once and it stops being an issue:
+is the memory-hungry step. KVM 2's 8 GB clears it comfortably, so the swap
+workaround the KVM 1 sizing would have needed doesn't apply.
 
-```sh
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-sudo mkswap /swapfile && sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
+This exact build was verified locally against the merged `stage` branch
+before any of it reached a VPS: image builds clean, container boots, serves
+`/healthz`, `/api/waitlist/count` and the SPA shell. So a failure here is a
+box or env problem, not a Dockerfile problem.
 
 ## 8. Migrations against Neon
 
