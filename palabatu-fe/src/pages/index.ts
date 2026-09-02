@@ -18,3 +18,4 @@ export { default as AdminMergeRequests } from './AdminMergeRequests.js';
 export { default as Notifications } from './Notifications.js';
 export { default as ComingSoon } from './ComingSoon.js';
 export { default as Developer } from './Developer.js';
+export { default as UnderConstruction } from './UnderConstruction.js';

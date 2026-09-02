@@ -7,12 +7,27 @@ import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
 import { SpotList } from './pages/SpotList.js'
 import { AddSheetProvider } from './lib/AddSheetContext.js'
-import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, Notifications, ComingSoon, Developer } from './pages/index.js'
+import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, Notifications, ComingSoon, UnderConstruction, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
 const SITE_LIVE = true
 
+// The app is being reworked -- every route falls through to a single
+// under-construction screen. Flip to false to unblock the real app.
+// Takes precedence over SITE_LIVE: this is the newer of the two curtains.
+const UNDER_CONSTRUCTION = true
+
 export default function App() {
+  if (UNDER_CONSTRUCTION) {
+    return (
+      <ErrorBoundary>
+        <Routes>
+          <Route path="*" element={<UnderConstruction />} />
+        </Routes>
+      </ErrorBoundary>
+    )
+  }
+
   if (!SITE_LIVE) {
     return (
       <ErrorBoundary>
