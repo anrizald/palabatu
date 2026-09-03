@@ -1,17 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import FooterSection from '../components/Footer.js';
 import { api } from '../lib/api.js';
 import type { CountResponse } from '../types/apitypes.js';
 
 const FRAMES = [1, 2, 3, 4];
 
+// How often an idle tab re-checks the hype count for other visitors'
+// clicks. Decorative, not urgent -- this is a coming-soon curtain, not a
+// live leaderboard -- so a plain interval is enough; no websocket/SSE push
+// infra exists anywhere in this app yet, and this counter isn't reason
+// enough to add the first one.
+const HYPE_POLL_MS = 8000;
+
 /**
  * Full-screen block shown in place of the entire app while it's being
  * reworked -- same "nothing behind it is reachable" role ComingSoon plays for
  * the pre-launch waitlist, wired the same way (see App.tsx).
- *
- * Carries the brand lockup rather than the message alone: with the Header
- * gated out, this page is the only thing saying whose site this is.
  *
  * The pickaxe swing is four PNG frames rather than a real GIF: each frame
  * holds for a quarter of the loop, driven by one shared keyframe and staggered
@@ -21,29 +25,53 @@ const FRAMES = [1, 2, 3, 4];
  *
  * The "Allez" button drives internal/hype, a single global public counter --
  * GET /api/hype hydrates the starting number (seeded at a random phantom
- * value by migrations/0019, never zero), then each click increments the
- * count optimistically and fires POST /api/hype/click. The POST's own
- * response is intentionally ignored rather than used to reconcile local
- * state: a burst of rapid clicks fires overlapping requests, and syncing to
- * whichever response lands last would make the number visibly jump around
- * mid-spam. Anyone can click as many times as they want -- no auth, no
- * per-endpoint rate limit beyond the app-wide blanket one already on /api.
+ * value by migrations/0019, never zero) and is then re-polled every
+ * HYPE_POLL_MS, plus immediately whenever the tab regains visibility, so a
+ * visitor who leaves the tab open (or backgrounded) still sees other
+ * people's clicks land instead of a number frozen at whatever it was on
+ * load. Each local click increments optimistically and fires POST
+ * /api/hype/click; that response is intentionally ignored (a burst of rapid
+ * clicks fires overlapping requests, and syncing to whichever lands last
+ * would make the number visibly jump around mid-spam), but a poll response
+ * is folded in via Math.max rather than a plain overwrite -- otherwise a
+ * poll whose request predates this tab's own just-applied optimistic click
+ * could momentarily walk the number backward. Anyone can click as many
+ * times as they want -- no auth, no per-endpoint rate limit on the click
+ * route beyond its own generous one (see internal/hype's doc comment).
  */
 export default function UnderConstruction() {
     const [hypeCount, setHypeCount] = useState<number | null>(null);
-    const hasFetchedHype = useRef(false);
 
     useEffect(() => {
-        if (hasFetchedHype.current) return;
-        hasFetchedHype.current = true;
-        api.get<CountResponse>('/api/hype')
-            .then((res) => {
-                if (typeof res.count === 'number') setHypeCount(res.count);
-            })
-            .catch(() => {
-                // Decorative counter -- a failed initial fetch just leaves
-                // the button showing no number rather than blocking the page.
-            });
+        let cancelled = false;
+
+        const fetchHype = () => {
+            api.get<CountResponse>('/api/hype')
+                .then((res) => {
+                    if (cancelled || typeof res.count !== 'number') return;
+                    setHypeCount((c) => (c === null ? res.count : Math.max(c, res.count)));
+                })
+                .catch(() => {
+                    // Decorative counter -- a failed fetch just leaves the
+                    // button showing whatever it last knew.
+                });
+        };
+
+        fetchHype();
+        const intervalId = window.setInterval(() => {
+            if (!document.hidden) fetchHype();
+        }, HYPE_POLL_MS);
+
+        const handleVisibility = () => {
+            if (!document.hidden) fetchHype();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, []);
 
     const handleAllez = () => {
@@ -141,33 +169,14 @@ export default function UnderConstruction() {
                     letter-spacing: 0.02em;
                     color: #f0e0c8;
                 }
-                /* Sits inline in .uc-brand, after the wordmark, rather than
-                   as its own line below it -- one row reading "mark +
-                   palabatu + coming soon" instead of a lockup with a caption
-                   stacked under it. The leading rule (::before) stands in for
-                   the vertical space it used to open with, so it still reads
-                   as a distinct, separate label rather than part of the
-                   wordmark. Wraps under the wordmark on a narrow screen via
-                   .uc-brand's own flex-wrap, which is fine -- it's still
-                   adjacent, just not literally on one line. */
                 .uc-eyebrow {
                     margin: 0;
-                    display: flex;
-                    align-items: center;
-                    gap: clamp(8px, 1.6vw, 12px);
                     font-family: 'DM Sans', sans-serif;
                     font-size: 12px;
                     font-weight: 600;
                     color: #c87a30;
                     letter-spacing: 0.14em;
                     text-transform: uppercase;
-                }
-                .uc-eyebrow::before {
-                    content: '';
-                    width: 1px;
-                    height: 14px;
-                    background: #3a2f24;
-                    flex-shrink: 0;
                 }
                 .uc-sprite {
                     position: relative;
@@ -289,8 +298,6 @@ export default function UnderConstruction() {
 
                     <div className="uc-col">
                         <div className="uc-brand">
-                            <img className="uc-mark" src="/favicon_transparent.png" alt="" aria-hidden="true" />
-                            <span className="uc-wordmark">palabatu</span>
                             <span className="uc-eyebrow">Coming soon</span>
                         </div>
 

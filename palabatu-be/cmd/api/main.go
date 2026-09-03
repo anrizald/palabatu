@@ -124,6 +124,25 @@ func main() {
 
 	apiGroup := r.Group("/api")
 
+	// Deliberately a second group at the same "/api" prefix rather than a
+	// sub-group of apiGroup (gin resolves routes by path, not by which
+	// *gin.RouterGroup registered them, so two groups sharing a prefix
+	// coexist fine) -- this one is never wrapped in the blanket limiter
+	// below. It exists solely for hype's POST /hype/click: every other
+	// domain wants the blanket backstop, but that route is the one in the
+	// app designed to be mashed by a real person as fast as they
+	// physically can, and stacking it under a burst-20 gate sized for "a
+	// page load fires a handful of GETs" meant genuine enthusiastic
+	// tapping silently stopped counting well before a real fan would
+	// expect (see hype.Routes' own doc comment for the numbers, and git
+	// history around 2026-09-03 for the two rounds of retuning that got
+	// here). It still gets every engine-level middleware everyone else
+	// gets (logging, recovery, metrics, body-size cap) -- it isn't
+	// unthrottled, just not throttled by a limit sized for a different
+	// kind of route. hype's own GET /hype stays on the ordinary apiGroup
+	// below, since a plain read has no reason to skip the backstop.
+	hypeClickGroup := r.Group("/api")
+
 	// Blanket backstop for every /api route, on top of the tighter
 	// per-endpoint limits individual domains already apply to their own
 	// write-heavy routes (auth, waitlist, feedback, comments, reports).
@@ -149,23 +168,7 @@ func main() {
 	waitlist.Routes(apiGroup)
 	devtools.Routes(apiGroup)
 	feedback.Routes(apiGroup)
-
-	// Deliberately its own group, not apiGroup -- same "/api" prefix (gin
-	// resolves routes by path, not by which *gin.RouterGroup registered
-	// them, so this coexists fine alongside apiGroup), but skipping the
-	// blanket limiter above. Every other domain wants that backstop; the
-	// hype click button is the one route in the app designed to be mashed
-	// by a real person as fast as they physically can, and stacking it
-	// under a burst-20 gate sized for "a page load fires a handful of
-	// GETs" meant genuine enthusiastic tapping silently stopped counting
-	// well before a real fan would expect (see hype.Routes' own doc
-	// comment for the numbers and the reasoning, and git history around
-	// 2026-09-03 for the two rounds of retuning that got here). It still
-	// gets every engine-level middleware everyone else gets (logging,
-	// recovery, metrics, body-size cap) -- it isn't unthrottled, just not
-	// throttled by a limit sized for a different kind of route.
-	hypeGroup := r.Group("/api")
-	hype.Routes(hypeGroup)
+	hype.Routes(apiGroup, hypeClickGroup)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {
