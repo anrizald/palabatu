@@ -3453,6 +3453,68 @@
                 ]
             }
         },
+        "/api/hype": {
+            "get": {
+                "description": "Returns the current total of the \"Allez\" cheer button on the under-construction page.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.CountResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get the hype counter",
+                "tags": [
+                    "hype"
+                ]
+            }
+        },
+        "/api/hype/click": {
+            "post": {
+                "description": "Increments the \"Allez\" cheer counter by one and returns the new total.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.CountResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Click the hype counter",
+                "tags": [
+                    "hype"
+                ]
+            }
+        },
         "/api/notifications": {
             "get": {
                 "description": "Returns the authenticated user's notifications, newest first.",

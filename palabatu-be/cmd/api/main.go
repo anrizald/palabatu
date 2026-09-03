@@ -24,6 +24,7 @@ import (
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/devtools"
 	"palabatu-be/internal/feedback"
+	"palabatu-be/internal/hype"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/middleware"
 	"palabatu-be/internal/notification"
@@ -148,6 +149,23 @@ func main() {
 	waitlist.Routes(apiGroup)
 	devtools.Routes(apiGroup)
 	feedback.Routes(apiGroup)
+
+	// Deliberately its own group, not apiGroup -- same "/api" prefix (gin
+	// resolves routes by path, not by which *gin.RouterGroup registered
+	// them, so this coexists fine alongside apiGroup), but skipping the
+	// blanket limiter above. Every other domain wants that backstop; the
+	// hype click button is the one route in the app designed to be mashed
+	// by a real person as fast as they physically can, and stacking it
+	// under a burst-20 gate sized for "a page load fires a handful of
+	// GETs" meant genuine enthusiastic tapping silently stopped counting
+	// well before a real fan would expect (see hype.Routes' own doc
+	// comment for the numbers and the reasoning, and git history around
+	// 2026-09-03 for the two rounds of retuning that got here). It still
+	// gets every engine-level middleware everyone else gets (logging,
+	// recovery, metrics, body-size cap) -- it isn't unthrottled, just not
+	// throttled by a limit sized for a different kind of route.
+	hypeGroup := r.Group("/api")
+	hype.Routes(hypeGroup)
 
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
 import FooterSection from '../components/Footer.js';
+import { api } from '../lib/api.js';
+import type { CountResponse } from '../types/apitypes.js';
 
 const FRAMES = [1, 2, 3, 4];
 
@@ -15,8 +18,42 @@ const FRAMES = [1, 2, 3, 4];
  * animation-delays. The ember drop-shadow is load-bearing, not decoration --
  * the pickaxe head is near-black and would otherwise disappear into the ink
  * background.
+ *
+ * The "Allez" button drives internal/hype, a single global public counter --
+ * GET /api/hype hydrates the starting number (seeded at a random phantom
+ * value by migrations/0019, never zero), then each click increments the
+ * count optimistically and fires POST /api/hype/click. The POST's own
+ * response is intentionally ignored rather than used to reconcile local
+ * state: a burst of rapid clicks fires overlapping requests, and syncing to
+ * whichever response lands last would make the number visibly jump around
+ * mid-spam. Anyone can click as many times as they want -- no auth, no
+ * per-endpoint rate limit beyond the app-wide blanket one already on /api.
  */
 export default function UnderConstruction() {
+    const [hypeCount, setHypeCount] = useState<number | null>(null);
+    const hasFetchedHype = useRef(false);
+
+    useEffect(() => {
+        if (hasFetchedHype.current) return;
+        hasFetchedHype.current = true;
+        api.get<CountResponse>('/api/hype')
+            .then((res) => {
+                if (typeof res.count === 'number') setHypeCount(res.count);
+            })
+            .catch(() => {
+                // Decorative counter -- a failed initial fetch just leaves
+                // the button showing no number rather than blocking the page.
+            });
+    }, []);
+
+    const handleAllez = () => {
+        setHypeCount((c) => (c ?? 0) + 1);
+        api.post<CountResponse>('/api/hype/click', {}).catch(() => {
+            // Best-effort; see the doc comment above for why the response
+            // isn't used to correct local state.
+        });
+    };
+
     return (
         <>
             <div className="uc-wrap">
@@ -86,7 +123,8 @@ export default function UnderConstruction() {
                 .uc-brand {
                     display: flex;
                     align-items: center;
-                    gap: clamp(8px, 1.6vw, 12px);
+                    flex-wrap: wrap;
+                    gap: clamp(6px, 1.4vw, 10px) clamp(8px, 1.6vw, 12px);
                     margin-bottom: 14px;
                 }
                 .uc-mark {
@@ -103,14 +141,33 @@ export default function UnderConstruction() {
                     letter-spacing: 0.02em;
                     color: #f0e0c8;
                 }
+                /* Sits inline in .uc-brand, after the wordmark, rather than
+                   as its own line below it -- one row reading "mark +
+                   palabatu + coming soon" instead of a lockup with a caption
+                   stacked under it. The leading rule (::before) stands in for
+                   the vertical space it used to open with, so it still reads
+                   as a distinct, separate label rather than part of the
+                   wordmark. Wraps under the wordmark on a narrow screen via
+                   .uc-brand's own flex-wrap, which is fine -- it's still
+                   adjacent, just not literally on one line. */
                 .uc-eyebrow {
-                    margin: 0 0 14px;
+                    margin: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: clamp(8px, 1.6vw, 12px);
                     font-family: 'DM Sans', sans-serif;
                     font-size: 12px;
                     font-weight: 600;
                     color: #c87a30;
                     letter-spacing: 0.14em;
                     text-transform: uppercase;
+                }
+                .uc-eyebrow::before {
+                    content: '';
+                    width: 1px;
+                    height: 14px;
+                    background: #3a2f24;
+                    flex-shrink: 0;
                 }
                 .uc-sprite {
                     position: relative;
@@ -138,7 +195,7 @@ export default function UnderConstruction() {
                 }
 
                 .uc-copy {
-                    margin: 0;
+                    margin: 0 0 22px;
                     font-family: 'Playfair Display', serif;
                     font-weight: 700;
                     font-size: clamp(21px, 5.4vw, 34px);
@@ -146,9 +203,59 @@ export default function UnderConstruction() {
                     color: #f0e0c8;
                 }
 
+                .uc-hype {
+                    display: flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 12px clamp(10px, 2vw, 16px);
+                }
+                .uc-hype-label {
+                    margin: 0;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: clamp(13px, 3vw, 15px);
+                    font-weight: 500;
+                    color: #d8c8b8;
+                }
+                .uc-hype-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 10px 22px;
+                    background: #c87a30;
+                    color: #fef3e6;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 15px;
+                    font-weight: 600;
+                    letter-spacing: 0.02em;
+                    cursor: pointer;
+                    transition: transform 0.08s ease, background-color 0.15s ease;
+                }
+                .uc-hype-btn:hover {
+                    background: #d6892f;
+                }
+                /* :active rather than a JS-driven "pressed" class -- the
+                   button is meant to survive rapid repeat taps, and a native
+                   pseudo-class reacts every time with no state or re-render
+                   in the way. */
+                .uc-hype-btn:active {
+                    transform: scale(0.94);
+                    background: #ab6a29;
+                }
+                .uc-hype-count {
+                    min-width: 2.4em;
+                    padding: 2px 10px;
+                    border-radius: 999px;
+                    background: rgba(15, 13, 11, 0.28);
+                    font-variant-numeric: tabular-nums;
+                    text-align: center;
+                }
+
                 @media (max-width: 480px) {
                     .uc-brand { margin-bottom: 10px; }
-                    .uc-eyebrow { margin-bottom: 10px; font-size: 11px; }
+                    .uc-copy { margin-bottom: 18px; }
+                    .uc-hype-btn { padding: 9px 18px; font-size: 14px; }
                 }
 
                 @media (prefers-reduced-motion: reduce) {
@@ -184,11 +291,20 @@ export default function UnderConstruction() {
                         <div className="uc-brand">
                             <img className="uc-mark" src="/favicon_transparent.png" alt="" aria-hidden="true" />
                             <span className="uc-wordmark">palabatu</span>
+                            <span className="uc-eyebrow">Coming soon</span>
                         </div>
 
-                        <p className="uc-eyebrow">Coming soon</p>
-
                         <p className="uc-copy">bentar ya, Palbat lagi projekan</p>
+
+                        <div className="uc-hype">
+                            <p className="uc-hype-label">semangatin yuk</p>
+                            <button type="button" className="uc-hype-btn" onClick={handleAllez}>
+                                <span>Allez</span>
+                                {hypeCount !== null && (
+                                    <span className="uc-hype-count">{hypeCount.toLocaleString('id-ID')}</span>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
