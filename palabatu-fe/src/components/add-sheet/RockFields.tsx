@@ -11,7 +11,7 @@ const labelClass = "block text-[12.5px] font-medium text-text-muted mb-1.5"
 function TypeSegment({ value, onChange }: { value: BoulderType; onChange: (v: BoulderType) => void }) {
     return (
         <div className="flex p-[3px] bg-surface border border-border rounded-[10px]">
-            {([['boulder', 'Batu — a rock'], ['wall', 'Tebing — a wall']] as const).map(([v, label]) => (
+            {([['boulder', 'Batu · a rock'], ['wall', 'Tebing · a wall']] as const).map(([v, label]) => (
                 <button
                     key={v}
                     type="button"
@@ -51,7 +51,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
             </div>
 
             <div>
-                <label className={labelClass}>Photo <span className="font-normal opacity-85">&mdash; the wide shot lines get drawn on</span></label>
+                <label className={labelClass}>Photo <span className="font-normal opacity-85">&middot; the wide shot lines get drawn on</span></label>
                 {draft.imagePreviews.length > 0 ? (
                     <div className="flex gap-2 overflow-x-auto pb-1">
                         {draft.imagePreviews.map((preview, idx) => (
@@ -94,7 +94,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
             </div>
 
             <div>
-                <label className={labelClass}>Name it? <span className="font-normal opacity-85">&mdash; most aren't named</span></label>
+                <label className={labelClass}>Name it? <span className="font-normal opacity-85">&middot; most aren't named</span></label>
                 <input
                     value={draft.name}
                     onChange={e => set({ name: e.target.value })}
@@ -102,7 +102,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                     className={inputClass}
                 />
                 <p className="text-xs text-text-muted mt-1.5">
-                    A photo or a name &mdash; either one is enough. Without either, nobody can tell which {draft.type === 'wall' ? 'wall' : 'rock'} this is.
+                    Either a photo or a name is enough. Without either, nobody can tell which {draft.type === 'wall' ? 'wall' : 'rock'} this is.
                 </p>
             </div>
 
@@ -134,7 +134,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
             </div>
 
             <div>
-                <label className={labelClass}>What kind of stone? <span className="font-normal opacity-85">&mdash; optional</span></label>
+                <label className={labelClass}>What kind of stone? <span className="font-normal opacity-85">&middot; optional</span></label>
                 <input value={draft.rock_type} onChange={e => set({ rock_type: e.target.value })} placeholder="batu kapur" className={inputClass} />
             </div>
         </div>

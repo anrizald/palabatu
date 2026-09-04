@@ -11,21 +11,16 @@
     "gen:types": "openapi-typescript ../palabatu-be/docs/swagger.json -o ./src/types/api.d.ts"
   },
   "dependencies": {
-    "@changey/react-leaflet-markercluster": "^4.0.0-rc1",
-    "@supabase/auth-ui-react": "^0.4.7",
-    "@supabase/auth-ui-shared": "^0.1.8",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/vite": "^4.1.11",
     "cloudinary": "^2.10.0",
     "framer-motion": "^12.23.12",
     "leaflet": "^1.9.4",
-    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^1.23.0",
     "multer": "^2.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
-    "react-leaflet-markercluster": "^5.0.0-rc.0",
     "react-router-dom": "^7.7.1",
     "rive-js": "^0.7.33"
   },

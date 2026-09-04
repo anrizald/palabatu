@@ -44,7 +44,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
             </div>
 
             <div>
-                <label className={labelClass}>Photo <span className="font-normal opacity-85">&mdash; how it looks when you arrive</span></label>
+                <label className={labelClass}>Photo <span className="font-normal opacity-85">&middot; how it looks when you arrive</span></label>
                 {draft.photoPreview ? (
                     <div className="relative w-full aspect-video rounded-[10px] overflow-hidden border border-border">
                         <img src={draft.photoPreview} alt="Spot" className="w-full h-full object-cover" />

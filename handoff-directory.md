@@ -922,10 +922,20 @@ what is still genuinely undecided.
    redundant by the spot index and a regrouped Near You row, it now draws
    from both problems and crags in one pool, so it's the one surface on the
    page that can lead with either axis on a given day.
-2. **Where the spot index lives in the nav.** Options: a third nav item
-   ("Spots"), a tab inside `/directory`, or a segmented control at the top of
-   the hub. A third top-level nav item is the clearest but the nav is already
-   at its width budget on mobile. Open.
+2. ~~**Where the spot index lives in the nav.**~~ **Resolved 2026-09-04 —
+   a segmented control, not a nav item.** Not a third top-level nav entry:
+   the mobile nav is already at its width budget, and `/directory`,
+   `/directory/spots`, and `/directory/all` stay nested URLs (they're
+   conceptually inside Directory, not siblings of it). Instead, a shared
+   pill-style segmented control ("Overview / Spots / All Problems"), each
+   segment a real `Link` (not local state, so back/forward and sharing a
+   link still work) to one of the three routes, mounted at the top of all
+   three pages so any one of them can switch to either other in one tap.
+   Accepted tradeoff: this is still Directory-adjacent, not global — Map
+   and Landing get no button to Spots, same limitation the tab option
+   would have had. The existing bottom-of-page "See all lines"/"Browse
+   spots" buttons on `Directory.tsx` become redundant once this ships and
+   should come out rather than leaving both. Not yet built.
 3. **Whether "Recently documented" groups by rock or by session.** Grouping by
    rock is proposed (decision 2) and is simple. Grouping by *contributor
    session* ("Rizal added 6 lines at Citatah on Tuesday") is a stronger social
