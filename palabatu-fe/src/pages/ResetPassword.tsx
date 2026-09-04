@@ -13,7 +13,8 @@ export default function ResetPassword() {
     const [toast, setToast] = useState<ToastProps | null>(null);
     const navigate = useNavigate();
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (password !== confirm) {
             setToast({ message: 'Passwords do not match', type: 'error', onClose: () => setToast(null) });
             return;
@@ -43,7 +44,7 @@ export default function ResetPassword() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
             {toast && <Toast {...toast} />}
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px'
             }}>
@@ -54,12 +55,13 @@ export default function ResetPassword() {
                     boxShadow: '0 40px 80px rgba(0,0,0,0.6)'
                 }}>
                     <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 900, color: '#f0e0c8', marginBottom: '8px' }}>New password</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>Choose a strong password for your account.</p>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>Choose a strong password for your account.</p>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <input
                             type="password"
                             placeholder="New password"
+                            autoComplete="new-password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             style={{
@@ -74,6 +76,7 @@ export default function ResetPassword() {
                         <input
                             type="password"
                             placeholder="Confirm new password"
+                            autoComplete="new-password"
                             value={confirm}
                             onChange={e => setConfirm(e.target.value)}
                             style={{
@@ -86,7 +89,7 @@ export default function ResetPassword() {
                             onBlur={e => e.target.style.borderColor = '#2a2420'}
                         />
                         <button
-                            onClick={handleSubmit}
+                            type="submit"
                             disabled={isLoading}
                             style={{
                                 background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
@@ -98,7 +101,7 @@ export default function ResetPassword() {
                                 boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
                             }}
                         >{isLoading ? 'Resetting...' : 'Reset Password'}</button>
-                    </div>
+                    </form>
                 </div>
             </div>
             <FooterSection />

@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palabatu — Add flow prototype (handoff revision f)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0f0d0b; --panel:#141210; --surface:#1a1612; --border:#2a2420;
+  --text:#f0e0c8; --text2:#d8c8b8; --muted:#8a7060; --dim:#6a5848; --faint:#4a3c30;
+  --accent:#c87a30; --umber:#8b4a18; --on-accent:#fef3e6;
+  --moss:#5dbb6a; --red:#e07060;
+  --r-sm:8px; --r-md:10px; --r-lg:16px; --r-xl:20px;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'DM Sans',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:var(--sans);font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+/* ---------- prototype chrome (not part of the app) ---------- */
+.proto-bar{position:sticky;top:0;z-index:20;background:rgba(15,13,11,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px}
+.proto-bar h1{font-family:var(--serif);font-weight:700;font-size:15px;line-height:1.15;color:var(--text)}
+.proto-bar p{font-size:11px;color:var(--dim);margin-top:2px}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.states button{font-family:var(--sans);font-weight:500;font-size:11px;line-height:1.3;padding:6px 11px;border-radius:9999px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer}
+.states button:hover{border-color:var(--accent);color:var(--text2)}
+.states button[aria-current="true"]{background:var(--surface);border-color:var(--accent);color:var(--text)}
+
+.stage{display:flex;flex-wrap:wrap;gap:28px;padding:24px 16px 64px;align-items:flex-start;justify-content:center}
+
+/* ---------- phone shell ---------- */
+.phone{width:100%;max-width:400px;flex:1 1 340px;background:var(--ink);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;position:relative;min-height:660px;display:flex;flex-direction:column;box-shadow:0 40px 80px rgba(0,0,0,.6)}
+.phone-bg{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 20% 10%, #1c1713 0%, transparent 60%),
+  radial-gradient(90% 60% at 85% 30%, #17130f 0%, transparent 55%),
+  repeating-linear-gradient(115deg,#131110 0 12px,#151211 12px 24px);
+  opacity:.9}
+.phone-bg::after{content:"map behind the sheet";position:absolute;top:14px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.sheet-wrap{position:relative;margin-top:auto;width:100%}
+
+/* ---------- sheet ---------- */
+.sheet{background:var(--panel);border:1px solid var(--border);border-bottom:0;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:8px 18px 20px;max-height:600px;overflow-y:auto;scrollbar-width:thin}
+.grabber{width:36px;height:4px;border-radius:9999px;background:var(--border);margin:4px auto 12px}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
+.sheet-title{font-family:var(--serif);font-weight:700;font-size:20px;line-height:1.15}
+.sheet-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.x{flex-shrink:0;width:30px;height:30px;border-radius:9999px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.x:hover{border-color:var(--accent);color:var(--text2)}
+
+/* ---------- intent chooser ---------- */
+.intent{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.intent button{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;cursor:pointer;transition:transform .15s ease,border-color .15s ease}
+.intent button:hover{transform:translateY(-2px);border-color:var(--accent)}
+.intent .it-name{font-family:var(--sans);font-weight:500;font-size:15px;color:var(--text);line-height:1.3}
+.intent .it-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.intent button.primary{border-color:rgba(200,122,48,.45)}
+.intent button.primary .it-name{color:var(--on-accent)}
+.tagline{font-size:11px;color:var(--faint);margin-top:14px;text-align:center}
+
+/* ---------- context rows ---------- */
+.ctx{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);overflow:hidden;margin-top:14px}
+.ctx-row{display:flex;align-items:center;gap:12px;padding:11px 14px;width:100%;background:transparent;border:0;cursor:pointer;text-align:left}
+.ctx-row + .ctx-row{border-top:1px solid var(--border)}
+.ctx-key{font-weight:500;font-size:12px;color:var(--muted);width:52px;flex-shrink:0}
+.ctx-val{flex:1;font-size:14px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctx-val em{font-style:normal;color:var(--dim);font-size:12px}
+.ctx-change{font-size:12px;font-weight:500;color:var(--accent);flex-shrink:0}
+.picker{border-top:1px solid var(--border);padding:12px 14px 14px;background:var(--panel)}
+.picker[hidden]{display:none}
+
+.search{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text2);font-family:var(--sans);font-size:13px;padding:9px 12px;margin-bottom:10px}
+.search::placeholder{color:var(--faint)}
+.search:focus{outline:none;border-color:var(--accent)}
+.picker-hint{font-size:11px;color:var(--faint);margin:-4px 0 10px}
+
+.opt{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:1px solid transparent;border-radius:var(--r-md);padding:9px 10px;cursor:pointer;text-align:left}
+.opt:hover{background:var(--surface);border-color:var(--border)}
+.opt-main{flex:1;min-width:0}
+.opt-name{display:block;font-size:14px;color:var(--text);line-height:1.3}
+.opt-meta{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.opt-dist{font-size:11px;color:var(--dim);flex-shrink:0}
+.opt.new{border-color:var(--border);background:var(--surface);margin-top:8px}
+.opt.new .opt-name{color:var(--accent);font-weight:500}
+
+/* photo-grid rock picker */
+.rockgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.rock{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:0;cursor:pointer;overflow:hidden;text-align:left}
+.rock:hover{border-color:var(--accent)}
+.rock-photo{aspect-ratio:4/3;background:
+  radial-gradient(70% 60% at 35% 25%, #55483c 0%, #3a3028 55%, #241e19 100%);
+  position:relative}
+.rock-photo.b{background:radial-gradient(65% 70% at 60% 35%, #4d4237 0%, #322a23 60%, #201b17 100%)}
+.rock-photo.none{background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+.rock-cap{padding:8px 10px 10px}
+.rock-name{display:block;font-size:13px;color:var(--text);line-height:1.3}
+.rock-by{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+/* an unnamed rock is identified by the problems on it, which become the
+   primary line -- never a generated label (UX principle 3, amended) */
+.rock-by.lead{font-size:13px;color:var(--text);margin-top:0}
+.rock.wide{grid-column:1 / -1;display:flex;align-items:center;gap:10px;padding:11px 12px}
+.rock.wide .rock-name{color:var(--accent);font-weight:500}
+.rock.wide .rock-by{margin-top:1px}
+
+/* ---------- form ---------- */
+.rule{height:1px;background:var(--border);margin:16px 0}
+.field{margin-bottom:14px}
+.label{display:block;font-weight:500;font-size:12px;color:var(--muted);margin-bottom:6px}
+.label .opt-tag{color:var(--faint);font-weight:400}
+.input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text2);font-family:var(--sans);font-size:15px;padding:11px 14px}
+.input::placeholder{color:var(--faint)}
+.input:focus{outline:none;border-color:var(--accent)}
+textarea.input{resize:vertical;min-height:64px;font-size:14px}
+
+.grades{display:flex;flex-wrap:wrap;gap:6px}
+.grade{font-family:var(--sans);font-weight:500;font-size:13px;padding:7px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+.grade:hover{border-color:var(--accent)}
+/* selected chip takes the accent gradient but NOT the accent glow --
+   DESIGN.md reserves that shadow for primary CTA buttons only (.submit) */
+.grade[aria-pressed="true"]{background:linear-gradient(145deg,var(--accent),var(--umber));border-color:transparent;color:var(--on-accent)}
+.grade.ghost{color:var(--dim);background:transparent}
+
+.photo-drop{width:100%;border:1px dashed var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--muted);font-family:var(--sans);font-size:13px;padding:20px 14px;cursor:pointer;text-align:center}
+.photo-drop:hover{border-color:var(--accent);color:var(--text2)}
+.photo-note{font-size:11px;color:var(--faint);margin-top:6px;text-align:center}
+.shot{border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.shot .rock-photo{aspect-ratio:16/10}
+.shot-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:var(--surface);border-top:1px solid var(--border)}
+.shot-bar span{font-size:11px;color:var(--muted)}
+.link-btn{background:transparent;border:0;color:var(--accent);font-family:var(--sans);font-weight:500;font-size:12px;cursor:pointer;padding:0}
+.existing-photos{display:flex;gap:8px;margin-bottom:8px}
+.existing-photos .rock-photo{width:64px;aspect-ratio:1;border-radius:var(--r-sm);border:1px solid var(--border);flex-shrink:0}
+
+details.more{border-top:1px solid var(--border);margin-top:4px}
+details.more > summary{list-style:none;cursor:pointer;padding:13px 0;display:flex;align-items:center;justify-content:space-between;font-weight:500;font-size:13px;color:var(--muted)}
+details.more > summary::-webkit-details-marker{display:none}
+details.more > summary::after{content:"v";font-size:11px;color:var(--dim)}
+details.more[open] > summary::after{content:"^"}
+details.more .body{padding-bottom:6px}
+
+.submit{width:100%;margin-top:16px;font-family:var(--sans);font-weight:500;font-size:15px;line-height:1.3;padding:13px 24px;border:0;border-radius:var(--r-md);background:linear-gradient(145deg,var(--accent),var(--umber));color:var(--on-accent);box-shadow:0 2px 16px rgba(200,122,48,.35);cursor:pointer}
+.submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.ghost-btn{width:100%;margin-top:8px;font-family:var(--sans);font-weight:500;font-size:14px;padding:11px 24px;border:1px solid var(--border);border-radius:var(--r-md);background:transparent;color:var(--dim);cursor:pointer}
+.ghost-btn:hover{border-color:var(--accent);color:var(--text2)}
+
+/* saved state */
+.saved{text-align:center;padding:18px 4px 6px}
+.saved .tick{width:44px;height:44px;border-radius:9999px;border:1px solid rgba(93,187,106,.4);color:var(--moss);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 14px}
+.saved h3{font-family:var(--serif);font-weight:700;font-size:19px;line-height:1.15}
+.saved p{font-size:13px;color:var(--muted);margin-top:6px}
+.saved .carry{margin-top:16px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;font-size:12px;color:var(--dim)}
+.saved .carry b{color:var(--text2);font-weight:500}
+
+/* ---------- notes panel ---------- */
+.notes{flex:1 1 300px;max-width:440px;font-size:13px}
+.notes h2{font-family:var(--serif);font-weight:700;font-size:17px;line-height:1.15;margin-bottom:4px}
+.notes .lead{color:var(--muted);font-size:12px;margin-bottom:16px}
+.note{border:1px solid var(--border);background:var(--panel);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px}
+.note[hidden]{display:none}
+.note h3{font-family:var(--sans);font-weight:500;font-size:13px;color:var(--text);margin-bottom:8px}
+.note ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+.note li{font-size:12px;color:var(--text2);line-height:1.45;padding-left:14px;position:relative}
+.note li::before{content:"";position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:9999px;background:var(--accent);opacity:.7}
+.note li b{color:var(--text);font-weight:500}
+.ref{display:inline-block;font-size:10px;color:var(--dim);border:1px solid var(--border);border-radius:9999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.disclaimer{font-size:11px;color:var(--faint);line-height:1.5;margin-top:14px}
+</style>
+</head>
+<body>
+
+<header class="proto-bar">
+  <h1>Add flow prototype</h1>
+  <p>handoff.md revision (f) &mdash; decisions 11&ndash;14. Static prototype, no backend.</p>
+  <nav class="states" id="states">
+    <button data-state="intent" aria-current="true">Tap Add</button>
+    <button data-state="problem">Add a problem</button>
+    <button data-state="newspot">&hellip; at a brand-new spot</button>
+    <button data-state="spot">Add a spot</button>
+    <button data-state="rock">Add a rock</button>
+    <button data-state="saved">After submit</button>
+  </nav>
+</header>
+
+<main class="stage">
+  <div class="phone">
+    <div class="phone-bg"></div>
+    <div class="sheet-wrap">
+
+      <!-- ============ 1. INTENT CHOOSER ============ -->
+      <section class="sheet" data-screen="intent">
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div>
+            <div class="sheet-title">Add</div>
+            <div class="sheet-sub">What did you find?</div>
+          </div>
+          <button class="x" type="button">&times;</button>
+        </div>
+        <div class="intent">
+          <button type="button" class="primary" data-go="problem">
+            <div class="it-name">Add a problem</div>
+            <div class="it-desc">a line you climbed or found</div>
+          </button>
+          <button type="button" data-go="spot">
+            <div class="it-name">Add a spot</div>
+            <div class="it-desc">a place you can climb at</div>
+          </button>
+          <button type="button" data-go="rock">
+            <div class="it-name">Add a rock</div>
+            <div class="it-desc">one rock or wall at a spot</div>
+          </button>
+        </div>
+        <p class="tagline">Each one saves on its own.</p>
+      </section>
+
+      <!-- ============ 2. ADD A PROBLEM ============ -->
+      <section class="sheet" data-screen="problem" hidden>
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div class="sheet-title">Add a problem</div>
+          <button class="x" type="button" data-go="intent">&times;</button>
+        </div>
+
+        <div class="ctx">
+          <button class="ctx-row" type="button" data-toggle="pick-spot">
+            <span class="ctx-key">Where</span>
+            <span class="ctx-val" id="spot-val">Citatah <em>&middot; 80 m away</em></span>
+            <span class="ctx-change">change</span>
+          </button>
+          <div class="picker" id="pick-spot" hidden>
+            <input class="search" type="text" placeholder="Search spots">
+            <p class="picker-hint">Nearest first. Search if you're adding from home.</p>
+            <button class="opt" type="button" data-pick-spot="Citatah" data-dist="80 m away">
+              <span class="opt-main"><span class="opt-name">Citatah</span><span class="opt-meta">14 problems &middot; 6 rocks</span></span>
+              <span class="opt-dist">80 m</span>
+            </button>
+            <button class="opt" type="button" data-pick-spot="Citatah 125" data-dist="1.2 km away">
+              <span class="opt-main"><span class="opt-name">Citatah 125</span><span class="opt-meta">3 problems &middot; 2 rocks</span></span>
+              <span class="opt-dist">1.2 km</span>
+            </button>
+            <button class="opt" type="button" data-pick-spot="Goa Agung" data-dist="14 km away">
+              <span class="opt-main"><span class="opt-name">Goa Agung</span><span class="opt-meta">21 problems &middot; 9 rocks</span></span>
+              <span class="opt-dist">14 km</span>
+            </button>
+            <button class="opt new" type="button" data-go="newspot">
+              <span class="opt-main"><span class="opt-name">It's a new spot</span><span class="opt-meta">name it and drop a pin</span></span>
+            </button>
+          </div>
+
+          <button class="ctx-row" type="button" data-toggle="pick-rock" id="rock-row">
+            <span class="ctx-key">Rock</span>
+            <span class="ctx-val" id="rock-val">the one with the crack</span>
+            <span class="ctx-change">change</span>
+          </button>
+          <div class="picker" id="pick-rock" hidden>
+            <input class="search" type="text" placeholder="Search rocks at Citatah">
+            <p class="picker-hint">Tap the one you're standing at.</p>
+            <div class="rockgrid">
+              <button class="rock" type="button" data-pick-rock="the one with the crack">
+                <div class="rock-photo"></div>
+                <div class="rock-cap">
+                  <div class="rock-name">the one with the crack</div>
+                  <div class="rock-by">4 problems</div>
+                </div>
+              </button>
+              <button class="rock" type="button" data-pick-rock="the big overhang">
+                <div class="rock-photo b"></div>
+                <div class="rock-cap">
+                  <div class="rock-name">the big overhang</div>
+                  <div class="rock-by">2 problems</div>
+                </div>
+              </button>
+              <button class="rock" type="button" data-pick-rock="Slab Mantap's rock">
+                <div class="rock-photo none">no photo yet</div>
+                <div class="rock-cap">
+                  <div class="rock-by lead">Slab Mantap, Sit Start</div>
+                  <div class="rock-by">2 problems &middot; no name yet</div>
+                </div>
+              </button>
+              <button class="rock" type="button" data-pick-rock="Kelelawar's rock">
+                <div class="rock-photo none">no photo yet</div>
+                <div class="rock-cap">
+                  <div class="rock-by lead">Kelelawar</div>
+                  <div class="rock-by">1 problem &middot; no name yet</div>
+                </div>
+              </button>
+              <button class="rock wide" type="button" data-pick-rock="a new rock">
+                <span class="opt-main"><span class="rock-name">It's a new rock</span><span class="rock-by">your photo becomes its topo</span></span>
+              </button>
+              <button class="rock wide" type="button" data-pick-rock="not sure yet">
+                <span class="opt-main"><span class="rock-name">Not sure which rock</span><span class="rock-by">file it now, move it later</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="rule"></div>
+
+        <div class="field">
+          <label class="label" for="p-name">Name</label>
+          <input class="input" type="text" id="p-name" placeholder="Slab Mantap">
+        </div>
+
+        <div class="field">
+          <span class="label">Grade <span class="opt-tag">&mdash; skip it if it's still a project</span></span>
+          <div class="grades" id="grades">
+            <button class="grade" type="button" aria-pressed="false">V0</button>
+            <button class="grade" type="button" aria-pressed="false">V1</button>
+            <button class="grade" type="button" aria-pressed="false">V2</button>
+            <button class="grade" type="button" aria-pressed="false">V3</button>
+            <button class="grade" type="button" aria-pressed="false">V4</button>
+            <button class="grade" type="button" aria-pressed="false">V5</button>
+            <button class="grade" type="button" aria-pressed="false">V6</button>
+            <button class="grade ghost" type="button" aria-pressed="false">more&hellip;</button>
+            <button class="grade ghost" type="button" aria-pressed="false">no grade yet</button>
+          </div>
+        </div>
+
+        <div class="field" id="photo-field">
+          <span class="label">Photo <span class="opt-tag">&mdash; a wide shot of the rock</span></span>
+          <div class="existing-photos">
+            <div class="rock-photo"></div>
+            <div class="rock-photo b"></div>
+            <span style="font-size:11px;color:var(--muted);align-self:center">this rock already has photos &mdash; draw on one, or add another</span>
+          </div>
+          <button class="photo-drop" type="button" id="add-photo">+ add a photo of the rock</button>
+          <p class="photo-note">The photo belongs to the rock. Every problem on it draws on the same picture.</p>
+        </div>
+
+        <div class="field" id="photo-added" hidden>
+          <span class="label">Photo</span>
+          <div class="shot">
+            <div class="rock-photo"></div>
+            <div class="shot-bar">
+              <span>added to this rock</span>
+              <button class="link-btn" type="button">+ draw the line</button>
+            </div>
+          </div>
+        </div>
+
+        <details class="more">
+          <summary>More details (optional)</summary>
+          <div class="body">
+            <div class="field">
+              <label class="label" for="p-fa">First ascent</label>
+              <input class="input" type="text" id="p-fa" placeholder="who climbed it first">
+            </div>
+            <div class="field">
+              <label class="label" for="p-h">Height</label>
+              <input class="input" type="text" id="p-h" placeholder="4 m">
+            </div>
+            <div class="field">
+              <label class="label" for="p-land">Landing</label>
+              <input class="input" type="text" id="p-land" placeholder="flat, one pad is enough">
+            </div>
+            <div class="field">
+              <label class="label" for="p-desc">Getting down</label>
+              <input class="input" type="text" id="p-desc" placeholder="walk off the back">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label class="label" for="p-notes">Anything else</label>
+              <textarea class="input" id="p-notes" placeholder="beta, conditions, when it's dry"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <button class="submit" type="button" id="p-submit" disabled data-go="saved">Add problem</button>
+      </section>
+
+      <!-- ============ 3. ADD A PROBLEM AT A BRAND-NEW SPOT ============ -->
+      <section class="sheet" data-screen="newspot" hidden>
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div class="sheet-title">Add a problem</div>
+          <button class="x" type="button" data-go="intent">&times;</button>
+        </div>
+
+        <div class="ctx">
+          <button class="ctx-row" type="button" data-toggle="pick-spot2">
+            <span class="ctx-key">Where</span>
+            <span class="ctx-val">a new spot <em>&middot; here</em></span>
+            <span class="ctx-change">change</span>
+          </button>
+          <div class="picker" id="pick-spot2">
+            <div class="field">
+              <label class="label" for="ns-name">What's this place called?</label>
+              <input class="input" type="text" id="ns-name" placeholder="Batu Kalong">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <span class="label">Pin</span>
+              <button class="photo-drop" type="button">dropped where you're standing &mdash; tap to move</button>
+            </div>
+          </div>
+        </div>
+        <!-- no Rock row: decision 12 -->
+
+        <div class="rule"></div>
+
+        <div class="field">
+          <label class="label" for="n-name">Name</label>
+          <input class="input" type="text" id="n-name" placeholder="Slab Mantap">
+        </div>
+        <div class="field">
+          <span class="label">Grade <span class="opt-tag">&mdash; skip it if it's still a project</span></span>
+          <div class="grades">
+            <button class="grade" type="button" aria-pressed="false">V0</button>
+            <button class="grade" type="button" aria-pressed="false">V1</button>
+            <button class="grade" type="button" aria-pressed="false">V2</button>
+            <button class="grade" type="button" aria-pressed="false">V3</button>
+            <button class="grade" type="button" aria-pressed="false">V4</button>
+            <button class="grade ghost" type="button" aria-pressed="false">more&hellip;</button>
+            <button class="grade ghost" type="button" aria-pressed="false">no grade yet</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Photo <span class="opt-tag">&mdash; a wide shot of the rock</span></span>
+          <button class="photo-drop" type="button">+ add a photo of the rock</button>
+        </div>
+
+        <details class="more">
+          <summary>More details (optional)</summary>
+          <div class="body">
+            <div class="field">
+              <label class="label" for="ns-pat">Patokan</label>
+              <input class="input" type="text" id="ns-pat" placeholder="turn at the warung, 300 m up the track">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label class="label" for="ns-acc">Access</label>
+              <input class="input" type="text" id="ns-acc" placeholder="ask the owner first, park by the gate">
+            </div>
+          </div>
+        </details>
+
+        <button class="submit" type="button" data-go="saved">Add problem</button>
+      </section>
+
+      <!-- ============ 4. ADD A SPOT ============ -->
+      <section class="sheet" data-screen="spot" hidden>
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div>
+            <div class="sheet-title">Add a spot</div>
+            <div class="sheet-sub">a place you can climb at</div>
+          </div>
+          <button class="x" type="button" data-go="intent">&times;</button>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label class="label" for="s-name">What's it called?</label>
+          <input class="input" type="text" id="s-name" placeholder="Batu Kalong">
+        </div>
+        <div class="field">
+          <span class="label">Where is it?</span>
+          <button class="photo-drop" type="button">pin dropped where you're standing &mdash; tap to move</button>
+        </div>
+        <div class="field">
+          <span class="label">Photo <span class="opt-tag">&mdash; how it looks when you arrive</span></span>
+          <button class="photo-drop" type="button">+ add a photo</button>
+        </div>
+        <div class="field">
+          <label class="label" for="s-pat">Patokan <span class="opt-tag">&mdash; optional</span></label>
+          <input class="input" type="text" id="s-pat" placeholder="turn at the warung, 300 m up the track">
+        </div>
+        <div class="field">
+          <label class="label" for="s-acc">Access <span class="opt-tag">&mdash; optional</span></label>
+          <input class="input" type="text" id="s-acc" placeholder="ask the owner first, park by the gate">
+        </div>
+
+        <button class="submit" type="button" data-go="saved">Add spot</button>
+        <p class="photo-note" style="margin-top:10px">Saves on its own. You can add rocks and problems whenever.</p>
+      </section>
+
+      <!-- ============ 5. ADD A ROCK ============ -->
+      <section class="sheet" data-screen="rock" hidden>
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div>
+            <div class="sheet-title">Add a rock</div>
+            <div class="sheet-sub">one rock or wall at a spot</div>
+          </div>
+          <button class="x" type="button" data-go="intent">&times;</button>
+        </div>
+
+        <div class="ctx">
+          <button class="ctx-row" type="button" data-toggle="pick-spot3">
+            <span class="ctx-key">Where</span>
+            <span class="ctx-val">Citatah <em>&middot; 80 m away</em></span>
+            <span class="ctx-change">change</span>
+          </button>
+          <div class="picker" id="pick-spot3" hidden>
+            <input class="search" type="text" placeholder="Search spots">
+            <button class="opt" type="button"><span class="opt-main"><span class="opt-name">Citatah</span></span><span class="opt-dist">80 m</span></button>
+            <button class="opt" type="button"><span class="opt-main"><span class="opt-name">Citatah 125</span></span><span class="opt-dist">1.2 km</span></button>
+            <button class="opt" type="button"><span class="opt-main"><span class="opt-name">Goa Agung</span></span><span class="opt-dist">14 km</span></button>
+            <button class="opt new" type="button"><span class="opt-main"><span class="opt-name">It's a new spot</span></span></button>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <span class="label">Is it a rock or a wall?</span>
+          <div class="grades" id="rocktype">
+            <button class="grade" type="button" aria-pressed="true">Batu &mdash; a rock</button>
+            <button class="grade" type="button" aria-pressed="false">Tebing &mdash; a wall</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Photo <span class="opt-tag">&mdash; the wide shot lines get drawn on</span></span>
+          <button class="photo-drop" type="button">+ add a photo</button>
+        </div>
+        <div class="field">
+          <label class="label" for="r-name">Name it? <span class="opt-tag">&mdash; optional, most aren't named</span></label>
+          <input class="input" type="text" id="r-name" placeholder="the one with the crack">
+        </div>
+        <div class="field">
+          <label class="label" for="r-type">What kind of stone? <span class="opt-tag">&mdash; optional</span></label>
+          <input class="input" type="text" id="r-type" placeholder="batu kapur">
+        </div>
+
+        <button class="submit" type="button" data-go="saved">Add rock</button>
+        <p class="photo-note" style="margin-top:10px">Saves on its own. A rock with no problems yet is fine.</p>
+      </section>
+
+      <!-- ============ 6. AFTER SUBMIT ============ -->
+      <section class="sheet" data-screen="saved" hidden>
+        <div class="grabber"></div>
+        <div class="saved">
+          <div class="tick">&#10003;</div>
+          <h3>Slab Mantap is up</h3>
+          <p>Citatah &middot; the one with the crack</p>
+          <div class="carry">
+            Still here for the next one: <b>Citatah</b> &middot; <b>the one with the crack</b>
+          </div>
+        </div>
+        <button class="submit" type="button" data-go="problem" style="margin-top:18px">Add another to this rock</button>
+        <button class="ghost-btn" type="button" data-go="intent">Add another rock here</button>
+        <button class="ghost-btn" type="button">See it on the map</button>
+      </section>
+
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h2>What this shows</h2>
+    <p class="lead">Each note lists the handoff requirement the screen is standing in for.</p>
+
+    <div class="note" data-note="intent">
+      <h3>Tap Add &mdash; three intents</h3>
+      <ul>
+        <li>Three first-class errands, <b>ordered by how often each is the answer</b>, not by hierarchy depth. <span class="ref">decision 11</span></li>
+        <li>A newcomer takes the first and never reads the other two; a veteran goes straight to the one they meant. <span class="ref">principle 1</span></li>
+        <li>Each intent <b>commits on its own</b> &mdash; the line under the list says so out loud.</li>
+        <li>Opening this from a crag or rock page skips it entirely and pre-fills the level above.</li>
+      </ul>
+    </div>
+
+    <div class="note" data-note="problem">
+      <h3>Add a problem &mdash; one sheet</h3>
+      <ul>
+        <li>One scroll, no steps. Going back is scrolling up, and <b>nothing is discarded</b> on the way. <span class="ref">decision 14</span></li>
+        <li>The two context rows <b>arrive answered</b>: nearest spot, and the rock you were last at. Tapping <i>change</i> expands that picker inline and collapses it on pick.</li>
+        <li>Spot list is <b>distance-sorted with a search box</b> &mdash; "Citatah &middot; 80 m" sitting above "Citatah 125" is the only duplicate-spot prevention in the design. <span class="ref">open item 8</span></li>
+        <li>Rock picker is a <b>photo grid</b>, and photoless tiles identify themselves <b>by the problems on them</b> ("Slab Mantap, Sit Start") &mdash; never "Rock 3". <span class="ref">principle 3</span></li>
+        <li>"It's a new rock" and "Not sure which rock" both proceed; re-parenting later is what makes that honest. <span class="ref">principles 5, decision 13</span></li>
+        <li>The photo field is <b>here, not on a rock step</b> &mdash; you're standing in front of it holding a camera. It uploads to the <b>rock</b>. If the rock already has photos, it offers them to draw on instead.</li>
+        <li>"Draw the line" appears <b>only once a photo exists</b>, and never blocks submitting.</li>
+        <li><b>Name is the only required field</b> &mdash; grade included. Submit stays disabled rather than enabled-and-scolding. Type a name to watch it wake up.</li>
+        <li>No word on this screen is technical: no "annotation", no "required field", no "parent". <span class="ref">principle 7</span></li>
+      </ul>
+    </div>
+
+    <div class="note" data-note="newspot">
+      <h3>&hellip; at a brand-new spot</h3>
+      <ul>
+        <li><b>The Rock row is gone entirely.</b> When the spot is being created in the same breath there is nothing to choose between, so creating the rock is the app's job. <span class="ref">decision 12</span></li>
+        <li>The person never sees the word "rock" as a question &mdash; only as "a photo of the rock".</li>
+        <li>The motivating case end to end: name the spot, drop the pin, name, grade, photo, done. <b>Three fields and a photo</b>, with all three levels filed behind the scenes.</li>
+        <li>Patokan and access notes are in "more details" &mdash; present, never in the path.</li>
+      </ul>
+    </div>
+
+    <div class="note" data-note="spot">
+      <h3>Add a spot</h3>
+      <ul>
+        <li>A short sheet that <b>saves and stops</b>. The result is a dimmed pin reading "no problems yet &middot; add the first one". <span class="ref">open item 1</span></li>
+        <li>This is the state the shipped wizard made unreachable &mdash; it committed nothing until a problem name existed.</li>
+        <li>Gets its own photo now: the approach shot, so cards show the place instead of borrowing a rock's picture. <span class="ref">decision 2, amended</span></li>
+      </ul>
+    </div>
+
+    <div class="note" data-note="rock">
+      <h3>Add a rock</h3>
+      <ul>
+        <li>Same shape one level down, and <b>there for the veteran</b> &mdash; documenting a rock shouldn't require inventing a problem for it. <span class="ref">decision 11</span></li>
+        <li><b>Batu / tebing</b> is asked in plain words, and drives every "which rock?" vs "which wall?" string after it. The word "boulder" never appears. <span class="ref">decision 1, principle 6</span></li>
+        <li>Name and stone type are optional and last &mdash; most rocks have neither.</li>
+      </ul>
+    </div>
+
+    <div class="note" data-note="saved">
+      <h3>After submit</h3>
+      <ul>
+        <li><b>"Add another to this rock"</b> keeps the spot and the rock and clears only the climb fields. Documenting a rock means entering its lines one after another &mdash; sit start, stand start, the traverse &mdash; in one sitting.</li>
+        <li>Repetition, not confusion, is the veteran's failure mode. This is the single highest-value affordance in the flow and nearly free to build. <span class="ref">principle 1</span></li>
+        <li>Same offer one level up after adding a rock.</li>
+      </ul>
+    </div>
+
+    <p class="disclaimer">
+      Static prototype: the pickers, grade chips, disclosure and submit-gating are live; nothing saves.
+      Fonts fall back to Georgia / system sans when offline. Not built from the app's components &mdash;
+      per handoff.md's implementation note the real sheet should be built through the <code>impeccable</code> skill.
+    </p>
+  </aside>
+</main>
+
+<script>
+(function () {
+  var screens = document.querySelectorAll('[data-screen]');
+  var notes = document.querySelectorAll('[data-note]');
+  var stateBtns = document.querySelectorAll('#states button');
+
+  function show(name) {
+    screens.forEach(function (s) { s.hidden = s.dataset.screen !== name; });
+    notes.forEach(function (n) { n.hidden = n.dataset.note !== name; });
+    stateBtns.forEach(function (b) { b.setAttribute('aria-current', String(b.dataset.state === name)); });
+    document.querySelectorAll('.sheet').forEach(function (s) { s.scrollTop = 0; });
+  }
+
+  document.addEventListener('click', function (e) {
+    var go = e.target.closest('[data-go]');
+    if (go) { show(go.dataset.go); return; }
+
+    var st = e.target.closest('#states button');
+    if (st) { show(st.dataset.state); return; }
+
+    // inline picker expand / collapse
+    var row = e.target.closest('[data-toggle]');
+    if (row) {
+      var p = document.getElementById(row.dataset.toggle);
+      if (p) p.hidden = !p.hidden;
+      return;
+    }
+
+    // spot pick
+    var sp = e.target.closest('[data-pick-spot]');
+    if (sp) {
+      document.getElementById('spot-val').innerHTML =
+        sp.dataset.pickSpot + ' <em>&middot; ' + sp.dataset.dist + '</em>';
+      document.getElementById('pick-spot').hidden = true;
+      return;
+    }
+
+    // rock pick
+    var rk = e.target.closest('[data-pick-rock]');
+    if (rk) {
+      document.getElementById('rock-val').textContent = rk.dataset.pickRock;
+      document.getElementById('pick-rock').hidden = true;
+      return;
+    }
+
+    // grade chips (single select within their own row)
+    var g = e.target.closest('.grade');
+    if (g) {
+      var on = g.getAttribute('aria-pressed') === 'true';
+      g.parentElement.querySelectorAll('.grade').forEach(function (b) {
+        b.setAttribute('aria-pressed', 'false');
+      });
+      g.setAttribute('aria-pressed', String(!on));
+      return;
+    }
+
+    // fake photo upload -> reveals "draw the line"
+    if (e.target.closest('#add-photo')) {
+      document.getElementById('photo-field').hidden = true;
+      document.getElementById('photo-added').hidden = false;
+      return;
+    }
+  });
+
+  show('intent');
+
+  // name is the only required field
+  var name = document.getElementById('p-name');
+  var submit = document.getElementById('p-submit');
+  name.addEventListener('input', function () {
+    submit.disabled = name.value.trim() === '';
+  });
+})();
+</script>
+</body>
+</html>

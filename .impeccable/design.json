@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-30T00:00:00.000Z",
+  "generatedAt": "2026-08-09T00:00:00.000Z",
   "title": "Design System: Palabatu",
   "extensions": {
     "colorMeta": {
@@ -13,9 +13,9 @@
       "cold-slate": { "role": "neutral", "displayName": "Cold Slate", "canonical": "#2a2420", "tonalRamp": ["#000000", "#0c0a09", "#181512", "#241f1b", "#484340", "#858280", "#c2c0bf", "#ffffff"] },
       "chalk-parchment": { "role": "neutral", "displayName": "Chalk Parchment", "canonical": "#f0e0c8", "tonalRamp": ["#000000", "#454039", "#898072", "#cec0ab", "#f2e4d0", "#f6ede0", "#fbf6ef", "#ffffff"] },
       "sun-faded-parchment": { "role": "neutral", "displayName": "Sun-Faded Parchment", "canonical": "#d8c8b8", "tonalRamp": ["#000000", "#3e3935", "#7b7269", "#b9ab9e", "#ded0c2", "#e9e0d6", "#f4efeb", "#ffffff"] },
-      "weathered-stone": { "role": "neutral", "displayName": "Weathered Stone", "canonical": "#8a7060", "tonalRamp": ["#000000", "#27201b", "#4f4037", "#766052", "#9b8477", "#bcada4", "#ded6d2", "#ffffff"] },
-      "dusk-stone": { "role": "neutral", "displayName": "Dusk Stone", "canonical": "#6a5848", "tonalRamp": ["#000000", "#1e1915", "#3d3229", "#5b4b3e", "#7f7062", "#aaa096", "#d4cfcb", "#ffffff"] },
-      "faint-stone": { "role": "neutral", "displayName": "Faint Stone", "canonical": "#4a3c30" },
+      "weathered-stone": { "role": "neutral", "displayName": "Weathered Stone", "canonical": "#967b6a", "tonalRamp": ["#000000", "#282019", "#51413a", "#7c6656", "#a08979", "#c0b1a7", "#e0d8d3", "#ffffff"], "note": "Raised 2026-08-09 from #8a7060 (measured 3.91:1 on panel/surface, failing WCAG AA) to #967b6a (4.58:1 on Ash Surface, 4.75:1 on Charcoal Panel). Now the documented floor for any text color per The Sentence Rule." },
+      "dusk-stone": { "role": "neutral", "displayName": "Dusk Stone", "canonical": "#6a5848", "tonalRamp": ["#000000", "#1e1915", "#3d3229", "#5b4b3e", "#7f7062", "#aaa096", "#d4cfcb", "#ffffff"], "note": "Reclassified 2026-08-09 as non-text: disabled controls, example-only input placeholders, decorative dividers. Was previously used for label text (e.g. secondary-button labels); at ~2.72:1 on Charcoal Panel it does not pass at label sizes. See flagged finding below." },
+      "faint-stone": { "role": "neutral", "displayName": "Faint Stone", "canonical": "#4a3c30", "note": "Reclassified 2026-08-09 as never-text: hairlines, decorative rules, dashed borders only. Measures 1.76:1 on panel." },
       "moss-green": { "role": "tertiary", "displayName": "Moss Green", "canonical": "#5dbb6a", "tonalRamp": ["#000000", "#1b351e", "#356b3d", "#50a05b", "#74c57f", "#a2d8aa", "#d1ecd4", "#ffffff"] },
       "moss-green-dark": { "role": "tertiary", "displayName": "Deep Moss Green", "canonical": "#3a8a45" },
       "ember-red": { "role": "tertiary", "displayName": "Ember Red", "canonical": "#e07060", "tonalRamp": ["#000000", "#40201b", "#804037", "#c06052", "#e48477", "#edada4", "#f6d6d2", "#ffffff"] }
@@ -57,15 +57,17 @@
       "refersTo": "button-secondary",
       "description": "Cancel/ghost button, paired with a primary button.",
       "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
-      "css": ".ds-btn-secondary { background: transparent; color: #6a5848; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; border: 1px solid #2a2420; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: border-color 0.2s, color 0.2s; } .ds-btn-secondary:hover { border-color: #c87a30; color: #d8c8b8; }"
+      "css": ".ds-btn-secondary { background: transparent; color: #6a5848; font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; border: 1px solid #2a2420; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: border-color 0.2s, color 0.2s; } .ds-btn-secondary:hover { border-color: #c87a30; color: #d8c8b8; }",
+      "note": "UNCHANGED pending a product call — see the flagged finding: this textColor (#6a5848, Dusk Stone) measures ~2.72:1 on Charcoal Panel, below the Sentence Rule's own floor. Not silently fixed here because the replacement is a visual-weight decision (Weathered Stone vs. something else), not sidecar maintenance."
     },
     {
       "name": "Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Problem/spot card, used in scrollable lists and grids.",
-      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">V4 &mdash; Sunset Slab</h3><p class=\"ds-card-body\">Overhang start, crimpy top-out.</p></div>",
-      "css": ".ds-card { background: #141210; border: 1px solid #2a2420; border-radius: 16px; padding: 18px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; } .ds-card:hover { transform: translateY(-4px); border-color: #c87a30; } .ds-card-title { font-family: 'Playfair Display', serif; font-weight: 700; color: #f0e0c8; margin: 0 0 6px; } .ds-card-body { font-family: 'DM Sans', sans-serif; font-weight: 400; color: #d8c8b8; margin: 0; }"
+      "description": "Problem/spot card. Canonical form is the Directory's photo-first grid card (photo leads, grade badge and locate button overlaid on it, title/location/creator+sends below); Landing's horizontally-scrolling explore cards use a plainer text-only subset of the same shape.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-photo\"><img class=\"ds-card-img\" src=\"\" alt=\"\" /><span class=\"ds-card-grade\">V4</span><button class=\"ds-card-locate\" aria-label=\"Locate on map\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" width=\"14\" height=\"14\"><polygon points=\"3 11 22 2 13 21 11 13 3 11\"></polygon></svg></button></div><div class=\"ds-card-body\"><h3 class=\"ds-card-title\">Sunset Slab</h3><p class=\"ds-card-loc\">Ciwidey</p><div class=\"ds-card-foot\"><span>by budi</span><span>12 sends</span></div></div></div>",
+      "css": ".ds-card { background: #141210; border: 1px solid #2a2420; border-radius: 16px; overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s; } .ds-card:hover { transform: translateY(-4px); border-color: #c87a30; } .ds-card-photo { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #1a1612; overflow: hidden; } .ds-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; } .ds-card:hover .ds-card-img { transform: scale(1.05); } .ds-card-grade { position: absolute; bottom: 12px; left: 12px; background: #0f0d0b; border: 1px solid rgba(200,122,48,0.4); color: #c87a30; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 9999px; } .ds-card-locate { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #0f0d0b; border: 1px solid #2a2420; border-radius: 9999px; color: #967b6a; cursor: pointer; transition: color 0.2s, border-color 0.2s; } .ds-card-locate:hover { color: #c87a30; border-color: #c87a30; } .ds-card-body { padding: 16px; } .ds-card-title { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 18px; color: #f0e0c8; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-card-loc { font-family: 'DM Sans', sans-serif; font-size: 12px; color: #6a5848; margin: 0 0 8px; } .ds-card-foot { display: flex; align-items: center; justify-content: space-between; font-family: 'DM Sans', sans-serif; font-size: 11px; color: #6a5848; padding-top: 8px; border-top: 1px solid #2a2420; } .ds-card-foot span:first-child { color: #c87a30; font-weight: 700; }",
+      "note": "ds-card-locate updated to the raised Weathered Stone (#967b6a). ds-card-loc and ds-card-foot's secondary span still use Dusk Stone (#6a5848) as text color — same unresolved contrast issue as the Secondary Button; left unchanged for the same reason."
     },
     {
       "name": "Text Input",
@@ -73,7 +75,8 @@
       "refersTo": "input",
       "description": "Standard form field — auth forms, comment box, problem forms.",
       "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Add a comment\" />",
-      "css": ".ds-input { width: 100%; background: #1a1612; border: 1px solid #2a2420; border-radius: 10px; padding: 10px 14px; color: #d8c8b8; font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; } .ds-input::placeholder { color: #4a3c30; } .ds-input:focus { border-color: #c87a30; }"
+      "css": ".ds-input { width: 100%; background: #1a1612; border: 1px solid #2a2420; border-radius: 10px; padding: 10px 14px; color: #d8c8b8; font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; } .ds-input::placeholder { color: #6a5848; } .ds-input:focus { border-color: #c87a30; }",
+      "note": "Placeholder color corrected from Faint Stone (#4a3c30, 1.76:1 — now forbidden as text) to Dusk Stone (#6a5848), matching DESIGN.md's corrected Inputs/Fields entry."
     },
     {
       "name": "Nav Link",
@@ -81,7 +84,7 @@
       "refersTo": "nav-link",
       "description": "Top-bar navigation link, with the inset-underline active state.",
       "html": "<a class=\"ds-nav-link\" href=\"#\">Map</a> <a class=\"ds-nav-link ds-nav-link--active\" href=\"#\">Profile</a>",
-      "css": ".ds-nav-link { font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; color: #8a7060; text-decoration: none; padding-bottom: 4px; transition: color 0.2s; } .ds-nav-link:hover { color: #d8c8b8; } .ds-nav-link--active { color: #f0e0c8; box-shadow: inset 0 -2px 0 0 #c87a30; }"
+      "css": ".ds-nav-link { font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; color: #967b6a; text-decoration: none; padding-bottom: 4px; transition: color 0.2s; } .ds-nav-link:hover { color: #d8c8b8; } .ds-nav-link--active { color: #f0e0c8; box-shadow: inset 0 -2px 0 0 #c87a30; }"
     }
   ],
   "narrative": {
@@ -94,6 +97,7 @@
       "Shadows reserved for things that float above the page (modals, dropdowns, toasts, the mobile drawer) and for the accent-tinted glow under primary CTAs."
     ],
     "rules": [
+      { "name": "The Sentence Rule", "body": "If it is made of words, it is at least Weathered Stone. Dusk Stone and Faint Stone are structural colors - borders, hairlines, disabled states, decoration - and never carry copy. Tuned for outdoor sunlight on low-end Android panels, not a dark room on a good screen. When text feels too loud at Weathered Stone, cut the text or shrink its role - do not dim it below the floor.", "section": "colors" },
       { "name": "The One Ember Rule", "body": "Ember Orange is the only warm accent used for action and attention. A second hue competing for the same role is a bug, not a design choice - new UI reaches for Moss Green or Ember Red only for their specific semantic roles (success/associate, danger), never as a second general-purpose accent.", "section": "colors" },
       { "name": "The Two-Font Rule", "body": "Every piece of text is either Playfair Display (display/headline) or DM Sans (body/label) - never a third face, never Playfair Display below headline size, never DM Sans for a hero line.", "section": "typography" },
       { "name": "The One Breakpoint Rule", "body": "Design for two states - phone and \"wider than phone\" - around the 640-768px band. Don't design a three- or four-tier responsive system.", "section": "layout" },

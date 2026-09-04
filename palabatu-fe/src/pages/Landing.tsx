@@ -1,15 +1,24 @@
 import { api } from "../lib/api.js";
-import { Link } from "react-router-dom";
+import { enrichProblems, getAllCrags } from "../lib/cragCache.js";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import type { ProblemRow } from '../types/problem.js';
-import ProblemDetails from '../components/ProblemDetails.js';
+import { Flame, Plus } from 'lucide-react';
+import type { ProblemListItem, EnrichedProblem } from '../types/problem.js';
+import type { CragListItem } from '../types/crag.js';
+import { ProblemCard, type FooterStat } from '../components/ProblemCard.js';
+import { SpotCard } from '../components/SpotCard.js';
+import { RockCard } from '../components/RockCard.js';
+import { groupRecentRocks } from '../lib/recentRocks.js';
+import { haversineKm, type Geo } from '../lib/geo.js';
+import { useAddSheet } from '../lib/useAddSheet.js';
 import Toast from '../components/Toast.js';
+import FeedbackModal from '../components/FeedbackModal.js';
 import { useAuth } from '../lib/useAuth.js';
 import type { CountResponse, ErrorResponse } from '../types/apitypes.js';
+import type { FeedbackType } from '../types/feedback.js';
 
 type Tab = 'nearYou' | 'hot' | 'recent';
-type Geo = { lat: number; lng: number };
-type CardItem = { problem: ProblemRow; badge: string; icon: 'pin' | 'flame' | 'clock' };
+type CardItem = { problem: EnrichedProblem; footerStat: FooterStat };
 
 const CARD_LIMIT = 10;
 
@@ -17,7 +26,7 @@ const CARD_LIMIT = 10;
 const DISCORD_SUPPORT_URL = 'https://discord.gg/palabatu';
 
 // placeholder — replace with real donation URLs
-const SAWERIA_URL = 'https://saweria.co/anrizald';
+const SAWERIA_URL = 'https://saweria.co/ghuldev';
 const KOFI_URL = 'https://ko-fi.com/ghulaman';
 
 const GITHUB_REPO_URL = 'https://github.com/anrizald/palabatu';
@@ -30,33 +39,9 @@ const labelStyle = {
 } as const;
 
 const bodyStyle = {
-    fontSize: '14px', color: '#8a7060', lineHeight: 1.6,
+    fontSize: '14px', color: '#967b6a', lineHeight: 1.6,
     fontFamily: "'DM Sans', sans-serif", margin: 0,
 } as const;
-
-function haversineKm(a: Geo, b: Geo) {
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLng = (b.lng - a.lng) * Math.PI / 180;
-    const s = Math.sin(dLat / 2) ** 2
-        + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-function formatDistance(km: number) {
-    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
-}
-
-function formatRelativeTime(dateStr: string) {
-    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-    if (days <= 0) return 'today';
-    if (days === 1) return '1 day ago';
-    if (days < 7) return `${days} days ago`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-    const months = Math.floor(days / 30);
-    return months <= 1 ? '1 month ago' : `${months} months ago`;
-}
 
 function PinIcon() {
     return (
@@ -110,57 +95,39 @@ function InstagramIcon() {
     );
 }
 
-function TabIcon({ icon }: { icon: CardItem['icon'] }) {
-    if (icon === 'flame') return <FlameIcon />;
-    if (icon === 'clock') return <ClockIcon />;
-    return <PinIcon />;
-}
-
-function ProblemCard({ item, onSelect }: { item: CardItem; onSelect: (p: ProblemRow) => void }) {
-    const { problem, badge, icon } = item;
-    return (
-        <div className="p-card" onClick={() => onSelect(problem)}>
-            <h3 className="p-card-title">{problem.name || 'Problem Name'}</h3>
-            <p className="p-card-loc">{problem.location_name || 'Unknown Location'}</p>
-            <div className="p-card-row">
-                <span className="p-card-grade">{problem.grade || '—'}</span>
-                <span className="p-card-badge"><TabIcon icon={icon} />{badge}</span>
-            </div>
-            <div className="p-card-foot">
-                Added by{' '}
-                <Link
-                    to={`/profile/${problem.creator_slug}`}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {problem.creator_name || 'unknown'}
-                </Link>
-            </div>
-        </div>
-    );
-}
-
 export default function Landing() {
-    const { showToast, toast } = useAuth();
-    const [problems, setProblems] = useState<ProblemRow[]>([]);
+    const { user, showToast, toast } = useAuth();
+    const navigate = useNavigate();
+    const [problems, setProblems] = useState<EnrichedProblem[]>([]);
+    const [crags, setCrags] = useState<CragListItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [climberCount, setClimberCount] = useState<number | null>(null);
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
     const [activeTab, setActiveTab] = useState<Tab>('hot');
     const [geo, setGeo] = useState<Geo | null>(null);
     const [locating, setLocating] = useState(false);
+    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const { openAddSheet } = useAddSheet();
 
     useEffect(() => {
         async function fetchData() {
-            const [problemsData, usersData] = await Promise.all([
-                api.get<ProblemRow[] | ErrorResponse>('/api/problems'),
-                api.get<Partial<CountResponse>>('/auth/users/count'),
-            ]);
-            if ('error' in problemsData) {
-                console.error("Error fetching problems:", problemsData.error);
-            } else {
-                setProblems(problemsData || []);
-            }
-            if (typeof usersData?.count === 'number') {
-                setClimberCount(usersData.count);
+            try {
+                const [problemsData, usersData, cragsData] = await Promise.all([
+                    api.get<ProblemListItem[] | ErrorResponse>('/api/problems'),
+                    api.get<Partial<CountResponse>>('/auth/users/count'),
+                    getAllCrags(),
+                ]);
+                if ('error' in problemsData) {
+                    console.error("Error fetching problems:", problemsData.error);
+                } else {
+                    setProblems(await enrichProblems(problemsData || []));
+                }
+                setCrags(cragsData);
+                if (typeof usersData?.count === 'number') {
+                    setClimberCount(usersData.count);
+                }
+            } finally {
+                setIsLoading(false);
             }
         }
         fetchData();
@@ -183,29 +150,29 @@ export default function Landing() {
             .slice(0, CARD_LIMIT)
             .map(problem => {
                 const count = problem.send_count ?? 0;
-                return { problem, badge: `${count} send${count === 1 ? '' : 's'}`, icon: 'flame' as const };
+                return { problem, footerStat: { icon: Flame, label: `${count} send${count === 1 ? '' : 's'}` } };
             })
     ), [problems]);
 
-    const recentItems = useMemo<CardItem[]>(() => (
-        [...problems]
-            .filter(p => p.created_at)
-            .sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
-            .slice(0, CARD_LIMIT)
-            .map(problem => ({ problem, badge: formatRelativeTime(problem.created_at as string), icon: 'clock' as const }))
-    ), [problems]);
+    // Recent is asked at the rock level and Near You at the spot level
+    // (handoff-directory.md decision 2), matching Directory's rows. Both
+    // used to be problem-granular here, which meant a rock's eight lines
+    // rendered as eight copies of the same photograph -- and, since a
+    // problem's map point is its crag's, eight copies of the same distance
+    // too. Hot stays problem-level: one hard line genuinely is the unit.
+    const recentRocks = useMemo(() => groupRecentRocks(problems, CARD_LIMIT), [problems]);
 
-    const nearYouItems = useMemo<CardItem[]>(() => {
+    const nearSpots = useMemo(() => {
         if (!geo) return [];
-        return [...problems]
-            .filter(p => p.latitude != null && p.longitude != null)
-            .map(problem => ({ problem, distanceKm: haversineKm(geo, { lat: problem.latitude, lng: problem.longitude }) }))
+        return crags
+            .map(crag => ({ crag, distanceKm: haversineKm(geo, { lat: crag.lat, lng: crag.lng }) }))
             .sort((a, b) => a.distanceKm - b.distanceKm)
-            .slice(0, CARD_LIMIT)
-            .map(({ problem, distanceKm }) => ({ problem, badge: formatDistance(distanceKm), icon: 'pin' as const }));
-    }, [problems, geo]);
+            .slice(0, CARD_LIMIT);
+    }, [crags, geo]);
 
-    const activeItems = activeTab === 'hot' ? hotItems : activeTab === 'recent' ? recentItems : nearYouItems;
+    const hasRows = activeTab === 'nearYou' ? nearSpots.length > 0
+        : activeTab === 'recent' ? recentRocks.length > 0
+            : hotItems.length > 0;
 
     const handleUseLocation = () => {
         setLocating(true);
@@ -222,6 +189,24 @@ export default function Landing() {
         );
     };
 
+    const submitFeedback = async ({ type, message, email }: { type: FeedbackType; message: string; email: string }) => {
+        setIsSubmittingFeedback(true);
+        try {
+            const res = await api.post<Partial<ErrorResponse>>('/api/feedback', { type, message, email, page_url: window.location.pathname });
+            if (res.error) {
+                showToast(`Error: ${res.error}`, 'error');
+            } else {
+                setIsFeedbackOpen(false);
+                showToast('Thanks for the feedback!');
+            }
+        } catch (e) {
+            console.error('Feedback submission failed', e);
+            showToast('Failed to send feedback. Check your connection.', 'error');
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
+
     return (
         <>
             {toast && <Toast {...toast} />}
@@ -233,12 +218,13 @@ export default function Landing() {
         /* --- hero --- */
         .hero {
             position: relative;
-            min-height: 100vh;
-            min-height: 100dvh;
+            /* the shell already holds back the header/footer strips, so a
+               full-bleed hero is exactly the space left between them */
+            min-height: var(--content-h);
             width: 100%;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            padding: 100px 24px 56px;
+            padding: 40px 24px 40px;
             text-align: center;
             box-sizing: border-box;
             overflow: hidden;
@@ -256,18 +242,18 @@ export default function Landing() {
         .hero-stats {
             display: flex; align-items: center; gap: 14px;
             margin-top: 28px;
-            font-size: 12px; color: #8a7060;
+            font-size: 12px; color: #967b6a;
             letter-spacing: 0.03em;
             font-family: 'DM Sans', sans-serif;
         }
         .hero-stats b { color: #f0e0c8; font-weight: 600; }
         .hero-stats .dot { width: 3px; height: 3px; border-radius: 50%; background: #2a2420; }
 
-        .scroll-cue { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
-        .scroll-cue svg { width: 18px; height: 18px; animation: cue-bounce 2.2s ease-in-out infinite; }
+        .scroll-cue { position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%); color: #6a5848; z-index: 1; }
+        .scroll-cue svg { width: 28px; height: 28px; animation: cue-bounce 2.2s ease-in-out infinite; }
         @keyframes cue-bounce {
             0%, 100% { transform: translateY(0); opacity: 0.5; }
-            50% { transform: translateY(6px); opacity: 1; }
+            50% { transform: translateY(9px); opacity: 1; }
         }
 
         .route-line {
@@ -291,7 +277,7 @@ export default function Landing() {
         .section-inner { max-width: 1100px; margin: 0 auto; }
         .eyebrow {
             font-family: 'DM Sans', sans-serif;
-            font-size: 12px; font-weight: 600; color: #8a7060;
+            font-size: 12px; font-weight: 600; color: #967b6a;
             letter-spacing: 0.12em; text-transform: uppercase;
             margin: 0 0 18px;
         }
@@ -301,7 +287,7 @@ export default function Landing() {
         .tabs { display: inline-flex; gap: 2px; background: #141210; border: 1px solid #2a2420; border-radius: 10px; padding: 3px; }
         .tab {
             border: none; background: none; cursor: pointer;
-            padding: 7px 16px; font-size: 13px; color: #8a7060;
+            padding: 7px 16px; font-size: 13px; color: #967b6a;
             border-radius: 7px; display: flex; align-items: center; gap: 6px;
             font-family: 'DM Sans', sans-serif;
             transition: color 0.15s, background 0.15s;
@@ -311,26 +297,13 @@ export default function Landing() {
 
         /* --- cards --- */
         .card-row { display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 12px; scroll-snap-type: x proximity; }
-        .p-card {
-            scroll-snap-align: start;
+        /* Loading placeholder only -- the real cards are the shared
+           components/ProblemCard.tsx, styled via Tailwind theme tokens. */
+        .p-card-skeleton {
             min-width: 236px; max-width: 236px;
             background: #141210; border: 1px solid #2a2420; border-radius: 16px;
-            padding: 18px; cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
+            padding: 18px;
         }
-        .p-card:hover { transform: translateY(-4px); border-color: #c87a30; }
-        .p-card-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; color: #f0e0c8; margin: 0 0 6px; }
-        .p-card-loc { font-size: 12px; color: #6a5848; margin: 0 0 12px; font-family: 'DM Sans', sans-serif; }
-        .p-card-row { display: flex; align-items: center; gap: 8px; }
-        .p-card-grade {
-            font-size: 11px; padding: 3px 10px;
-            background: rgba(200,122,48,0.12); border: 1px solid #c87a3040;
-            color: #c87a30; border-radius: 20px; font-family: 'DM Sans', sans-serif;
-        }
-        .p-card-badge { font-size: 11px; color: #8a7060; display: flex; align-items: center; gap: 4px; font-family: 'DM Sans', sans-serif; }
-        .p-card-badge svg { width: 12px; height: 12px; }
-        .p-card-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2420; font-size: 11px; color: #6a5848; font-family: 'DM Sans', sans-serif; }
-        .p-card-foot a { color: #c87a30; text-decoration: none; font-weight: 600; }
 
         .locked-card {
             background: #141210; border: 1px dashed #2a2420; border-radius: 16px;
@@ -338,7 +311,7 @@ export default function Landing() {
             text-align: center; gap: 12px;
         }
         .locked-card svg { width: 26px; height: 26px; color: #6a5848; }
-        .locked-card p { margin: 0; font-size: 13px; color: #8a7060; max-width: 320px; font-family: 'DM Sans', sans-serif; }
+        .locked-card p { margin: 0; font-size: 13px; color: #967b6a; max-width: 320px; font-family: 'DM Sans', sans-serif; }
         .locked-btn {
             border: 1px solid #c87a30; color: #c87a30; background: none;
             padding: 8px 18px; border-radius: 9px; font-size: 13px; cursor: pointer;
@@ -354,7 +327,7 @@ export default function Landing() {
         .about { text-align: center; }
         .mission { max-width: 640px; margin: 44px auto 0; }
         .mission p {
-            font-size: 15px; color: #8a7060; line-height: 1.7;
+            font-size: 15px; color: #967b6a; line-height: 1.7;
             font-family: 'DM Sans', sans-serif; margin: 0 0 12px;
         }
         .mission p:last-child { margin-bottom: 0; }
@@ -445,8 +418,8 @@ export default function Landing() {
                             fontWeight: 900, color: '#f0e0c8',
                             marginBottom: '8px', letterSpacing: '-0.01em'
                         }}>kuat, pinter, boleh</p>
-                        <p style={{ fontSize: '15px', color: '#6a5848', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
-                            Indonesia's bouldering community
+                        <p style={{ fontSize: '15px', color: '#967b6a', marginBottom: '32px', fontFamily: "'DM Sans', sans-serif" }}>
+                            Indonesia's Bouldering Spotter Map
                         </p>
                         <a href="/map" style={{
                             padding: '12px 28px',
@@ -476,9 +449,9 @@ export default function Landing() {
                 {/* Explore */}
                 <section className="section">
                     <div className="section-inner">
-                        <p className="eyebrow">Explore problems</p>
+                        <p className="eyebrow">Explore</p>
                         <div className="explore-head">
-                            <div className="tabs" role="tablist" aria-label="Explore problems by">
+                            <div className="tabs" role="tablist" aria-label="Explore by">
                                 <button className="tab" role="tab" aria-selected={activeTab === 'nearYou'} onClick={() => setActiveTab('nearYou')}>
                                     <PinIcon /> Near You
                                 </button>
@@ -494,24 +467,60 @@ export default function Landing() {
                         {activeTab === 'nearYou' && !geo ? (
                             <div className="locked-card">
                                 <PinIcon />
-                                <p>Turn on location to see what problems are within reach.</p>
+                                <p>Turn on location to see which spots are within reach.</p>
                                 <button className="locked-btn" onClick={handleUseLocation} disabled={locating}>
                                     {locating ? 'Locating...' : 'Use my location'}
                                 </button>
                             </div>
+                        ) : isLoading ? (
+                            <div className="card-row">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="p-card-skeleton">
+                                        <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
+                                        <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
+                                        <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : !hasRows ? (
+                            <div className="locked-card">
+                                <PinIcon />
+                                <p>Nothing documented yet. Be the first to map a line.</p>
+                                <button
+                                    className="locked-btn"
+                                    onClick={() => openAddSheet({ intent: 'problem' })}
+                                >
+                                    <Plus size={15} style={{ flexShrink: 0 }} /> Add the first one
+                                </button>
+                            </div>
                         ) : (
                             <div className="card-row">
-                                {problems.length === 0
-                                    ? [...Array(5)].map((_, i) => (
-                                        <div key={i} className="p-card">
-                                            <div className="skeleton" style={{ height: '18px', width: '70%', marginBottom: '10px' }} />
-                                            <div className="skeleton" style={{ height: '13px', width: '50%', marginBottom: '10px' }} />
-                                            <div className="skeleton" style={{ height: '22px', width: '30%', borderRadius: '20px' }} />
-                                        </div>
-                                    ))
-                                    : activeItems.map(item => (
-                                        <ProblemCard key={item.problem.id} item={item} onSelect={setSelectedProblem} />
-                                    ))}
+                                {activeTab === 'nearYou' && nearSpots.map(({ crag, distanceKm }) => (
+                                    <SpotCard
+                                        key={crag.id}
+                                        crag={crag}
+                                        distanceKm={distanceKm}
+                                        navigate={navigate}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
+                                ))}
+                                {activeTab === 'recent' && recentRocks.map(rock => (
+                                    <RockCard
+                                        key={rock.boulderId}
+                                        rock={rock}
+                                        navigate={navigate}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
+                                ))}
+                                {activeTab === 'hot' && hotItems.map(item => (
+                                    <ProblemCard
+                                        key={item.problem.id}
+                                        problem={item.problem}
+                                        navigate={navigate}
+                                        footerStat={item.footerStat}
+                                        className="shrink-0 w-[236px] snap-start"
+                                    />
+                                ))}
                             </div>
                         )}
                     </div>
@@ -526,14 +535,12 @@ export default function Landing() {
                             fontWeight: 900, color: '#f0e0c8', marginBottom: '16px'
                         }}>about palabatu</h1>
                         <div className="mission">
-                            <p className="eyebrow" style={{ margin: '0 0 14px' }}>The mission</p>
                             <p className="mission-line">
                                 From Sabang to Merauke.<br />All of it awaits.
                             </p>
                             <p>
                                 Every wall worth pulling on from Sumatra to Papua, mapped well enough that
-                                someone flying in from Osaka or Melbourne can find it, climb it, and leave
-                                it the way they found it.
+                                anybody can find it, climb it, and leave their mark on palabatu.
                             </p>
                             <p>
                                 And numbers are leverage. A scattered community gets ignored when someone
@@ -541,8 +548,9 @@ export default function Landing() {
                             </p>
                         </div>
 
-                        <p style={{ fontSize: '14px', color: '#6a5848', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
-                            Anyone can add a boulder. Anyone can log a send.{' '}
+                        <p style={{ fontSize: '14px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
+                            Anyone can add a boulder. Anyone can log a send.<br />
+                            Join the cause —{' '}
                             <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
                                 Create your profile
                             </Link>
@@ -550,7 +558,14 @@ export default function Landing() {
 
                         <div className="about-split">
                             <div className="about-panel">
-                                <p className="eyebrow" style={{ margin: '0 0 18px' }}>Vision</p>
+                                <p className="eyebrow" style={{ margin: '0 0 6px' }}>Roadmap</p>
+                                <h3 style={{
+                                    fontFamily: "'Playfair Display', serif", fontSize: '27px',
+                                    fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
+                                }}>visi</h3>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                    planned incoming features
+                                </p>
                                 <div className="about-feature">
                                     <h3 style={labelStyle}>Spot Map</h3>
                                     <p style={bodyStyle}>
@@ -570,6 +585,25 @@ export default function Landing() {
                                         See who else climbs your local spot, and what they've been getting on.
                                     </p>
                                 </div>
+                                <div className="about-feature">
+                                    <h3 style={labelStyle}>Monsoon Tracker</h3>
+                                    <p style={bodyStyle}>
+                                        Rain radar for your local crag. Don't climb when the sun isn't out.
+                                    </p>
+                                </div>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '20px 0 0' }}>
+                                    Have a cool suggestion?{' '}
+                                    <button
+                                        onClick={() => setIsFeedbackOpen(true)}
+                                        style={{
+                                            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                                            color: '#c87a30', fontWeight: 600,
+                                            fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                                        }}
+                                    >
+                                        Feedback
+                                    </button>
+                                </p>
                             </div>
 
                             <div className="about-panel" id="support">
@@ -577,8 +611,8 @@ export default function Landing() {
                                 <h3 style={{
                                     fontFamily: "'Playfair Display', serif", fontSize: '27px',
                                     fontWeight: 700, color: '#f0e0c8', margin: '0 0 4px'
-                                }}>patungan</h3>
-                                <p style={{ fontSize: '13px', color: '#8a7060', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
+                                }}>patungan / bantuin</h3>
+                                <p style={{ fontSize: '13px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '0 0 15px' }}>
                                     everyone throws in what they've got
                                 </p>
                                 <p style={bodyStyle}>
@@ -607,9 +641,9 @@ export default function Landing() {
                                         well enough to fix what we got wrong.
                                     </p>
                                     <div className="pat-icons">
-                                        <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on GitHub">
+                                        {/* <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Palabatu on GitHub">
                                             <GithubIcon />
-                                        </a>
+                                        </a> */}
                                         <a href={DISCORD_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="pat-icon-link" aria-label="Join the Discord">
                                             <DiscordIcon />
                                         </a>
@@ -623,17 +657,12 @@ export default function Landing() {
                     </div>
                 </section>
 
-                {selectedProblem && (
-                    <ProblemDetails
-                        problem={selectedProblem}
-                        onClose={() => setSelectedProblem(null)}
-                        onDelete={(id) => {
-                            setProblems(prev => prev.filter(p => p.id !== id));
-                            setSelectedProblem(null);
-                        }}
-                        onUpdate={(updatedItem) => {
-                            setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                        }}
+                {isFeedbackOpen && (
+                    <FeedbackModal
+                        onClose={() => setIsFeedbackOpen(false)}
+                        onSubmit={submitFeedback}
+                        isSubmitting={isSubmittingFeedback}
+                        showEmailField={!user}
                     />
                 )}
             </div>

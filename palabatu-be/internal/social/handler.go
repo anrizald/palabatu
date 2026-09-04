@@ -39,6 +39,7 @@ func Routes(rg *gin.RouterGroup) {
 
 	rg.GET("/problems/:id/send-status", middleware.RequireAuth, handleSendStatus)
 	rg.POST("/problems/:id/send", middleware.RequireAuth, handleToggleSend)
+	rg.GET("/sends/mine", middleware.RequireAuth, handleListMySends)
 
 	rg.GET("/problems/:id/comments", handleListComments)
 	rg.POST("/problems/:id/comments", middleware.RequireAuth, limitComments, handleCreateComment)
@@ -89,6 +90,27 @@ func handleToggleSend(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ActionResponse{Action: action})
+}
+
+// handleListMySends godoc
+// @Summary      Problem IDs the authenticated user has sent
+// @Description  Backs client-side "sent by me" filtering over a problem
+// @Description  listing without an N+1 per-problem send-status call.
+// @Tags         social
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   string
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/sends/mine [get]
+func handleListMySends(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+
+	ids, err := ListSentProblemIDs(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, ids)
 }
 
 // handleListComments godoc

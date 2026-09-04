@@ -11,6 +11,40 @@ export const GRADE_SCALES = {
 
 export type ProblemType = keyof typeof GRADE_SCALES;
 
+// The grade scale follows the rock's type (handoff.md decision 1): V-scale
+// for a boulder, rope scales for a wall. boulders.BoulderType ('boulder' |
+// 'wall') and this module's own ProblemType ('boulder' | 'rope') are two
+// different vocabularies for the same switch -- this is the one place that
+// translates between them.
+export function boulderTypeToGradeType(type: 'boulder' | 'wall'): ProblemType {
+    return type === 'wall' ? 'rope' : 'boulder';
+}
+
+// Finds which (type, scale) a single grade token belongs to by scanning
+// GRADE_SCALES -- shared by ProblemEditForm's grade picker (which also needs
+// from/to/isRange around this) and ProblemList's Type/Scale/Grade quick
+// filters. Returns null for unrecognized/legacy tokens; callers decide their
+// own fallback.
+export function detectGradeScale(token: string): { type: ProblemType; scale: string } | null {
+    for (const [ptype, scales] of Object.entries(GRADE_SCALES)) {
+        for (const [scaleName, gradesArray] of Object.entries(scales as Record<string, readonly string[]>)) {
+            if (gradesArray.includes(token)) {
+                return { type: ptype as ProblemType, scale: scaleName };
+            }
+        }
+    }
+    return null;
+}
+
+// Below this zoom level, individual rocks/approach-starts would be too close
+// together to tell apart from the crag pin they share a neighbourhood with --
+// the two close-zoom map layers (handoff.md open item 13) only earn their
+// keep once zoomed in past roughly "walking around the crag" scale. Shared
+// between Map.tsx (gates when CragDetailLayer mounts) and PinpointMarker.tsx
+// (caps the crag pin's own size growth once detail pins join it, see the
+// 2026-08-17 de-emphasis pass) so the two can't drift out of sync.
+export const DETAIL_ZOOM = 15;
+
 export const circleButtonStyle = {
     background: '#141210',
     border: '1px solid #c87a30',

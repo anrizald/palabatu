@@ -1,22 +1,21 @@
 import 'leaflet/dist/leaflet.css'
 import { Search, X, Hourglass, Crosshair, Plus } from 'lucide-react'
-import { api } from '../lib/api.js'
+import { getAllCrags } from '../lib/cragCache.js'
 import { useAuth } from '../lib/useAuth.js'
+import { useAddSheet } from '../lib/useAddSheet.js'
 import { useIsMobile } from '../lib/useIsMobile.js'
-import { useSearchParams } from 'react-router-dom'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import PinpointMarker from '../components/PinpointMarker.js'
-import ProblemDetails from '../components/ProblemDetails.js'
 import ClusterCardRail from '../components/ClusterCardRail.js'
+import CragDetailLayer from '../components/CragDetailLayer.js'
+import MapLegend from '../components/MapLegend.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
-import type { NewProblem, ProblemRow } from '../types/problem.js'
-import type { Profile as AuthProfile } from '../types/auth.js'
-import type { ErrorResponse } from '../types/apitypes.js'
+import type { CragListItem } from '../types/crag.js'
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet'
-import AddProblemModal, { LocationPicker } from '../components/AddProblemModal.js'
 import { ZoomControlButtons } from '../components/MapControls.js'
 import FallbackImg from '../components/FallbackImg.js'
-import { circleButtonStyle } from '../lib/constants.js'
+import { circleButtonStyle, DETAIL_ZOOM } from '../lib/constants.js'
 
 const MAX_ZOOM = 18
 // Padded bounding box around Indonesia (Sabang to Merauke) — keeps panning within the country.
@@ -63,7 +62,7 @@ function LocationSearchBox() {
         const timer = setTimeout(async () => {
             try {
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(trimmed)}`,
+                    `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=id&q=${encodeURIComponent(trimmed)}`,
                     { signal: controller.signal }
                 );
                 const data = await res.json();
@@ -101,13 +100,13 @@ function LocationSearchBox() {
     let dropdownContent: ReactNode = null;
     if (isSearching) {
         dropdownContent = (
-            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                 Searching...
             </div>
         );
     } else if (results.length === 0) {
         dropdownContent = (
-            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+            <div style={{ padding: '10px 12px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                 No results found
             </div>
         );
@@ -162,7 +161,7 @@ function LocationSearchBox() {
                 padding: '10px 12px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             }}>
-                <Search size={16} color="#8a7060" style={{ flexShrink: 0 }} />
+                <Search size={16} color="#967b6a" style={{ flexShrink: 0 }} />
                 <input
                     type="text"
                     value={query}
@@ -172,7 +171,7 @@ function LocationSearchBox() {
                         if (e.key === 'Escape') setShowDropdown(false);
                         else if (e.key === 'Enter' && results.length > 0) handleSelect(results[0]!);
                     }}
-                    placeholder="Search for a place..."
+                    placeholder="Search a place or paste coordinates..."
                     style={{
                         flex: 1,
                         background: 'transparent',
@@ -190,7 +189,7 @@ function LocationSearchBox() {
                         aria-label="Clear search"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
                     >
-                        <X size={14} color="#8a7060" style={{ flexShrink: 0 }} />
+                        <X size={14} color="#967b6a" style={{ flexShrink: 0 }} />
                     </button>
                 )}
             </div>
@@ -239,120 +238,80 @@ function LocateMeButton() {
 
     return (
         <>
-        {toast && <Toast {...toast} />}
-        <button
-            onClick={handleLocate}
-            disabled={isLocating}
-            title="Find my location"
-            aria-label="Find my location"
-            style={{
-                ...circleButtonStyle,
-                width: '48px',
-                height: '48px',
-                cursor: 'pointer',
-                opacity: isLocating ? 0.6 : 1,
-            }}
-        >
-            {isLocating ? (
-                <FallbackImg
-                    src="/assets/locate_me/sandglass-24.png"
-                    srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="locate-sandglass-spin"
-                    fallback={Hourglass}
-                />
-            ) : (
-                <FallbackImg
-                    src="/assets/locate_me/crosshair-24.png"
-                    srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
-                    alt=""
-                    width={24}
-                    height={24}
-                    fallback={Crosshair}
-                />
-            )}
-        </button>
+            {toast && <Toast {...toast} />}
+            <button
+                onClick={handleLocate}
+                disabled={isLocating}
+                title="Find my location"
+                aria-label="Find my location"
+                style={{
+                    ...circleButtonStyle,
+                    width: '48px',
+                    height: '48px',
+                    cursor: 'pointer',
+                    opacity: isLocating ? 0.6 : 1,
+                }}
+            >
+                {isLocating ? (
+                    <FallbackImg
+                        src="/assets/locate_me/sandglass-24.png"
+                        srcSet="/assets/locate_me/sandglass-24.png 1x, /assets/locate_me/sandglass-48.png 2x, /assets/locate_me/sandglass-72.png 3x"
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="locate-sandglass-spin"
+                        fallback={Hourglass}
+                    />
+                ) : (
+                    <FallbackImg
+                        src="/assets/locate_me/crosshair-24.png"
+                        srcSet="/assets/locate_me/crosshair-24.png 1x, /assets/locate_me/crosshair-48.png 2x, /assets/locate_me/crosshair-72.png 3x"
+                        alt=""
+                        width={24}
+                        height={24}
+                        fallback={Crosshair}
+                    />
+                )}
+            </button>
         </>
     );
 }
 
 export default function MapPage() {
-    const [problems, setProblems] = useState<ProblemRow[]>([])
-    const [isPicking, setIsPicking] = useState(false)
-    const [showModal, setShowModal] = useState(false)
-    const [selectedProblem, setSelectedProblem] = useState<ProblemRow | null>(null);
-    const [editPickedCoords, setEditPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [newProblem, setNewProblem] = useState<NewProblem>({
-        name: '',
-        grade: 'V0',
-        location: '',
-        lat: null,
-        lng: null,
-        imageFiles: [],
-        imagePreviews: []
-    })
+    const [crags, setCrags] = useState<CragListItem[]>([])
     const { user } = useAuth()
+    const { openAddSheet } = useAddSheet()
+    const navigate = useNavigate()
     // const center: [number, number] = [-7.797068, 110.370529]
     const center: [number, number] = [-2.5, 118.0]
-    const [userTitles, setUserTitles] = useState<string[]>([]);
-    const [toast, setToast] = useState<ToastProps | null>(null);
 
-    useEffect(() => {
-        if (user?.id) {
-            api.get<AuthProfile | ErrorResponse>(`/api/profiles/${user.id}`).then(data => {
-                if (!('error' in data) && data.title) {
-                    // Handle parsing if it comes back as a string or array
-                    const parsedTitles = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
-                    setUserTitles(parsedTitles || []);
-                }
-            });
-        }
-    }, [user])
-
-    // const canAdd = userTitles.includes('Council') || userTitles.includes('Associate');
     const canAdd = !!user;
 
-    useEffect(() => {
-        async function fetchProblems() {
-            const data = await api.get<ProblemRow[] | ErrorResponse>('/api/problems');
-            if ('error' in data) {
-                console.error('Error fetching problems:', data.error)
-            } else {
-                setProblems(data)
-            }
-        }
-        fetchProblems()
-    }, [])
-
-    const handleFAB = () => {
-        if (!user) {
-            setToast({ message: 'Please log in to add a problem', type: 'error', onClose: () => setToast(null) });
-            return;
-        }
-
-        setNewProblem({
-            name: '',
-            grade: 'V0',
-            location: '',
-            lat: null,
-            lng: null,
-            imageFiles: [],
-            imagePreviews: []
-        });
-
-        setShowModal(true)
+    const loadCrags = () => {
+        getAllCrags().then(setCrags)
     }
 
+    useEffect(() => { loadCrags() }, [])
+
+    const handleFAB = () => openAddSheet({ onAdded: loadCrags })
+
     return (
-        <div style={{ position: 'fixed', top: '60px', left: 0, right: 0, bottom: 0 }}>
-            {toast && <Toast {...toast} />}
+        // Full-bleed to the bottom edge: the footer is a transparent overlay and
+        // the tiles are meant to show through behind it. Only the map's own
+        // controls below hold back by --footer-h so they don't collide with it
+        // -- index.css scopes that lift to .leaflet-full-bleed-page specifically
+        // (not every .leaflet-container app-wide) since this is the one map
+        // that actually shares the viewport's bottom edge with the footer.
+        // (The elevated look that creates is a known open item -- see chat
+        // 2026-08-31 -- not yet resolved; the footer-credit-merge tried in the
+        // same discussion was reverted, so this still runs Leaflet's own
+        // attribution control.)
+        <div className="leaflet-full-bleed-page" style={{ position: 'fixed', top: 'var(--header-h)', left: 0, right: 0, bottom: 0 }}>
             <MapContainer
                 center={center}
                 zoom={5}
                 minZoom={5}
-                maxZoom={18}
+                maxZoom={20}
                 zoomControl={false}
                 maxBounds={INDONESIA_BOUNDS}
                 maxBoundsViscosity={1.0}
@@ -362,6 +321,8 @@ export default function MapPage() {
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                    maxNativeZoom={18}
+                    maxZoom={20}
                 />
                 <MapFlyTo />
                 <div
@@ -382,7 +343,17 @@ export default function MapPage() {
                 <div
                     style={{
                         position: 'absolute',
-                        bottom: '24px',
+                        bottom: 'calc(24px + var(--footer-h))',
+                        left: '16px',
+                        zIndex: 1000,
+                    }}
+                >
+                    <MapLegend />
+                </div>
+                <div
+                    style={{
+                        position: 'absolute',
+                        bottom: 'calc(24px + var(--footer-h))',
                         right: '24px',
                         zIndex: 1000, // Must be high enough to float over the map tiles
                         display: 'flex',
@@ -417,53 +388,12 @@ export default function MapPage() {
                         </button>
                     )}
                 </div>
-                <ProximityClusters problems={problems} setSelectedProblem={setSelectedProblem} />
-                {(showModal || selectedProblem) && isPicking && (
-                    <LocationPicker onPick={(lat, lng) => {
-                        if (showModal) {
-                            setNewProblem(prev => ({ ...prev, lat, lng }));
-                        } else {
-                            setEditPickedCoords({ lat, lng });
-                        }
-                        setIsPicking(false);
-                    }} />
-                )}
+                <ProximityClusters
+                    crags={crags}
+                    onViewSpot={crag => navigate(`/crags/${crag.id}`)}
+                    onAddFirst={crag => openAddSheet({ cragId: crag.id, onAdded: loadCrags })}
+                />
             </MapContainer>
-
-            {showModal && (
-                <AddProblemModal
-                    onClose={() => setShowModal(false)}
-                    onAdded={(problem) => {
-                        setProblems(prev => [...prev, problem]);
-                    }}
-                    newProblem={newProblem}
-                    setNewProblem={setNewProblem}
-                    isPicking={isPicking}
-                    setIsPicking={setIsPicking}
-                />
-            )}
-
-            {selectedProblem && (
-                <ProblemDetails
-                    problem={selectedProblem}
-                    userTitles={userTitles}
-                    onClose={() => {
-                        setSelectedProblem(null);
-                        setEditPickedCoords(null);
-                        setIsPicking(false);
-                    }}
-                    onDelete={(id) => {
-                        setProblems(prev => prev.filter(p => p.id !== id));
-                        setSelectedProblem(null);
-                    }}
-                    onUpdate={(updatedItem) => {
-                        setProblems(prev => prev.map(p => p.id === updatedItem.id ? updatedItem : p));
-                    }}
-                    isPicking={isPicking}
-                    setIsPicking={setIsPicking}
-                    pickedCoords={editPickedCoords}
-                />
-            )}
         </div>
     )
 }
@@ -471,14 +401,25 @@ export default function MapPage() {
 type Cluster = {
     lat: number
     lng: number
-    items: ProblemRow[]
+    items: CragListItem[]
 }
 
-function ProximityClusters({ problems, setSelectedProblem }: { problems: ProblemRow[]; setSelectedProblem: (problem: ProblemRow) => void }) {
+function ProximityClusters({ crags, onViewSpot, onAddFirst }: { crags: CragListItem[]; onViewSpot: (crag: CragListItem) => void; onAddFirst: (crag: CragListItem) => void }) {
     const map = useMap()
     const isMobile = useIsMobile()
     const [tick, setTick] = useState(0)
     const [mobileCluster, setMobileCluster] = useState<Cluster | null>(null)
+    // Crag IDs confirmed (via CragDetailLayer's onContentAvailability) to have
+    // at least one geocoded rock or approach-start -- once true, the crag pin
+    // is genuinely redundant with what's now on screen and gets hidden
+    // outright rather than merely de-emphasized (see the render below).
+    // Grows only, never shrinks back within a session: whether a crag has any
+    // geocoded content is a fact about its data, not something that flickers.
+    const [cragsWithDetail, setCragsWithDetail] = useState<Set<string>>(new Set())
+    const markCragHasDetail = (cragId: string, hasContent: boolean) => {
+        if (!hasContent) return
+        setCragsWithDetail(prev => prev.has(cragId) ? prev : new Set(prev).add(cragId))
+    }
 
     // Only zoom needs to retrigger clustering: latLngToContainerPoint distances
     // between markers are pan-invariant (panning is a pure translation that
@@ -494,9 +435,9 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
         if (!map) return []
         const zoom = map.getZoom?.()
         const thresholdPx = computeThresholdPx(zoom)
-        const points = problems.map(p => ({
-            item: p,
-            pt: map.latLngToContainerPoint([p.latitude, p.longitude])
+        const points = crags.map(c => ({
+            item: c,
+            pt: map.latLngToContainerPoint([c.lat, c.lng])
         }))
 
         const used = new Set<number>()
@@ -506,7 +447,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
             if (used.has(i)) continue
             const base = points[i]
             if (!base) continue
-            const group: ProblemRow[] = [base.item]
+            const group: CragListItem[] = [base.item]
             used.add(i)
             for (let j = i + 1; j < points.length; j++) {
                 if (used.has(j)) continue
@@ -523,8 +464,8 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
 
             // centroid in lat/lng
             const { lat, lng } = group.reduce((acc, it) => ({
-                lat: acc.lat + it.latitude,
-                lng: acc.lng + it.longitude,
+                lat: acc.lat + it.lat,
+                lng: acc.lng + it.lng,
             }), { lat: 0, lng: 0 })
             result.push({
                 lat: lat / group.length,
@@ -538,13 +479,13 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
         // map.getZoom()/latLngToContainerPoint reads are imperative and not
         // themselves reactive dependencies.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map, problems, tick])
+    }, [map, crags, tick])
 
     const currentZoom = map?.getZoom?.() ?? 13
 
-    const focusItem = (item: ProblemRow) => {
-        map.flyTo([item.latitude, item.longitude], MAX_ZOOM, { duration: 1.2 })
-        setSelectedProblem(item)
+    const focusItem = (item: CragListItem) => {
+        map.flyTo([item.lat, item.lng], MAX_ZOOM, { duration: 1.2 })
+        onViewSpot(item)
     }
 
     return (
@@ -553,26 +494,52 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
                 if (c.items.length === 1) {
                     const item = c.items[0]
                     if (!item) return null
+                    const isEmpty = item.problem_count === 0
+                    const showDetail = currentZoom >= DETAIL_ZOOM
+                    const hasDetail = cragsWithDetail.has(item.id)
                     return (
-                        <PinpointMarker
-                            key={item.id}
-                            position={[item.latitude, item.longitude]}
-                            name={item.name}
-                            location={item.location_name}
-                            grade={item.grade}
-                            creatorName={item.creator_name}
-                            creatorSlug={item.creator_slug}
-                            zoom={currentZoom}
-                            onClickDetails={() => setSelectedProblem(item)}
-                        />
+                        <Fragment key={item.id}>
+                            {/* Crag pin: hidden outright once its own rocks/trail
+                                are confirmed on screen (genuinely redundant at
+                                that point, not just crowded); de-emphasized
+                                (capped size, no bounce) while zoomed in but
+                                before that's confirmed, since it may still be
+                                the only marker this crag has -- many rocks have
+                                no coordinate at all (handoff.md open item 13). */}
+                            {!(showDetail && hasDetail) && (
+                                <PinpointMarker
+                                    position={[item.lat, item.lng]}
+                                    name={item.name}
+                                    directions={item.directions}
+                                    boulderCount={item.boulder_count}
+                                    problemCount={item.problem_count}
+                                    creatorName={item.creator_name}
+                                    zoom={currentZoom}
+                                    dimmed={isEmpty}
+                                    deemphasized={showDetail}
+                                    onViewSpot={() => onViewSpot(item)}
+                                    onAddFirst={() => onAddFirst(item)}
+                                />
+                            )}
+                            {/* Close-zoom layers (handoff.md open item 13):
+                                a crag's own rocks and its approaches' start
+                                points, each at their own coordinate --
+                                distinct from this far-out "there's climbing
+                                here" pin. */}
+                            {showDetail && (
+                                <CragDetailLayer
+                                    cragId={item.id}
+                                    onContentAvailability={hasContent => markCragHasDetail(item.id, hasContent)}
+                                />
+                            )}
+                        </Fragment>
                     )
                 }
                 return (
                     <PinpointMarker
                         key={`cluster-${idx}`}
                         position={[c.lat, c.lng]}
-                        name={`${c.items.length} locations`}
-                        location={c.items.slice(0, 3).map(i => i.name).join(', ')}
+                        name={`${c.items.length} spots`}
                         type="cluster"
                         zoom={currentZoom}
                         clusterItems={c.items}
@@ -593,7 +560,7 @@ function ProximityClusters({ problems, setSelectedProblem }: { problems: Problem
     )
 }
 
-function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: ProblemRow) => void }) {
+function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster | null; onClose: () => void; onSelect: (item: CragListItem) => void }) {
     if (!cluster) return null
 
     return (
@@ -618,7 +585,7 @@ function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster |
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#8a7060' }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#967b6a' }}>
                         {cluster.items.length} locations here
                     </span>
                     <button
@@ -626,7 +593,7 @@ function MobileClusterSheet({ cluster, onClose, onSelect }: { cluster: Cluster |
                         aria-label="Close"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
                     >
-                        <X size={18} color="#8a7060" style={{ flexShrink: 0 }} />
+                        <X size={18} color="#967b6a" style={{ flexShrink: 0 }} />
                     </button>
                 </div>
                 <div style={{ padding: '0 16px 4px' }}>

@@ -80,7 +80,7 @@ type Profile struct {
 // The users row and its profiles row are inserted together in one
 // transaction, so a profile always exists from the moment of signup rather
 // than being created lazily on first edit (see GetProfile).
-func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string, termsAcceptedAt time.Time) (string, error) {
+func createUser(ctx context.Context, email, hashedPassword, username, verificationToken string, termsAcceptedAt, guidelinesAcceptedAt time.Time) (string, error) {
 	const maxSlugAttempts = 5
 	for attempt := 0; attempt < maxSlugAttempts; attempt++ {
 		slug, err := generateSlug()
@@ -88,7 +88,7 @@ func createUser(ctx context.Context, email, hashedPassword, username, verificati
 			return "", err
 		}
 
-		id, err := insertUserAndProfile(ctx, email, hashedPassword, username, slug, verificationToken, termsAcceptedAt)
+		id, err := insertUserAndProfile(ctx, email, hashedPassword, username, slug, verificationToken, termsAcceptedAt, guidelinesAcceptedAt)
 		if err == nil {
 			return id, nil
 		}
@@ -109,7 +109,7 @@ func createUser(ctx context.Context, email, hashedPassword, username, verificati
 	return "", errors.New("failed to generate a unique profile slug")
 }
 
-func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, slug, verificationToken string, termsAcceptedAt time.Time) (string, error) {
+func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, slug, verificationToken string, termsAcceptedAt, guidelinesAcceptedAt time.Time) (string, error) {
 	tx, err := db.Pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -118,10 +118,10 @@ func insertUserAndProfile(ctx context.Context, email, hashedPassword, username, 
 
 	var id string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password, username, slug, verification_token, is_verified, terms_accepted_at)
-		 VALUES ($1, $2, $3, $4, $5, false, $6)
+		`INSERT INTO users (email, password, username, slug, verification_token, is_verified, terms_accepted_at, guidelines_accepted_at)
+		 VALUES ($1, $2, $3, $4, $5, false, $6, $7)
 		 RETURNING id`,
-		email, hashedPassword, username, slug, verificationToken, termsAcceptedAt,
+		email, hashedPassword, username, slug, verificationToken, termsAcceptedAt, guidelinesAcceptedAt,
 	).Scan(&id)
 	if err != nil {
 		return "", err
@@ -369,6 +369,32 @@ func upsertProfileRow(ctx context.Context, id, username string, title, tags json
 		return nil, err
 	}
 	return &p, nil
+}
+
+// GetAdminUserIDs returns every user id whose profile title includes
+// "Council" or "Associate" -- for fanning out an admin-facing notification
+// (e.g. a boulder merge suggestion, internal/boulders) to every admin at
+// once. title is already jsonb, so no cast is needed for the containment
+// operator.
+func GetAdminUserIDs(ctx context.Context) ([]string, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id FROM profiles
+		WHERE title @> '["Council"]'::jsonb OR title @> '["Associate"]'::jsonb
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // GetUserTitles reads profiles.title for authorization checks (the

@@ -4,10 +4,11 @@ import "encoding/json"
 
 // SignupRequest is handleSignup's request body.
 type SignupRequest struct {
-	Email         string `json:"email"`
-	Password      string `json:"password"`
-	Username      string `json:"username"`
-	TermsAccepted bool   `json:"terms_accepted"`
+	Email              string `json:"email"`
+	Password           string `json:"password"`
+	Username           string `json:"username"`
+	TermsAccepted      bool   `json:"terms_accepted"`
+	GuidelinesAccepted bool   `json:"guidelines_accepted"`
 }
 
 // SigninRequest is handleSignin's request body.

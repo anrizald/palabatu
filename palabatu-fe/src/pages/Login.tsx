@@ -9,13 +9,18 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleLogin(email, password);
+    };
+
     return (
         <>
             <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
     `}</style>
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px'
             }}>
@@ -31,14 +36,15 @@ export default function Login() {
                         fontSize: '28px', fontWeight: 900,
                         color: '#f0e0c8', marginBottom: '8px'
                     }}>Welcome back</h1>
-                    <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>
+                    <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>
                         Log in to your Palabatu account
                     </p>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <input
                             type="email"
                             placeholder="Email"
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             style={{
@@ -54,6 +60,7 @@ export default function Login() {
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 placeholder="Password"
+                                autoComplete="current-password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 style={{
@@ -80,12 +87,12 @@ export default function Login() {
                             </button>
                         </div>
                         <a href="/forgot-password" style={{
-                            textAlign: 'right', color: '#6a5848',
+                            textAlign: 'right', color: '#967b6a',
                             fontSize: '12px', textDecoration: 'none',
                             display: 'block'
                         }}>Forgot password?</a>
                         <button
-                            onClick={() => handleLogin(email, password)}
+                            type="submit"
                             disabled={isLoading}
                             style={{
                                 background: 'linear-gradient(145deg, #c87a30, #8b4a18)',
@@ -98,11 +105,11 @@ export default function Login() {
                             }}
                         >{isLoading ? 'Logging in...' : 'Login'}</button>
 
-                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#4a3c30', marginTop: '4px' }}>
+                        <p style={{ textAlign: 'center', fontSize: '13px', color: '#967b6a', marginTop: '4px' }}>
                             No account?{' '}
                             <a href="/signup" style={{ color: '#c87a30', textDecoration: 'none' }}>Sign up</a>
                         </p>
-                    </div>
+                    </form>
                 </div>
             </div>
         </>

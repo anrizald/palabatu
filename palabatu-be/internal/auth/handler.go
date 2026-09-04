@@ -65,7 +65,7 @@ func handleSignup(c *gin.Context) {
 		return
 	}
 
-	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username, body.TermsAccepted)
+	err := Signup(c.Request.Context(), body.Email, body.Password, body.Username, body.TermsAccepted, body.GuidelinesAccepted)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "Signup successful, check your email for verification"})
@@ -75,6 +75,8 @@ func handleSignup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Email, username, and password are required"})
 	case errors.Is(err, ErrTermsNotAccepted):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "You must accept the Terms of Service and Privacy Policy"})
+	case errors.Is(err, ErrGuidelinesNotAccepted):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "You must accept the Community Guidelines"})
 	case errors.Is(err, ErrUsernameExists):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Username already taken"})
 	case errors.Is(err, ErrEmailExists):

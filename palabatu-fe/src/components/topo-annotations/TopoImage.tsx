@@ -25,9 +25,9 @@ const buttonStyle: CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
-// Shared image + read-only annotation overlay, used by both ProblemDetails
-// (modal) and ProblemDetailPage (dedicated page) so their overlay geometry
-// can never drift apart. Letterboxed like object-fit: contain (not cropped
+// Shared image + read-only annotation overlay, used by ProblemDetailPage so
+// its overlay geometry stays consistent wherever a topo photo is shown.
+// Letterboxed like object-fit: contain (not cropped
 // like cover) so an annotation never gets misaligned against pixels a crop
 // would have hidden — but sized via maxWidth/maxHeight + flex-centering
 // rather than objectFit itself, so the <img>'s own box always matches its

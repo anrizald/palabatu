@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 export default function NotFound() {
     return (
         <div style={{
-            minHeight: '100vh', background: '#0f0d0b', color: '#f0e0c8',
+            minHeight: 'var(--content-h)', background: '#0f0d0b', color: '#f0e0c8',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '16px', padding: '24px', textAlign: 'center'
         }}>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Sans:wght@400&display=swap');`}</style>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '72px', fontWeight: 900, color: '#c87a30' }}>404</div>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '15px', color: '#8a7060' }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '15px', color: '#967b6a' }}>
                 This route doesn't lead anywhere on the wall.
             </div>
             <Link to="/" style={{

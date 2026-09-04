@@ -1,15 +1,19 @@
 import { useState } from 'react';
+import { FEEDBACK_TYPES, type FeedbackType } from '../types/feedback.js';
 
 type FeedbackModalProps = {
     onClose: () => void;
-    onSubmit: (data: { message: string; email: string }) => void;
+    onSubmit: (data: { type: FeedbackType; message: string; email: string }) => void;
     isSubmitting?: boolean;
     showEmailField: boolean;
 };
 
 export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false, showEmailField }: FeedbackModalProps) {
+    const [type, setType] = useState<FeedbackType>('feedback');
     const [message, setMessage] = useState('');
     const [email, setEmail] = useState('');
+
+    const activeType = FEEDBACK_TYPES.find(t => t.value === type) ?? FEEDBACK_TYPES[0]!;
 
     return (
         <div
@@ -18,7 +22,7 @@ export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false,
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-panel border border-border rounded-[20px] w-full max-w-[420px] max-h-[90vh] overflow-y-auto font-sans text-text flex flex-col"
+                className="bg-panel border border-border rounded-[20px] w-full max-w-[420px] max-h-[90dvh] overflow-y-auto font-sans text-text flex flex-col"
             >
                 <div className="px-5 py-4 flex justify-between items-center border-b border-border">
                     <h3 className="font-serif text-lg m-0">Send Feedback</h3>
@@ -26,14 +30,27 @@ export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false,
                 </div>
 
                 <div className="px-5 py-4 flex flex-col gap-3.5">
-                    <div className="text-[12px] text-text-dim bg-surface/60 border border-border rounded-xl p-3 leading-relaxed">
-                        <span className="text-text-secondary font-bold">Reporting a bug?</span> It helps to include what happened, what you expected instead, and the steps to reproduce it. Ideas and general feedback are welcome too.
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-[12px] text-text-muted font-bold">Type</label>
+                        <select
+                            value={type}
+                            onChange={(e) => setType(e.target.value as FeedbackType)}
+                            className="w-full bg-surface border border-border focus:border-accent rounded-xl p-3 text-text outline-none font-sans text-[13px] box-border cursor-pointer transition-colors"
+                        >
+                            {FEEDBACK_TYPES.map(({ value, label }) => (
+                                <option key={value} value={value}>{label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="text-[12px] text-text-muted bg-surface/60 border border-border rounded-xl p-3 leading-relaxed">
+                        {activeType.description}
                     </div>
 
                     <textarea
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="What happened, and what did you expect instead?"
+                        placeholder="Tell us more..."
                         rows={5}
                         className="w-full resize-y bg-surface border border-border rounded-xl p-3 text-text outline-none font-sans text-[13px] box-border"
                     />
@@ -56,7 +73,7 @@ export default function FeedbackModal({ onClose, onSubmit, isSubmitting = false,
                             Cancel
                         </button>
                         <button
-                            onClick={() => onSubmit({ message: message.trim(), email: email.trim() })}
+                            onClick={() => onSubmit({ type, message: message.trim(), email: email.trim() })}
                             disabled={isSubmitting || !message.trim()}
                             className={`flex-[1_1_120px] p-2.5 bg-accent/15 border border-accent/40 rounded-[10px] text-accent text-[13px] font-bold cursor-pointer ${isSubmitting || !message.trim() ? 'opacity-60' : 'opacity-100'}`}
                         >

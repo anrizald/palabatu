@@ -1,6 +1,159 @@
 {
     "components": {
         "schemas": {
+            "internal_approaches.Approach": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "creator_name": {
+                        "type": "string"
+                    },
+                    "duration_minutes": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "start_type": {
+                        "type": "string"
+                    },
+                    "steps": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_approaches.ApproachStep"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_approaches.ApproachListItem": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "creator_name": {
+                        "type": "string"
+                    },
+                    "duration_minutes": {
+                        "type": "integer"
+                    },
+                    "first_photo_url": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "start_lat": {
+                        "type": "number"
+                    },
+                    "start_lng": {
+                        "type": "number"
+                    },
+                    "start_type": {
+                        "type": "string"
+                    },
+                    "step_count": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_approaches.ApproachStep": {
+                "properties": {
+                    "approach_id": {
+                        "type": "string"
+                    },
+                    "caption": {
+                        "type": "string"
+                    },
+                    "careful_flag": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "photo_url": {
+                        "type": "string"
+                    },
+                    "position": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_approaches.CreateApproachRequest": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "duration_minutes": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "start_type": {
+                        "type": "string"
+                    },
+                    "steps": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_approaches.CreateApproachStepInput"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_approaches.CreateApproachStepInput": {
+                "properties": {
+                    "caption": {
+                        "type": "string"
+                    },
+                    "careful_flag": {
+                        "type": "boolean"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "photo_url": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "internal_auth.ChangePasswordRequest": {
                 "properties": {
                     "current_password": {
@@ -178,6 +331,9 @@
                     "email": {
                         "type": "string"
                     },
+                    "guidelines_accepted": {
+                        "type": "boolean"
+                    },
                     "password": {
                         "type": "string"
                     },
@@ -238,6 +394,532 @@
                 },
                 "type": "object"
             },
+            "internal_boulders.AddBoulderImagesRequest": {
+                "properties": {
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.Boulder": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "merged_into": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rock_type": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.BoulderAnnotation": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_url": {
+                        "type": "string"
+                    },
+                    "problem_id": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "updated_by": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.BoulderListItem": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "creator_name": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "merged_into": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "problem_count": {
+                        "type": "integer"
+                    },
+                    "rock_type": {
+                        "type": "string"
+                    },
+                    "sample_problem_name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.CreateBoulderRequest": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rock_type": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.DeleteBoulderImageRequest": {
+                "properties": {
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.MergeObjection": {
+                "properties": {
+                    "body": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "merge_request_id": {
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.MergeRequest": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "resolved_at": {
+                        "type": "string"
+                    },
+                    "resolved_by": {
+                        "type": "string"
+                    },
+                    "source_boulder_id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "suggested_by": {
+                        "type": "string"
+                    },
+                    "target_boulder_id": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.MergeRequestListItem": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "objections": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_boulders.MergeObjection"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "source_boulder_id": {
+                        "type": "string"
+                    },
+                    "source_boulder_name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "suggested_by": {
+                        "type": "string"
+                    },
+                    "suggester_name": {
+                        "type": "string"
+                    },
+                    "target_boulder_id": {
+                        "type": "string"
+                    },
+                    "target_boulder_name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.ObjectToMergeRequest": {
+                "properties": {
+                    "body": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.ResolveMergeRequestRequest": {
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "override_hold": {
+                        "type": "boolean"
+                    },
+                    "survivor_id": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.SuggestMergeRequest": {
+                "properties": {
+                    "reason": {
+                        "type": "string"
+                    },
+                    "target_boulder_id": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.UpdateBoulderRequest": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rock_type": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.AddCragImagesRequest": {
+                "properties": {
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.Crag": {
+                "properties": {
+                    "access_notes": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "directions": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragListItem": {
+                "properties": {
+                    "access_notes": {
+                        "type": "string"
+                    },
+                    "approach_count": {
+                        "type": "integer"
+                    },
+                    "boulder_count": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "creator_name": {
+                        "type": "string"
+                    },
+                    "directions": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "problem_count": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CreateCragRequest": {
+                "properties": {
+                    "access_notes": {
+                        "type": "string"
+                    },
+                    "directions": {
+                        "type": "string"
+                    },
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.DeleteCragImageRequest": {
+                "properties": {
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.UpdateCragRequest": {
+                "properties": {
+                    "access_notes": {
+                        "type": "string"
+                    },
+                    "directions": {
+                        "type": "string"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_feedback.Feedback": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "page_url": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_feedback.SubmitFeedbackRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "page_url": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "internal_notification.Notification": {
                 "properties": {
                     "actor_name": {
@@ -276,7 +958,10 @@
                     "reaction",
                     "problem_edited",
                     "problem_deleted",
-                    "mention"
+                    "mention",
+                    "merge_suggested",
+                    "merge_objected",
+                    "merge_resolved"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
@@ -287,8 +972,23 @@
                     "TypeReaction",
                     "TypeProblemEdited",
                     "TypeProblemDeleted",
-                    "TypeMention"
+                    "TypeMention",
+                    "TypeMergeSuggested",
+                    "TypeMergeObjected",
+                    "TypeMergeResolved"
                 ]
+            },
+            "internal_problems.AddProblemImagesRequest": {
+                "properties": {
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
             },
             "internal_problems.AnnotationRecord": {
                 "properties": {
@@ -330,8 +1030,23 @@
             },
             "internal_problems.CreateProblemRequest": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "descent": {
+                        "type": "string"
+                    },
+                    "discovered_by": {
+                        "type": "string"
+                    },
+                    "first_ascensionist": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
+                    },
+                    "height_m": {
+                        "type": "number"
                     },
                     "image_urls": {
                         "items": {
@@ -340,16 +1055,13 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "lat": {
-                        "type": "number"
-                    },
-                    "lng": {
-                        "type": "number"
-                    },
-                    "location": {
+                    "landing_hazards": {
                         "type": "string"
                     },
                     "name": {
+                        "type": "string"
+                    },
+                    "notes": {
                         "type": "string"
                     }
                 },
@@ -365,6 +1077,21 @@
             },
             "internal_problems.ProblemDetail": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "boulder_name": {
+                        "type": "string"
+                    },
+                    "boulder_type": {
+                        "type": "string"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "crag_name": {
+                        "type": "string"
+                    },
                     "created_at": {
                         "type": "string"
                     },
@@ -377,8 +1104,20 @@
                     "creator_slug": {
                         "type": "string"
                     },
+                    "descent": {
+                        "type": "string"
+                    },
+                    "discovered_by": {
+                        "type": "string"
+                    },
+                    "first_ascensionist": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
+                    },
+                    "height_m": {
+                        "type": "number"
                     },
                     "id": {
                         "type": "string"
@@ -390,26 +1129,48 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "latitude": {
-                        "type": "number"
-                    },
-                    "location_name": {
+                    "landing_hazards": {
                         "type": "string"
-                    },
-                    "longitude": {
-                        "type": "number"
                     },
                     "name": {
                         "type": "string"
                     },
+                    "notes": {
+                        "type": "string"
+                    },
                     "send_count": {
                         "type": "integer"
+                    },
+                    "topo_line": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "topo_url": {
+                        "type": "string"
                     }
                 },
                 "type": "object"
             },
             "internal_problems.ProblemListItem": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "boulder_name": {
+                        "type": "string"
+                    },
+                    "boulder_type": {
+                        "type": "string"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "crag_name": {
+                        "type": "string"
+                    },
                     "created_at": {
                         "type": "string"
                     },
@@ -422,8 +1183,20 @@
                     "creator_slug": {
                         "type": "string"
                     },
+                    "descent": {
+                        "type": "string"
+                    },
+                    "discovered_by": {
+                        "type": "string"
+                    },
+                    "first_ascensionist": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
+                    },
+                    "height_m": {
+                        "type": "number"
                     },
                     "id": {
                         "type": "string"
@@ -435,34 +1208,59 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "latitude": {
-                        "type": "number"
-                    },
-                    "location_name": {
+                    "landing_hazards": {
                         "type": "string"
-                    },
-                    "longitude": {
-                        "type": "number"
                     },
                     "name": {
                         "type": "string"
                     },
+                    "notes": {
+                        "type": "string"
+                    },
                     "send_count": {
                         "type": "integer"
+                    },
+                    "topo_line": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "topo_url": {
+                        "type": "string"
                     }
                 },
                 "type": "object"
             },
             "internal_problems.ProblemRow": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
                     "created_at": {
                         "type": "string"
                     },
                     "created_by": {
                         "type": "string"
                     },
+                    "descent": {
+                        "type": "string"
+                    },
+                    "discovered_by": {
+                        "type": "string"
+                    },
+                    "first_ascensionist": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
+                    },
+                    "height_m": {
+                        "type": "number"
                     },
                     "id": {
                         "type": "string"
@@ -474,16 +1272,13 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "lat": {
-                        "type": "number"
-                    },
-                    "lng": {
-                        "type": "number"
-                    },
-                    "location": {
+                    "landing_hazards": {
                         "type": "string"
                     },
                     "name": {
+                        "type": "string"
+                    },
+                    "notes": {
                         "type": "string"
                     }
                 },
@@ -491,20 +1286,24 @@
             },
             "internal_problems.ProblemSummary": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
                     },
                     "id": {
                         "type": "string"
                     },
-                    "latitude": {
-                        "type": "number"
-                    },
-                    "location_name": {
-                        "type": "string"
-                    },
-                    "longitude": {
-                        "type": "number"
+                    "image_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "name": {
                         "type": "string"
@@ -537,19 +1336,31 @@
             },
             "internal_problems.UpdateProblemRequest": {
                 "properties": {
+                    "boulder_id": {
+                        "type": "string"
+                    },
+                    "descent": {
+                        "type": "string"
+                    },
+                    "discovered_by": {
+                        "type": "string"
+                    },
+                    "first_ascensionist": {
+                        "type": "string"
+                    },
                     "grade": {
                         "type": "string"
                     },
-                    "lat": {
+                    "height_m": {
                         "type": "number"
                     },
-                    "lng": {
-                        "type": "number"
-                    },
-                    "location_name": {
+                    "landing_hazards": {
                         "type": "string"
                     },
                     "name": {
+                        "type": "string"
+                    },
+                    "notes": {
                         "type": "string"
                     }
                 },
@@ -780,6 +1591,1037 @@
         "url": ""
     },
     "paths": {
+        "/api/approaches": {
+            "post": {
+                "description": "Creates the approach and every step in one call. Requires at least one step, each with a photo and a caption. Gated by authz.CanContribute (creator-or-admin today, see handoff.md decision 22).",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_approaches.CreateApproachRequest",
+                                        "summary": "body",
+                                        "description": "New approach"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New approach",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_approaches.Approach"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create an approach guide",
+                "tags": [
+                    "approaches"
+                ]
+            }
+        },
+        "/api/approaches/{id}": {
+            "delete": {
+                "description": "Allowed for admins (Council/Associate title), or the approach's own creator.",
+                "parameters": [
+                    {
+                        "description": "Approach ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete an approach guide",
+                "tags": [
+                    "approaches"
+                ]
+            },
+            "get": {
+                "description": "The reading view's one call -- every step, in order, ready for offline caching.",
+                "parameters": [
+                    {
+                        "description": "Approach ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_approaches.Approach"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get an approach guide, with its ordered steps",
+                "tags": [
+                    "approaches"
+                ]
+            }
+        },
+        "/api/boulders": {
+            "post": {
+                "description": "Any authenticated user may add a boulder to any crag, including someone else's; no role gate.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.CreateBoulderRequest",
+                                        "summary": "body",
+                                        "description": "New boulder"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New boulder",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.Boulder"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a boulder",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/merge-requests": {
+            "get": {
+                "description": "Admin-only (Council/Associate title) review queue, with every objection filed against each request embedded.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.MergeRequestListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List pending boulder merge requests",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/merge-requests/{id}/object": {
+            "post": {
+                "description": "Only the source or target boulder's own creator may object. Informs the admin's decision, does not block it.",
+                "parameters": [
+                    {
+                        "description": "Merge request ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.ObjectToMergeRequest",
+                                        "summary": "body",
+                                        "description": "Why this isn't the same rock"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Why this isn't the same rock",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.MergeObjection"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "request already resolved"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Object to a suggested merge (\"this is not the same rock\")",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/merge-requests/{id}/resolve": {
+            "post": {
+                "description": "Admin-only. action=\"merge\" requires survivor_id (the admin's pick of which boulder survives) and is blocked by a 48h objection hold unless override_hold is set. action=\"reject\" needs no wait.",
+                "parameters": [
+                    {
+                        "description": "Merge request ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.ResolveMergeRequestRequest",
+                                        "summary": "body",
+                                        "description": "Decision"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Decision",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "already resolved, or the 48h hold hasn't expired"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Resolve a boulder merge request",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/{id}": {
+            "get": {
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.BoulderListItem"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get a boulder",
+                "tags": [
+                    "boulders"
+                ]
+            },
+            "put": {
+                "description": "Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.UpdateBoulderRequest",
+                                        "summary": "body",
+                                        "description": "Updated fields"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Updated fields",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.Boulder"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not the creator and not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update a boulder",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/{id}/annotations": {
+            "get": {
+                "description": "Every problem-on-this-boulder's annotation together -- one photo, many lines.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.BoulderAnnotation"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "List every line drawn on a boulder's photos",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/{id}/images": {
+            "delete": {
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.DeleteBoulderImageRequest",
+                                        "summary": "body",
+                                        "description": "Image URL to remove"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Image URL to remove",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "boulder or image not found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Remove one image from a boulder",
+                "tags": [
+                    "boulders"
+                ]
+            },
+            "post": {
+                "description": "Appends URLs already uploaded via POST /upload/topo to a boulder's image_urls.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.AddBoulderImagesRequest",
+                                        "summary": "body",
+                                        "description": "Uploaded image URLs to attach"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Uploaded image URLs to attach",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.Boulder"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Add images to a boulder",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/{id}/merge-requests": {
+            "get": {
+                "description": "Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator -- the visibility a creator needs to actually see and object to a request filed against their rock (see object, above). The admin-wide queue (list, below) stays unscoped and admin-only; this is scoped to one boulder.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.MergeRequestListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List pending merge requests filed against one boulder",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/boulders/{id}/merge-suggestions": {
+            "post": {
+                "description": "Any authenticated user may suggest a merge; executing one is admin-only (see resolve).",
+                "parameters": [
+                    {
+                        "description": "Boulder ID (the suggested duplicate)",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_boulders.SuggestMergeRequest",
+                                        "summary": "body",
+                                        "description": "The other boulder, and why"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "The other boulder, and why",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_boulders.MergeRequest"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Suggest that two boulders are the same rock",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
         "/api/comments/{id}": {
             "delete": {
                 "description": "Allowed for the comment's own author or an admin.",
@@ -940,6 +2782,674 @@
                 "summary": "Report a comment",
                 "tags": [
                     "report"
+                ]
+            }
+        },
+        "/api/crags": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_crags.CragListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "List all crags",
+                "tags": [
+                    "crags"
+                ]
+            },
+            "post": {
+                "description": "Any authenticated user may create a crag; no role gate.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.CreateCragRequest",
+                                        "summary": "body",
+                                        "description": "New crag"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New crag",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.Crag"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a crag",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}": {
+            "get": {
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.CragListItem"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get a crag",
+                "tags": [
+                    "crags"
+                ]
+            },
+            "put": {
+                "description": "Allowed for admins (Council/Associate title) on any crag, or the crag's own creator.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.UpdateCragRequest",
+                                        "summary": "body",
+                                        "description": "Updated fields"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Updated fields",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.Crag"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not the creator and not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update a crag",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}/approaches": {
+            "get": {
+                "description": "\"Jalan masuk\" -- the walk in, photographed step by step. A crag may have several; each is a genuinely different walk.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_approaches.ApproachListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "List a crag's approach guides",
+                "tags": [
+                    "approaches"
+                ]
+            }
+        },
+        "/api/crags/{id}/boulders": {
+            "get": {
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.BoulderListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "List a crag's boulders",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
+        "/api/crags/{id}/images": {
+            "delete": {
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.DeleteCragImageRequest",
+                                        "summary": "body",
+                                        "description": "Image URL to remove"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Image URL to remove",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "crag or image not found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Remove one image from a crag",
+                "tags": [
+                    "crags"
+                ]
+            },
+            "post": {
+                "description": "Appends URLs already uploaded via POST /upload/topo to a crag's image_urls -- the approach shot.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.AddCragImagesRequest",
+                                        "summary": "body",
+                                        "description": "Uploaded image URLs to attach"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Uploaded image URLs to attach",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.Crag"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Add images to a crag",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/feedback": {
+            "get": {
+                "description": "Owner-only.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_feedback.Feedback"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List open feedback",
+                "tags": [
+                    "feedback"
+                ]
+            },
+            "post": {
+                "description": "Public, rate-limited (3 per 5s per IP). Open to logged-out visitors -- runs OptionalAuth so a logged-in submitter's user_id is attached when present.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_feedback.SubmitFeedbackRequest",
+                                        "summary": "body",
+                                        "description": "Feedback submission"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Feedback submission",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_feedback.Feedback"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Submit feedback",
+                "tags": [
+                    "feedback"
+                ]
+            }
+        },
+        "/api/feedback/{id}/reviewed": {
+            "post": {
+                "description": "Owner-only.",
+                "parameters": [
+                    {
+                        "description": "Feedback ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Mark a feedback submission reviewed",
+                "tags": [
+                    "feedback"
                 ]
             }
         },
@@ -1110,6 +3620,25 @@
         },
         "/api/problems": {
             "get": {
+                "description": "Optional crag_id/boulder_id query params filter to one crag or boulder.",
+                "parameters": [
+                    {
+                        "description": "Filter to one crag",
+                        "in": "query",
+                        "name": "crag_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Filter to one boulder",
+                        "in": "query",
+                        "name": "boulder_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "content": {
@@ -1141,7 +3670,7 @@
                 ]
             },
             "post": {
-                "description": "Any authenticated user may create a problem; no role gate.",
+                "description": "Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1207,7 +3736,7 @@
         },
         "/api/problems/{id}": {
             "delete": {
-                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. Also best-effort destroys its Cloudinary images.",
+                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. Does not touch the boulder's shared photos -- only the problem row and its own annotation (cascades).",
                 "parameters": [
                     {
                         "description": "Problem ID",
@@ -1321,7 +3850,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator.",
+                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).",
                 "parameters": [
                     {
                         "description": "Problem ID",
@@ -1764,6 +4293,101 @@
                     }
                 ],
                 "summary": "Remove one image from a problem",
+                "tags": [
+                    "problems"
+                ]
+            },
+            "post": {
+                "description": "Appends URLs already uploaded via POST /upload/topo to a problem's image_urls -- beta/action shots, never the topo base.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_problems.AddProblemImagesRequest",
+                                        "summary": "body",
+                                        "description": "Uploaded image URLs to attach"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Uploaded image URLs to attach",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_problems.ProblemRow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Add images to a problem",
                 "tags": [
                     "problems"
                 ]
@@ -2509,6 +5133,45 @@
                 "summary": "Resolve a report",
                 "tags": [
                     "report"
+                ]
+            }
+        },
+        "/api/sends/mine": {
+            "get": {
+                "description": "Backs client-side \"sent by me\" filtering over a problem\nlisting without an N+1 per-problem send-status call.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Problem IDs the authenticated user has sent",
+                "tags": [
+                    "social"
                 ]
             }
         },

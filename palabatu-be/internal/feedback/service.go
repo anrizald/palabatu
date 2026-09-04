@@ -23,7 +23,23 @@ import (
 // comment or a one-line report reason.
 const maxMessageLength = 5000
 
-func Submit(ctx context.Context, userID *string, message, email, pageURL string) (*Feedback, error) {
+// validFeedbackTypes mirrors migrations/0018_feedback_type's check
+// constraint -- kept as a Go-side set too so an invalid value fails with
+// ErrInvalidType instead of a raw constraint-violation error surfacing from
+// the INSERT.
+var validFeedbackTypes = map[string]bool{
+	"feedback":   true,
+	"bug":        true,
+	"report":     true,
+	"suggestion": true,
+}
+
+// defaultFeedbackType is used when feedbackType is blank, matching the
+// column's own DB default -- keeps older, not-yet-updated clients that
+// don't send a type working instead of rejecting them outright.
+const defaultFeedbackType = "feedback"
+
+func Submit(ctx context.Context, userID *string, feedbackType, message, email, pageURL string) (*Feedback, error) {
 	message = strings.TrimSpace(message)
 	if message == "" {
 		return nil, ErrEmptyMessage
@@ -32,7 +48,15 @@ func Submit(ctx context.Context, userID *string, message, email, pageURL string)
 		return nil, ErrMessageTooLong
 	}
 
-	f, err := createFeedback(ctx, userID, optionalString(email), message, optionalString(pageURL))
+	feedbackType = strings.TrimSpace(feedbackType)
+	if feedbackType == "" {
+		feedbackType = defaultFeedbackType
+	}
+	if !validFeedbackTypes[feedbackType] {
+		return nil, ErrInvalidType
+	}
+
+	f, err := createFeedback(ctx, userID, feedbackType, optionalString(email), message, optionalString(pageURL))
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +88,7 @@ func notifyOwner(ctx context.Context, f *Feedback) {
 		log.Printf("feedback: failed to resolve owner email: %v", err)
 		return
 	}
-	if err := mailer.SendFeedbackNotification(to, f.Message, f.Email, f.PageURL); err != nil {
+	if err := mailer.SendFeedbackNotification(to, f.Type, f.Message, f.Email, f.PageURL); err != nil {
 		log.Printf("feedback: failed to send notification email: %v", err)
 	}
 }

@@ -49,12 +49,15 @@ func generateToken() (string, error) {
 // to send, the user row is rolled back, mirroring
 // palabatu-be/routes/auth.ts — the profile row goes with it via
 // profiles_id_fkey's ON DELETE CASCADE (migrations/0003).
-func Signup(ctx context.Context, email, password, username string, termsAccepted bool) error {
+func Signup(ctx context.Context, email, password, username string, termsAccepted, guidelinesAccepted bool) error {
 	if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" || strings.TrimSpace(username) == "" {
 		return ErrMissingFields
 	}
 	if !termsAccepted {
 		return ErrTermsNotAccepted
+	}
+	if !guidelinesAccepted {
+		return ErrGuidelinesNotAccepted
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -67,7 +70,8 @@ func Signup(ctx context.Context, email, password, username string, termsAccepted
 		return err
 	}
 
-	id, err := createUser(ctx, email, string(hashed), username, verificationToken, time.Now())
+	now := time.Now()
+	id, err := createUser(ctx, email, string(hashed), username, verificationToken, now, now)
 	if err != nil {
 		return err
 	}

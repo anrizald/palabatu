@@ -6,7 +6,7 @@
 @tailwind utilities; */
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   height: 100%;
@@ -26,6 +26,45 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/* --- App chrome dead zones ---------------------------------------------
+   Header and Footer are both position:fixed, so neither reserves any space
+   in the document flow. These tokens are the single source of truth for how
+   much the shell holds back on their behalf: App.tsx's <main> pads by them,
+   Header/Footer size themselves from them, and pages measure their own
+   full-bleed height against --content-h instead of the raw viewport.
+
+   Before this existed every page hand-compensated with its own pt-20 magic
+   number and nothing at all compensated for the footer -- so on a phone the
+   footer sat on top of page content, and any vertically centered page
+   (login, signup, the loading/not-found states) centered against the whole
+   viewport and pushed its card up under the header.
+
+   env(safe-area-inset-*) resolves to 0 unless index.html opts into
+   viewport-fit=cover; it is folded in here so a notch/home-indicator is
+   handled correctly the moment it does. */
+:root {
+  --header-h: calc(60px + env(safe-area-inset-top, 0px));
+  --footer-h: calc(38px + env(safe-area-inset-bottom, 0px));
+
+  /* dvh, not vh: on mobile 100vh measures the viewport with the URL bar
+     hidden, which is taller than what is actually on screen. */
+  --content-h: calc(100dvh - var(--header-h) - var(--footer-h));
+}
+
+/* Leaflet anchors its own controls (the attribution line) to the bottom of the
+   map container. On /map that container runs full-bleed behind the
+   transparent footer overlay, so its controls are lifted clear of the strip
+   -- scoped to .leaflet-full-bleed-page (Map.tsx's own wrapper) rather than
+   every .leaflet-container app-wide, since every other map in the app is a
+   small embedded card or a portaled sheet that never reaches the footer and
+   would otherwise just lose space to a lift it doesn't need. Unlayered and
+   specificity-bumped past leaflet.css's own `.leaflet-bottom { bottom: 0 }`,
+   which is itself unlayered and so would beat anything in @layer base
+   regardless of source order. */
+.leaflet-full-bleed-page .leaflet-bottom {
+  bottom: var(--footer-h);
 }
 
 /* Shared dark palette used across the app's auth/profile-style pages
@@ -48,7 +87,7 @@ body,
 
   --color-text: #f0e0c8;
   --color-text-secondary: #d8c8b8;
-  --color-text-muted: #8a7060;
+  --color-text-muted: #967b6a; /* raised 2026-08-09 for WCAG AA; see DESIGN.md's Sentence Rule */
   --color-text-dim: #6a5848;
   --color-text-faint: #4a3c30;
 
@@ -68,12 +107,15 @@ body,
 @layer base {
   a {
     font-weight: 500;
-    color: #646cff;
     text-decoration: inherit;
   }
 
-  a:hover {
-    color: #535bf2;
+  html,
+  body {
+    /* The dead zones are outside any page's own bg-ink container, so the
+       document itself has to carry the palette or the header/footer strips
+       show through as lighter bands. */
+    background-color: var(--color-ink);
   }
 
   body {
@@ -101,13 +143,16 @@ body,
     transition: border-color 0.25s;
   }
 
-  button:hover {
-    border-color: #646cff;
-  }
-
-  button:focus,
-  button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
+  /* The accent-colored ring is this system's own signature move applied to
+     keyboard focus (DESIGN.md's "Signature: the accent glow" -- depth and
+     state are expressed in the accent hue, not gray). Buttons/links have no
+     other focus treatment (unlike inputs, which shift border-color via
+     Tailwind's focus: variant), so this is their only visible affordance
+     for keyboard, switch-access, and Bluetooth-keyboard use. */
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid #c87a30;
+    outline-offset: 2px;
   }
 }
 
@@ -170,6 +215,32 @@ body,
   color: var(--color-text);
 }
 
+/* Leaflet's default attribution control is a white pill with blue links --
+   convincing chrome for a plain basemap, but a foreign-looking widget against
+   this app's dark theme. Applies everywhere a map renders one, /map included.
+   Compound-selector: leaflet.css is loaded after index.css (via App.tsx's own
+   import), so at equal specificity its plain .leaflet-control-attribution
+   would win on source order alone -- the extra .leaflet-container beats it
+   regardless of load order. */
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-panel) 78%, transparent);
+  border: none;
+  box-shadow: none;
+  padding: 2px 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--color-text-muted);
+}
+
+.leaflet-container .leaflet-control-attribution a:hover {
+  color: var(--color-text-secondary);
+}
+
 .locate-sandglass-spin {
   animation: sandglass-flip 1.6s ease-in-out infinite;
 }
@@ -189,22 +260,5 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .locate-sandglass-spin {
     animation: none;
-  }
-}
-
-@layer base {
-  @media (prefers-color-scheme: light) {
-    :root {
-      color: #213547;
-      background-color: #ffffff;
-    }
-
-    a:hover {
-      color: #747bff;
-    }
-
-    button {
-      background-color: #f9f9f9;
-    }
   }
 }

@@ -259,15 +259,15 @@ export default function Profile() {
     };
 
     if (isLoading) return (
-        <div className="min-h-screen bg-ink flex items-center justify-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
             <div className="text-text-muted font-serif tracking-wider">Loading profile...</div>
         </div>
     );
 
     if (loadError) return (
-        <div className="min-h-screen bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="min-h-[var(--content-h)] bg-ink flex flex-col items-center justify-center gap-3 px-6 text-center">
             <div className="font-serif text-2xl font-black text-text">Profile not found</div>
-            <div className="text-sm text-text-dim">{loadError}</div>
+            <div className="text-sm text-text-muted">{loadError}</div>
             <Link to="/map" className="mt-2 text-sm text-accent hover:underline">Back to the map</Link>
         </div>
     );
@@ -281,7 +281,7 @@ export default function Profile() {
         <>
             {toast && <Toast {...toast} />}
 
-            <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-10">
+            <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-10">
                 <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-8 items-start">
                     {/* Sidebar */}
                     <div className="bg-panel border border-border rounded-[20px] px-5 py-7 flex flex-col items-center gap-4 sm:sticky sm:top-20">
@@ -305,24 +305,24 @@ export default function Profile() {
                         </div>
 
                         {isOwner && (
-                            <div className={`text-[11px] text-center tracking-wide ${isUploading ? 'text-accent' : 'text-text-faint'}`}>
+                            <div className={`text-[11px] text-center tracking-wide ${isUploading ? 'text-accent' : 'text-text-muted'}`}>
                                 {isUploading ? 'Uploading...' : 'click to change photo'}
                             </div>
                         )}
 
                         <div className="font-serif text-lg font-bold text-text text-center">{profile.username || 'climber'}</div>
 
-                        {isOwner && <div className="text-xs text-text-dim text-center break-all">{user?.email}</div>}
+                        {isOwner && <div className="text-xs text-text-muted text-center break-all">{user?.email}</div>}
 
                         {(joinDate || profile.location) && (
                             <div className="flex flex-col items-center gap-1">
                                 {joinDate && (
-                                    <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                                    <div className="flex items-center gap-1.5 text-xs text-text-muted">
                                         <Calendar size={12} className="shrink-0" /> {joinDate}
                                     </div>
                                 )}
                                 {profile.location && (
-                                    <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                                    <div className="flex items-center gap-1.5 text-xs text-text-muted">
                                         <MapPin size={12} className="shrink-0" /> {profile.location}
                                     </div>
                                 )}
@@ -351,11 +351,11 @@ export default function Profile() {
                             <div className="flex gap-5 pt-1">
                                 <div className="text-center">
                                     <div className="font-serif text-xl font-bold text-text">{stats.sends_count}</div>
-                                    <div className="text-[10px] text-text-dim tracking-wide uppercase">Sends</div>
+                                    <div className="text-[10px] text-text-muted tracking-wide uppercase">Sends</div>
                                 </div>
                                 <div className="text-center">
                                     <div className="font-serif text-xl font-bold text-text">{stats.problems_count}</div>
-                                    <div className="text-[10px] text-text-dim tracking-wide uppercase">Added</div>
+                                    <div className="text-[10px] text-text-muted tracking-wide uppercase">Added</div>
                                 </div>
                             </div>
                         )}
@@ -373,7 +373,7 @@ export default function Profile() {
                                         ${reactingType === type ? 'opacity-60' : ''}`}
                                 >
                                     <span className="text-lg">{emoji}</span>
-                                    <span className={`text-[11px] font-bold ${reactionStatus[type] ? 'text-accent' : 'text-text-dim'}`}>{reactionCounts[type]}</span>
+                                    <span className={`text-[11px] font-bold ${reactionStatus[type] ? 'text-accent' : 'text-text-muted'}`}>{reactionCounts[type]}</span>
                                 </button>
                             ))}
                         </div>
@@ -385,7 +385,7 @@ export default function Profile() {
                             <div className="font-serif text-[22px] font-black text-text">
                                 {isOwner ? 'Your Profile' : `${profile.username || 'Climber'}'s Activity`}
                             </div>
-                            <div className="text-[13px] text-text-faint mt-1">
+                            <div className="text-[13px] text-text-muted mt-1">
                                 {isOwner ? 'How the community sees you' : 'Recent sends and additions'}
                             </div>
                         </div>
@@ -393,15 +393,15 @@ export default function Profile() {
                         {/* Recent Activity */}
                         <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-5">
                             <div>
-                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-2">Recent Sends</div>
+                                <div className="text-[11px] text-text-muted tracking-wide uppercase mb-2">Recent Sends</div>
                                 {activity.sends.length === 0 ? (
-                                    <p className="text-sm text-text-faint">No sends yet.</p>
+                                    <p className="text-sm text-text-muted">No sends yet.</p>
                                 ) : (
                                     <ul className="flex flex-col gap-2">
                                         {activity.sends.map(s => (
                                             <li key={s.problem_id} className="flex items-center justify-between gap-3 text-sm">
                                                 <span className="text-text-secondary truncate">{s.problem_name}</span>
-                                                <span className="flex items-center gap-2 shrink-0 text-text-dim">
+                                                <span className="flex items-center gap-2 shrink-0 text-text-muted">
                                                     {s.grade && <span className="text-xs text-accent">{s.grade}</span>}
                                                     <span className="text-xs">{formatRelativeDate(s.created_at)}</span>
                                                 </span>
@@ -411,15 +411,15 @@ export default function Profile() {
                                 )}
                             </div>
                             <div>
-                                <div className="text-[11px] text-text-dim tracking-wide uppercase mb-2">Recently Added</div>
+                                <div className="text-[11px] text-text-muted tracking-wide uppercase mb-2">Recently Added</div>
                                 {activity.problems.length === 0 ? (
-                                    <p className="text-sm text-text-faint">No problems added yet.</p>
+                                    <p className="text-sm text-text-muted">No problems added yet.</p>
                                 ) : (
                                     <ul className="flex flex-col gap-2">
                                         {activity.problems.map(p => (
                                             <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
                                                 <span className="text-text-secondary truncate">{p.name}</span>
-                                                <span className="flex items-center gap-2 shrink-0 text-text-dim">
+                                                <span className="flex items-center gap-2 shrink-0 text-text-muted">
                                                     {p.grade && <span className="text-xs text-accent">{p.grade}</span>}
                                                     <span className="text-xs">{formatRelativeDate(p.created_at)}</span>
                                                 </span>
@@ -436,14 +436,14 @@ export default function Profile() {
                             <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                                 {isOwner && (
                                     <div>
-                                        <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Email</div>
-                                        <input className="w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-faint text-sm cursor-not-allowed outline-none" value={user?.email || ''} readOnly />
+                                        <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Email</div>
+                                        <input className="w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-muted text-sm cursor-not-allowed outline-none" value={user?.email || ''} readOnly />
                                     </div>
                                 )}
                                 <div>
-                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Username</div>
+                                    <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Username</div>
                                     <input
-                                        className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-faint'}`}
+                                        className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-muted'}`}
                                         value={profile.username}
                                         onChange={e => isOwner && setProfile({ ...profile, username: e.target.value })}
                                         placeholder="your username"
@@ -455,7 +455,7 @@ export default function Profile() {
                             {/* About */}
                             <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                                 <div>
-                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Bio</div>
+                                    <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Bio</div>
                                     {isOwner ? (
                                         <textarea
                                             className="w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors resize-none"
@@ -470,9 +470,9 @@ export default function Profile() {
                                     )}
                                 </div>
                                 <div>
-                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Location</div>
+                                    <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Location</div>
                                     <input
-                                        className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-faint'}`}
+                                        className={`w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors ${isOwner ? 'cursor-text' : 'cursor-default text-text-muted'}`}
                                         value={profile.location}
                                         onChange={e => isOwner && setProfile({ ...profile, location: e.target.value })}
                                         placeholder="City, region"
@@ -485,14 +485,14 @@ export default function Profile() {
                             {/* Climbing Tags */}
                             <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-4">
                                 <div>
-                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Level</div>
+                                    <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Level</div>
                                     <div className="flex gap-2 flex-wrap">
                                         {LEVELS.map(l => (
                                             <button
                                                 key={l}
                                                 onClick={() => isOwner && setProfile({ ...profile, tags: { ...profile.tags, level: l } })}
                                                 className={`px-3.5 py-1.5 rounded-[10px] border text-sm transition-colors
-                                                ${profile.tags.level === l ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}
+                                                ${profile.tags.level === l ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-muted'}
                                                 ${isOwner ? 'cursor-pointer hover:border-accent hover:text-accent' : 'cursor-default'}
                                                 ${!isOwner && profile.tags.level !== l ? 'opacity-30' : ''}`}
                                             >{l}</button>
@@ -500,7 +500,7 @@ export default function Profile() {
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-[11px] text-text-dim tracking-wide uppercase mb-1.5">Climbing Style</div>
+                                    <div className="text-[11px] text-text-muted tracking-wide uppercase mb-1.5">Climbing Style</div>
                                     <div className="flex gap-2 flex-wrap">
                                         {ALL_STYLES.map(s => {
                                             const active = profile.tags.styles.includes(s);
@@ -515,7 +515,7 @@ export default function Profile() {
                                                         setProfile({ ...profile, tags: { ...profile.tags, styles } });
                                                     }}
                                                     className={`px-4 py-2 rounded-full border text-sm transition-colors
-                                                    ${active ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-dim'}
+                                                    ${active ? 'bg-accent/15 border-accent text-accent' : 'bg-transparent border-border text-text-muted'}
                                                     ${isOwner ? 'cursor-pointer hover:border-accent hover:text-accent' : 'cursor-default'}
                                                     ${!isOwner && !active ? 'opacity-30' : ''}`}
                                                 >{s}</button>
@@ -528,7 +528,7 @@ export default function Profile() {
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                                 <button
                                     onClick={handleLogout}
-                                    className="bg-transparent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-sm text-text-dim hover:border-danger hover:text-danger transition-colors cursor-pointer"
+                                    className="bg-transparent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-sm text-text-muted hover:border-danger hover:text-danger transition-colors cursor-pointer"
                                 >
                                     <LogOut size={16} className="shrink-0" /> Logout
                                 </button>
@@ -558,7 +558,7 @@ export default function Profile() {
                                 {showAdvanced && (
                                     <div className="flex flex-col gap-5 px-5 pb-5 pt-1">
                                         <div className="flex flex-col gap-3">
-                                            <div className="text-[11px] text-text-dim tracking-wide uppercase">Change Password</div>
+                                            <div className="text-[11px] text-text-muted tracking-wide uppercase">Change Password</div>
                                             <input
                                                 type={showPassword ? 'text' : 'password'}
                                                 className="w-full bg-surface border border-border focus:border-accent rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors"
@@ -603,7 +603,7 @@ export default function Profile() {
                                                 </button>
                                             ) : (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="text-xs text-text-dim">This permanently deletes your account. Enter your password to confirm.</div>
+                                                    <div className="text-xs text-text-muted">This permanently deletes your account. Enter your password to confirm.</div>
                                                     <input
                                                         type="password"
                                                         className="w-full bg-surface border border-danger/40 focus:border-danger rounded-[10px] px-3.5 py-2.5 text-text-secondary text-sm outline-none transition-colors"
@@ -621,7 +621,7 @@ export default function Profile() {
                                                         </button>
                                                         <button
                                                             onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); }}
-                                                            className="bg-transparent px-5 py-2 rounded-[10px] border border-border text-sm text-text-dim hover:border-text-dim transition-colors"
+                                                            className="bg-transparent px-5 py-2 rounded-[10px] border border-border text-sm text-text-muted hover:border-text-dim transition-colors"
                                                         >
                                                             Cancel
                                                         </button>

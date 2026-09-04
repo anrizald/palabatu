@@ -64,6 +64,13 @@ func notifySend(ctx context.Context, problemID, userID string) {
 	}
 }
 
+// ListSentProblemIDs returns every problem ID a user has sent, so a client
+// can filter a whole listing by "sent by me" / "not yet sent by me" without
+// an N+1 per-problem HasSent call (see palabatu-fe's ProblemList.tsx).
+func ListSentProblemIDs(ctx context.Context, userID string) ([]string, error) {
+	return listSentProblemIDs(ctx, userID)
+}
+
 func ListComments(ctx context.Context, problemID string) ([]Comment, error) {
 	return listComments(ctx, problemID)
 }

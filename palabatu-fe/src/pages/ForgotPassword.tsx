@@ -27,7 +27,7 @@ export default function ForgotPassword() {
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
             {toast && <Toast {...toast} />}
             <div style={{
-                minHeight: '100vh', background: '#0f0d0b',
+                minHeight: 'var(--content-h)', background: '#0f0d0b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: "'DM Sans', sans-serif", padding: '24px'
             }}>
@@ -41,7 +41,7 @@ export default function ForgotPassword() {
                         <>
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><MailCheck size={36} color="#c87a30" style={{ flexShrink: 0 }} /></div>
                             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 900, color: '#f0e0c8', marginBottom: '8px' }}>Check your email</h1>
-                            <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '24px' }}>
+                            <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '24px' }}>
                                 If that email is registered, a reset link is on its way.
                             </p>
                             <a href="/login" style={{ color: '#c87a30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ArrowLeft size={14} style={{ flexShrink: 0 }} /> Back to login</a>
@@ -49,7 +49,7 @@ export default function ForgotPassword() {
                     ) : (
                         <>
                             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 900, color: '#f0e0c8', marginBottom: '8px' }}>Forgot password?</h1>
-                            <p style={{ fontSize: '13px', color: '#6a5848', marginBottom: '28px' }}>Enter your email and we'll send a reset link.</p>
+                            <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '28px' }}>Enter your email and we'll send a reset link.</p>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 <input
@@ -79,7 +79,7 @@ export default function ForgotPassword() {
                                         boxShadow: '0 2px 12px rgba(200,122,48,0.3)'
                                     }}
                                 >{isLoading ? 'Sending...' : 'Send Reset Link'}</button>
-                                <a href="/login" style={{ textAlign: 'center', color: '#4a3c30', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}><ArrowLeft size={14} style={{ flexShrink: 0 }} /> Back to login</a>
+                                <a href="/login" style={{ textAlign: 'center', color: '#967b6a', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}><ArrowLeft size={14} style={{ flexShrink: 0 }} /> Back to login</a>
                             </div>
                         </>
                     )}

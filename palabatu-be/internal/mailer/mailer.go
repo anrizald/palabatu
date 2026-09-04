@@ -85,8 +85,9 @@ func SendPasswordResetEmail(email, token string) error {
 // the Developer page's review list. message and submitterEmail are
 // user-typed free text (unlike this file's other templates, which only ever
 // interpolate URLs/tokens), so both are HTML-escaped before going into the
-// email body.
-func SendFeedbackNotification(to, message string, submitterEmail, pageURL *string) error {
+// email body. feedbackType is one of feedback.validFeedbackTypes, not user
+// free text, so it's interpolated as-is.
+func SendFeedbackNotification(to, feedbackType, message string, submitterEmail, pageURL *string) error {
 	submitter := "Anonymous"
 	if submitterEmail != nil && *submitterEmail != "" {
 		submitter = html.EscapeString(*submitterEmail)
@@ -97,9 +98,10 @@ func SendFeedbackNotification(to, message string, submitterEmail, pageURL *strin
 	}
 	body := fmt.Sprintf(`
 		<h2>New feedback submitted</h2>
+		<p><strong>Type:</strong> %s</p>
 		<p><strong>From:</strong> %s</p>
 		%s
 		<p>%s</p>
-	`, submitter, pageLine, html.EscapeString(message))
+	`, html.EscapeString(feedbackType), submitter, pageLine, html.EscapeString(message))
 	return send(to, "New Palabatu feedback", body)
 }

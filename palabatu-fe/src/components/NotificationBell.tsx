@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, getUnreadCount, markRead, markAllRead, formatRelativeTime, NOTIFICATIONS_CHANGED_EVENT } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -14,6 +14,14 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     problem_edited: Pencil,
     problem_deleted: Trash2,
     mention: AtSign,
+    // All three carry problem_id: null server-side (a merge concerns two
+    // boulders, not a problem), so they render as non-navigating buttons
+    // below, same as `reaction` -- the actionable surface is the boulder
+    // page's own pending-request banner (BoulderDetailPage.tsx), reached
+    // by visiting the rock directly rather than from the notification.
+    merge_suggested: GitCompare,
+    merge_objected: GitCompare,
+    merge_resolved: GitCompare,
 };
 
 type NotificationBellProps = {
@@ -103,7 +111,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
 
                     <div className="max-h-[360px] overflow-y-auto">
                         {recent.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-xs text-text-dim italic">
+                            <div className="px-4 py-8 text-center text-xs text-text-muted italic">
                                 No notifications yet.
                             </div>
                         ) : (
@@ -114,7 +122,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
                                         <Icon size={16} className="shrink-0 mt-0.5 text-accent" />
                                         <div className="flex-1 min-w-0">
                                             <div className="text-xs text-text-secondary leading-snug">{n.message}</div>
-                                            <div className="text-[10px] text-text-dim mt-1">{formatRelativeTime(n.created_at)}</div>
+                                            <div className="text-[10px] text-text-muted mt-1">{formatRelativeTime(n.created_at)}</div>
                                         </div>
                                         {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0 mt-1.5" />}
                                     </div>

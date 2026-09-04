@@ -11,7 +11,7 @@ colors:
   cold-slate: "#2a2420"
   chalk-parchment: "#f0e0c8"
   sun-faded-parchment: "#d8c8b8"
-  weathered-stone: "#8a7060"
+  weathered-stone: "#967b6a"
   dusk-stone: "#6a5848"
   faint-stone: "#4a3c30"
   moss-green: "#5dbb6a"
@@ -100,15 +100,21 @@ A near-black stone palette with one warm accent and a narrow, warm-toned neutral
 - **Cold Slate** (`#2a2420`): borders and dividers between all of the above.
 - **Chalk Parchment** (`#f0e0c8`): primary text, on any dark surface.
 - **Sun-Faded Parchment** (`#d8c8b8`): secondary text — input values, card body copy.
-- **Weathered Stone** (`#8a7060`): muted text — inactive nav links, placeholders, secondary labels.
-- **Dusk Stone** (`#6a5848`): dim text — the quietest label tier, secondary-button text.
-- **Faint Stone** (`#4a3c30`, used sparingly): the dimmest tier, near-invisible against Deep Basalt; reserve for text that should barely register.
+- **Weathered Stone** (`#967b6a`): muted text — inactive nav links, placeholders, secondary labels, helper copy. **The floor for anything made of words.** Raised 2026-08-09 from `#8a7060`, which measured 3.91:1 against panel and surface and therefore failed WCAG AA at the 11–13px sizes this system actually uses. The new value measures 4.58:1 on Ash Surface and 4.75:1 on Charcoal Panel. It is a ~6% lift — visually near-identical, and it crosses AA.
+- **Dusk Stone** (`#6a5848`): **non-text only** — disabled controls, input placeholders where the placeholder is an example rather than information, decorative dividers. Was previously used for label text; it does not pass at label sizes.
+- **Faint Stone** (`#4a3c30`): **never text.** Hairlines, decorative rules, dashed borders. It measures 1.76:1 on panel, which is not "subtle", it is invisible. Its earlier description in this file ("reserve for text that should barely register") is what produced unreadable helper copy in the add-flow prototypes and has been removed deliberately.
 
 ### Semantic
 - **Moss Green** (`#5dbb6a`, deep variant `#3a8a45`): the "Associate" admin badge and success/sent states. The only cool-leaning hue permitted in the system — keep it rare and only for its semantic role.
 - **Ember Red** (`#e07060`): danger, destructive actions, error states, logout-hover.
 
 ### Named Rules
+**The Sentence Rule.** *(Added 2026-08-09.)* If it is made of words, it is at least Weathered Stone. Dusk Stone and Faint Stone are structural colors — borders, hairlines, disabled states, decoration — and never carry copy. This app is used outdoors in direct sunlight on low-end Android panels (see PRODUCT.md's operating context); a contrast ramp tuned in a dark room on a good screen is tuned for the wrong conditions. When a piece of text feels too loud at Weathered Stone, cut the text or shrink its role — do not dim it below the floor.
+
+*Swept across the codebase 2026-09-01.* The rule was written 2026-08-09 but never applied backwards, so ~130 uses of `text-text-dim` (Dusk Stone) carried copy, `text-text-faint` (Faint Stone) carried copy on the profile page, three inputs used Faint Stone placeholders that this file's own 2026-08-09 correction had already reassigned to Dusk Stone, and roughly 30 hardcoded `#8a7060` literals were still on the *pre-correction* Weathered Stone that measured 3.91:1. The worst single case was `Footer.tsx`, which set its credit line in `#2a2420` — Cold Slate, the *border* token — at 1.27:1, on every page in the app; it now sits at Weathered Stone and one step smaller, which is the remedy this paragraph prescribes. Measured after: zero text nodes below 4.5:1 on Landing, Login, the profile page, and All Problems.
+
+Three things deliberately keep Dusk/Faint Stone, and they are the rule's own carve-outs rather than misses: bare icons and icon-only buttons (not words), decorative separator dots, and input placeholders. One more is a genuine exception worth knowing about — the Leaflet map popups (`PinpointMarker`, `BoulderPinMarker`, `ApproachStartMarker`) paint **dark-on-light parchment**, not light-on-dark, so the same hex there is a different contrast sum entirely and is correct as-is. Check which way a surface runs before "fixing" a color on it.
+
 **The One Ember Rule.** Ember Orange is the only warm accent used for action and attention. A second hue competing for the same role (a second "brand color") is a bug, not a design choice — new UI reaches for Moss Green or Ember Red only for their specific semantic roles (success/associate, danger), never as a second general-purpose accent.
 
 ## Typography
@@ -177,7 +183,7 @@ Borders are always 1px, always Cold Slate at rest, and switch to Ember Orange on
 - **Internal Padding:** 18px.
 
 ### Inputs / Fields
-- **Style:** Ash Surface background, 1px Cold Slate border, `md` (10px) radius, Sun-Faded Parchment text, Faint Stone placeholder text.
+- **Style:** Ash Surface background, 1px Cold Slate border, `md` (10px) radius, Sun-Faded Parchment text, Dusk Stone placeholder text. *(Corrected 2026-08-09 alongside the Sentence Rule — this previously said Faint Stone, which the Colors section now forbids as a text color. Dusk Stone is the placeholder tier because a placeholder like "Add a comment" is an example, not information, matching its designated role.)*
 - **Focus:** border-color → Ember Orange. Implement via CSS `:focus`/`focus:` pseudo-classes, not manual `onFocus`/`onBlur` JS handlers — some older forms (`Login.tsx`) still do it manually; new inputs should use the CSS pseudo-class approach the newer Tailwind-idiom components already use.
 - **Error/Disabled:** no established pattern yet — when one is needed, borrow Ember Red for the error border/text rather than inventing a new hue.
 

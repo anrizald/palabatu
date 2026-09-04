@@ -66,3 +66,21 @@ func deleteAnnotationForImage(ctx context.Context, problemID, imageURL string) e
 	_, err := db.Pool.Exec(ctx, `DELETE FROM topo_annotations WHERE problem_id = $1 AND image_url = $2`, problemID, imageURL)
 	return err
 }
+
+// getProblemOwnerAndBoulderImages backs SaveAnnotation's authorization and
+// image-membership checks. The image set now lives on the problem's
+// boulder, not the problem itself (handoff.md decision 2) -- a direct SQL
+// join against boulders, not a Go import of internal/boulders (see that
+// package's dependency-direction note).
+func getProblemOwnerAndBoulderImages(ctx context.Context, id string) (createdBy *string, imageURLs []string, err error) {
+	err = db.Pool.QueryRow(ctx, `
+		SELECT p.created_by, b.image_urls
+		FROM problems p
+		JOIN boulders b ON b.id = p.boulder_id
+		WHERE p.id = $1
+	`, id).Scan(&createdBy, &imageURLs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return createdBy, imageURLs, nil
+}

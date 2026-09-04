@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign } from 'lucide-react';
+import { Bell, MessageCircle, Flag, Trash2, CheckCheck, Heart, Pencil, AtSign, GitCompare } from 'lucide-react';
 import { useAuth } from '../lib/useAuth.js';
 import { listNotifications, markRead, markAllRead, formatRelativeTime } from '../lib/notifications.js';
 import type { Notification, NotificationType } from '../types/notification.js';
@@ -14,6 +14,11 @@ const TYPE_ICON: Record<NotificationType, typeof MessageCircle> = {
     problem_edited: Pencil,
     problem_deleted: Trash2,
     mention: AtSign,
+    // See NotificationBell.tsx's identical map for why these render as
+    // non-navigating (problem_id is always null for a merge notification).
+    merge_suggested: GitCompare,
+    merge_objected: GitCompare,
+    merge_resolved: GitCompare,
 };
 
 export default function Notifications() {
@@ -51,22 +56,22 @@ export default function Notifications() {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center px-6 text-center">
-                <div className="text-text-dim text-sm">Log in to view your notifications.</div>
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center px-6 text-center">
+                <div className="text-text-muted text-sm">Log in to view your notifications.</div>
             </div>
         );
     }
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-ink flex items-center justify-center">
+            <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
                 <div className="text-text-muted font-serif tracking-wider">Loading notifications...</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-ink font-sans px-6 pt-20 pb-12">
+        <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             <div className="max-w-[640px] mx-auto flex flex-col gap-5">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     <h1 className="font-serif text-2xl font-black text-text">Notifications</h1>
@@ -83,7 +88,7 @@ export default function Notifications() {
                 {items.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center">
                         <Bell size={28} className="text-text-dim shrink-0" />
-                        <div className="text-sm text-text-dim italic">You're all caught up.</div>
+                        <div className="text-sm text-text-muted italic">You're all caught up.</div>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
@@ -96,7 +101,7 @@ export default function Notifications() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm text-text-secondary leading-snug">{n.message}</div>
-                                        <div className="text-xs text-text-dim mt-1">{formatRelativeTime(n.created_at)}</div>
+                                        <div className="text-xs text-text-muted mt-1">{formatRelativeTime(n.created_at)}</div>
                                     </div>
                                     {!n.read && <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-2" />}
                                 </div>
