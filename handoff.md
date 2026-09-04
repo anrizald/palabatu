@@ -18,6 +18,11 @@ admin same-rock review queue, and every list/card surface (Directory,
 ProblemList, Landing, ProblemCard) rejoined to crag/boulder data instead
 of the old free-text `location_name`.
 
+**Decision 23 added, 2026-09-04** — multi-pitch routes turned out to have
+nowhere to live in the schema. Decision 23 places the fix (on `problems`,
+not `boulders.type`) and open item 14 asks whether to actually build it
+yet. Proposed only; nothing implemented.
+
 **Amended 2026-08-08 (f)** — the add flow shipped as a strict one-way
 three-step wizard, which was never the intent, and decisions 11-14 replaced
 it. Cliffs also came into scope (decision 1), changing vocabulary
@@ -686,6 +691,41 @@ current one. Everything below is now superseded by what shipped.*
 
     Deliberately not decided here: which `kind`s widen, and whether
     widening is global or per-crag. That is the TBA.
+
+23. **Multi-pitch is a property of the route, not the rock.** *(Proposed
+    2026-09-04, not yet built — no schema/backend/frontend work has
+    started.)* Prompted by realising `boulders.type` (`boulder | wall`,
+    decision 1) has nowhere to put "and this one takes three rope-lengths
+    to finish" — and the seed data already contains the counter-example
+    that rules out the obvious fix. Gunung Parang's "Menara 2 (Tower 2)"
+    (`scripts/seed-demo-crags.sql`) is one `boulders` row carrying three
+    problems: "Jalur Klasik" is multi-pitch by its own note, "Menara
+    Tengah" and "Scant Holds" are single-pitch face climbs on the same
+    tower. A third `boulders.type` value (`multipitch`) can't express
+    that without splitting the tower into two rock rows — which
+    duplicates its shared topo photo across both, the exact fracture
+    decision 2 closed by giving the photo to the boulder in the first
+    place. Wrong level.
+
+    **Shape.** `boulders.type` stays exactly `boulder | wall`, untouched.
+    `problems` gains an optional `pitch_count` (int; null or 1 means
+    single pitch, same as almost every row today). A new child table,
+    `problem_pitches` (`id`, `problem_id` FK, `pitch_number`, `grade`,
+    `length_m` optional, `notes` optional), gets rows only when
+    `pitch_count > 1`. `problems.grade` keeps its existing meaning — the
+    one number list/filter/sort surfaces show — by convention the crux
+    pitch's grade, exactly how thecrag and Mountain Project both do it;
+    the per-pitch breakdown is additive detail, never a replacement.
+
+    **Two follow-ons this deliberately doesn't resolve:**
+    - Whether pitches need their own line drawn on the shared topo photo.
+      `topo_annotations` is keyed `(problem_id, image_url)` — fine while
+      one problem draws one line, but a 3-pitch route drawing three lines
+      on the same wall photo needs a pitch number added to that key, or
+      the lines can't be told apart or numbered.
+    - Whether to add an overall commitment/seriousness grade (French
+      PD/AD/D/TD/ED or similar) alongside the technical grade.
+      Multi-pitch routes conventionally carry both; nothing here does.
 
 ## UX principles — non-negotiable for this effort
 
@@ -1408,6 +1448,16 @@ up from here.
     and states it as **The Sentence Rule** — if it is made of words, it
     is at least Weathered Stone. Screens still using the old value are
     not a regression to chase separately; they get it as they are touched.
+14. **Whether to build multi-pitch pitch-level detail at all yet.**
+    *(2026-09-04.)* Decision 23 settles *where* it would live if built; it
+    does not decide *when*. Today "multi-pitch" exists exactly once in
+    the whole app, as a word inside one seed row's free-text `notes`
+    (`scripts/seed-demo-crags.sql`) — real content, but zero rows would
+    populate `problem_pitches` if it shipped tomorrow. Given PRODUCT.md's
+    audience is Indonesian bouldering enthusiasts first, this is
+    plausibly a "document the gap, revisit once a real multi-pitch crag
+    gets added in numbers" item rather than a build-now one. Open — needs
+    a product call, not an engineering one.
 
 **The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
 were resolved before implementation and remain resolved; 8 and 10 were
