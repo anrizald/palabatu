@@ -28,9 +28,9 @@ type Crag struct {
 // CragListItem is the shape returned by GET /crags and GET /crags/:id.
 // BoulderCount/ProblemCount let a future frontend render the dimmed
 // empty-crag state (handoff.md open item 1) without a second round-trip.
-// ApproachCount is the same idea for "is there a way in mapped", which
-// handoff-directory.md decision 7 names as one of the four things a spot
-// card must answer -- without it every spot surface would need a per-crag
+// ApproachCount is the same idea for "is there a way in mapped", one of the
+// four things a spot card must answer -- without it every spot surface
+// would need a per-crag
 // GET /crags/:id/approaches just to render one word.
 type CragListItem struct {
 	ID            string    `json:"id"`

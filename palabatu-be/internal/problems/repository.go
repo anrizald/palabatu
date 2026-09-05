@@ -16,9 +16,9 @@ import (
 // reachable via boulder_id -> boulders.crag_id) since every hot
 // list/filter/map query wants it without a two-hop join. FirstAscensionist
 // through Notes are the optional fields from handoff.md decisions 8-10.
-// BoulderType/TopoURL/TopoLine are handoff-directory.md's tier 1: the rock's
+// BoulderType/TopoURL/TopoLine are tier 1 additions: the rock's
 // type (authoritative, unlike guessing boulder-vs-wall from the grade
-// string — finding 4), its first photo (what palabatu-fe's cragCache.ts
+// string), its first photo (what palabatu-fe's cragCache.ts
 // used to fetch via a per-crag fan-out just to resolve a thumbnail), and
 // this problem's own drawn line on that photo, if any (decision 3) — nil
 // when nothing's been drawn, not distinguished from an empty-array

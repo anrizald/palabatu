@@ -117,11 +117,11 @@ in-progress sheet continuously, so there is nothing left to confirm away.
    flow that creates them (UX principle 1's "context is a first-class entry
    point," applied to context the app itself created) instead of a
    standalone "My Drafts" page nobody thinks to visit. A dedicated page
-   (e.g. under the profile) is a reasonable M2-or-later addition once
-   `handoff-add-sheet.md` B4 lands (`AddSheet` mounted at the app root,
-   sequenced in `handoff-directory.md`) — resuming a draft from outside the
-   sheet's current mount points is naturally easier once that's true, so
-   this is a soft dependency, not a hard blocker for M1.
+   (e.g. under the profile) is a reasonable M2-or-later addition now that
+   `handoff-add-sheet.md` B4 has landed (`AddSheet` mounted at the app root,
+   2026-08-17) — resuming a draft from outside the sheet's current mount
+   points is naturally easier with that in place, so this was a soft
+   dependency, not a hard blocker for M1.
 
 9. **No automatic deletion, ever — by design, not a placeholder.**
    *(Sharpened 2026-08-14 after discussion — the original version of this

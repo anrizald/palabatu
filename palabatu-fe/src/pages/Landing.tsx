@@ -154,8 +154,8 @@ export default function Landing() {
             })
     ), [problems]);
 
-    // Recent is asked at the rock level and Near You at the spot level
-    // (handoff-directory.md decision 2), matching Directory's rows. Both
+    // Recent is asked at the rock level and Near You at the spot level,
+    // matching Directory's rows. Both
     // used to be problem-granular here, which meant a rock's eight lines
     // rendered as eight copies of the same photograph -- and, since a
     // problem's map point is its crag's, eight copies of the same distance

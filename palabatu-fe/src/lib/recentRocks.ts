@@ -6,8 +6,9 @@ import type { EnrichedProblem } from '../types/problem.js'
 // component file to export only components.
 
 // A rock with at least one recently-added line, plus the label/thumbnail its
-// card needs (handoff-directory.md decision 2: "Recent" is deduplicated at
-// the rock level, one card per rock instead of one per line on it).
+// card needs ("Recent" is deduplicated at the rock level, one card per rock
+// instead of one per line on it). Landing.tsx-only -- Directory's own Recent
+// row moved up to lib/recentActivity.ts's crag-level grouping instead.
 export type RecentRock = {
     boulderId: string
     cragId: string
@@ -31,9 +32,8 @@ export function rockLabel(rock: RecentRock): string {
 
 // Group the newest lines by the rock they're on, so a single documentation
 // session becomes one legible card instead of N identical ones
-// (handoff-directory.md finding 2 -- a rock's photo is shared by every
-// problem on it, so a problem-granular Recent row renders as the same
-// photograph over and over).
+// (a rock's photo is shared by every problem on it, so a problem-granular
+// Recent row renders as the same photograph over and over).
 //
 // The pool is capped before grouping rather than grouping all problems: a
 // rock whose activity was months ago shouldn't be pulled into "recent" just

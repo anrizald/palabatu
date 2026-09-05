@@ -4,10 +4,10 @@ import Toast, { type ToastProps } from '../components/Toast.js'
 import { useAuth } from './useAuth.js'
 import { AddSheetContext, type OpenAddSheetOptions } from './addSheetContextInstance.js'
 
-// Mounted once at the app root (handoff-directory.md decision 10) rather
-// than inside Map.tsx, so every entry point -- the map FAB, a crag/boulder
-// page's "Add a rock"/"Add a problem", the directory's CTA -- opens the
-// same sheet in place instead of bouncing through /map first (finding 8).
+// Mounted once at the app root rather than inside Map.tsx, so every entry
+// point -- the map FAB, a crag/boulder page's "Add a rock"/"Add a problem",
+// the directory's CTA -- opens the same sheet in place instead of bouncing
+// through /map first.
 // AddSheet itself still portals to document.body (load-bearing against
 // Footer.tsx's fixed positioning, see handoff-add-sheet.md), so where this
 // provider sits in the tree only decides its React lifecycle, not where it

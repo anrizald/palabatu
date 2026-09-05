@@ -61,6 +61,26 @@ contributions exist. Both schema/backend and frontend are now complete.
   review page (`AdminMergeRequests`); the three merge notification types
   wired into the existing bell/page icon maps. tsc/eslint/go vet clean;
   smoke-tested live against the local Docker DB (not just typechecked).
+- **Directory & All Problems (read surfaces) — done 2026-09-05.** The
+  frontend pass above only mechanically rejoined `Directory.tsx`/
+  `ProblemList.tsx` to the new hierarchy via `cragCache.ts`; both still
+  expressed the old flat model (one photo, one pin, one problem-granular
+  row) underneath. Full design lived in `handoff-directory.md` (12 findings,
+  14 decisions across two rounds of review) — removed from the repo now
+  that it shipped in full; see `git log -- handoff-directory.md` for the
+  complete record. Summary of what landed: a new `/directory/spots` place
+  index; `Directory.tsx`'s rows regrouped so each asks its question at the
+  right hierarchy level (spots near you, crag-level recent activity spanning
+  contributors and rocks, problem-level hot); a shared
+  `DirectorySegmentedControl` tying the three directory-adjacent pages
+  together; `boulder_type`/`topo_url`/`topo_line` added to `ProblemListItem`
+  (killing a per-crag fetch fan-out); a working spot/type/ungraded filter set
+  on All Problems; and a rotating single-slot nudge for the three real
+  content gaps (no approach mapped / a photoless rock / an empty spot). One
+  idea was deliberately not built (drawing a problem's line over its rock's
+  cropped card photo — the annotation overlay math isn't crop-safe) and two
+  were named but not started (search ranking, catalog pagination) — see
+  Deferred below for both.
 
 ## Phase 2 — Post-launch, near-term
 
@@ -105,3 +125,6 @@ Internal tooling for the user themselves, not community-facing — distinct from
 
 - **Sensitive/approximate crag locations** — obscure exact GPS coordinates for spots with land-access or overcrowding concerns. Cheap to build once decided, but the policy itself needs outside input the user doesn't have: an outdoor-bouldering-access perspective and/or legal advice (Indonesian land-access/liability norms), not just an internal call. Moved out of Phase 1 — not launch-blocking, revisit once that input exists.
 - Collaborative problem editing — letting non-creators add photos/beta to a problem they didn't create, without being an admin. Explicitly unresolved: additive-only vs. destructive edit, moderation needs, and whether this is really just "comments already do this." No implementation should start until the product shape is decided.
+- **Topo line rendering on Directory/All Problems cards** — draw a problem's own drawn line (`topo_annotations`) over its rock's shared photo on card thumbnails, so several problems on one boulder stop rendering as identical photos. The data half is done (`ProblemListItem.topo_url`/`.topo_line`), but every card today crops its photo (`object-fit: cover`) and the existing annotation overlay's coordinate math assumes an uncropped, letterboxed photo — building crop-aware math risked a subtly wrong line, worse than none. Asked directly during `handoff-directory.md`'s design; the call was to skip it for now rather than letterbox every card app-wide. Revisit only if a safe crop-aware transform becomes available.
+- **Server-side pagination/search for the problem catalog** — `GET /api/problems` is one unpaginated fetch, fine at today's scale but the wrong shape for the surface meant to *be* the browse experience. Named threshold so it isn't re-argued later: build it when a cold `/directory/all` load exceeds ~300 problems or the response exceeds ~250KB. Below that, client-side filtering is faster (no round-trip per keystroke) and simpler.
+- **Ranked search across the catalog** — today's search (`ProblemList.tsx`) is an unranked substring match over name/crag-name/boulder-name. Typo tolerance and Indonesian spelling variants (e.g. "Citatah" vs. "Citata") are a real future need; not started, no design yet.

@@ -22,7 +22,7 @@ export type Crag = {
 // plus a creator name and boulder/problem/approach counts, so the map's
 // dimmed-empty-crag state (handoff.md open item 1) doesn't need a second
 // round-trip. approach_count is the same trick for "is there a way in
-// mapped" (handoff-directory.md decision 7): every spot surface shows it,
+// mapped": every spot surface shows it,
 // and none of them should have to fetch a crag's approach list to render
 // one word. All three are non-pointer ints on the Go side, so never null.
 export type CragListItem = Crag & {

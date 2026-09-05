@@ -212,7 +212,9 @@ Revision history:
     friction and housekeeping, including two places where shipped copy or
     behaviour contradicts decisions 18 and 19 outright. Static review —
     nothing was reproduced live; repro steps are in the file.
-  - `handoff-directory.md` — `Directory.tsx`/`ProblemList.tsx` were only
+  - `handoff-directory.md` (historical — file removed 2026-09-05 once
+    everything in it shipped; see `git log -- handoff-directory.md` for the
+    complete record) — `Directory.tsx`/`ProblemList.tsx` were only
     mechanically rejoined to the hierarchy (via `cragCache.enrichProblems`)
     and still express the flat model they were designed for. Notably,
     decision 2 giving the photo to the rock means a row of problem cards
@@ -223,7 +225,9 @@ Revision history:
     problem's own topo line on its card as the thing that gives a card back
     its subject. Open item 9 is explicitly *not* closed by its
     contribution-gap row — that's a community-facing invitation, not the
-    admin needs-attention surface.
+    admin needs-attention surface. See ROADMAP.md's Phase 1.5 entry for the
+    shipped summary and its Deferred section for what stayed unbuilt (the
+    topo-line proposal, search ranking, catalog pagination).
 
 ## Background — what existed before this effort (as of 2026-08-07)
 

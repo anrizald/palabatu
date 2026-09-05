@@ -1,17 +1,18 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowLeft, Compass, Mountain, Plus, Search } from 'lucide-react';
+import { Compass, Mountain, Plus, Search } from 'lucide-react';
 import { getAllCrags } from '../lib/cragCache.js';
 import { haversineKm, formatDistance, type Geo } from '../lib/geo.js';
 import { WayInLine } from '../components/SpotCard.js';
+import { DirectorySegmentedControl } from '../components/DirectorySegmentedControl.js';
 import { useAddSheet } from '../lib/useAddSheet.js';
 import FallbackImg from '../components/FallbackImg.js';
 import type { CragListItem } from '../types/crag.js';
 
 type SortBy = 'nearest' | 'newest' | 'name';
 
-// The place index handoff-directory.md finding 1 says is missing: a crag has
-// a detail page and a map pin, and nothing that lists them. One row per
+// The place index this app was missing: a crag has a detail page and a map
+// pin, and nothing that lists them. One row per
 // crag, distance-sorted once location is on, always name-searchable
 // (handoff.md UX principle 1: never proximity-only). Entirely tier 0 --
 // GET /api/crags already carries boulder_count/problem_count/image_urls, so
@@ -53,9 +54,8 @@ export function SpotList() {
             (pos) => {
                 setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                 setLocating(false);
-                // Sort defaults to nearest once location is on
-                // (handoff-directory.md decision 12), unless the user
-                // already picked a sort of their own.
+                // Sort defaults to nearest once location is on, unless the
+                // user already picked a sort of their own.
                 if (!sortTouched) setSortBy('nearest');
             },
             () => {
@@ -95,9 +95,7 @@ export function SpotList() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
             <div className="max-w-[1100px] mx-auto px-6 pt-6">
-                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors w-fit mb-4">
-                    <ArrowLeft size={14} className="shrink-0" /> Back to Directory
-                </Link>
+                <DirectorySegmentedControl />
 
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-2">
                     <div>

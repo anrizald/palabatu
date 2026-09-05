@@ -6,7 +6,9 @@ punch list against the add sheet that shipped in `handoff.md` revision (h) —
 
 **B4 (mount `AddSheet` at the app root) shipped 2026-08-17**, built as
 decision 10 of `handoff-directory.md` (sequenced there as step 2, done as one
-change for both documents per this file's original note). The
+change for both documents per this file's original note; `handoff-directory.md`
+itself was removed 2026-09-05 once everything in it shipped — see
+`git log -- handoff-directory.md` for the full record). The
 implementation: `palabatu-fe/src/lib/addSheetContextInstance.ts` +
 `useAddSheet.ts` + `AddSheetContext.tsx` (split across three files the same
 way `AuthContext` already is, to satisfy the fast-refresh lint rule),
@@ -23,7 +25,8 @@ it was a clean removal rather than a compatibility gap. Verified live
 changes when opening from a detail page or the directory, and each opens
 pre-seeded correctly (`CragDetailPage` resolves the crag name in the
 breadcrumb, `BoulderDetailPage` resolves both crag and rock). See
-`handoff-directory.md`'s own status line for the fuller writeup.
+ROADMAP.md's Phase 1.5 entry for the fuller writeup, now that
+`handoff-directory.md` itself is gone.
 
 **What's still open:** C11 is recorded, not built — a code comment at the
 implicit-new-rock collapse point in `AddSheet.tsx` names the nullable marker
@@ -202,8 +205,10 @@ failure mode that matters most.
 ### B4. Every entry point detours through the map
 
 **Fixed 2026-08-17** — see the status note at the top of this file and
-`handoff-directory.md` decision 10. Left below as the historical record of
-the bug; the description past this point is no longer current behavior.
+`handoff-directory.md` decision 10 (that file since removed, shipped in
+full — see `git log -- handoff-directory.md`). Left below as the historical
+record of the bug; the description past this point is no longer current
+behavior.
 
 `AddSheet` is mounted only inside `Map.tsx` (`:421-429`). So
 `CragDetailPage`'s "Add a rock" (`:222`) and `BoulderDetailPage`'s "Add a
@@ -221,8 +226,8 @@ veteran isn't walked back through questions they've answered. Arriving
 somewhere else entirely is a heavier version of the same tax.
 
 **Fix.** Mount `AddSheet` at the app root and drive it from shared state.
-This is decision 10 of `handoff-directory.md`, sequenced as step 2 there —
-worth doing as one change for both documents.
+This was decision 10 of `handoff-directory.md` (sequenced as step 2 there),
+built as one change for both documents.
 
 ### B5. The rock you just created isn't selected
 

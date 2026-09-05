@@ -47,9 +47,9 @@ export type DeleteProblemImageRequest = { url: string }
 // rest mirror nullable Go pointer fields. image_urls are beta/action shots
 // -- a NEW field with a NEW meaning, not the pre-restructure topo photo
 // (that lives on the boulder now, src/types/boulder.ts).
-// boulder_type/topo_url/topo_line are handoff-directory.md's tier 1
-// (2026-08-31): the rock's authoritative type (BoulderType is non-pointer
-// on the Go side, always present), its first photo (string | null,
+// boulder_type/topo_url/topo_line were added 2026-08-31: the rock's
+// authoritative type (BoulderType is non-pointer on the Go side, always
+// present), its first photo (string | null,
 // replacing the per-crag fan-out enrichProblems used to need just for a
 // thumbnail), and this problem's own drawn line on that photo (Go passes
 // this through as an opaque json.RawMessage like auth.Profile.Title/.Tags,
