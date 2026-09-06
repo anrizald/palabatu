@@ -21,7 +21,14 @@ of the old free-text `location_name`.
 **Decision 23 added, 2026-09-04** — multi-pitch routes turned out to have
 nowhere to live in the schema. Decision 23 places the fix (on `problems`,
 not `boulders.type`) and open item 14 asks whether to actually build it
-yet. Proposed only; nothing implemented.
+yet. Proposed only; nothing implemented. **Reviewed 2026-09-06**: the
+placement holds but its stated evidence did not (the seed's Menara 2 is
+multi-pitch throughout, not the mix the decision claimed), and the shape
+needed three rules it was missing — how `pitch_count` coexists with
+`problem_pitches` without repeating decision 10's drift, that `length_m`
+never relates to `height_m`, and which of the two topo-annotation cures to
+reach for. Item 14 is now deferred against a checkable trigger rather than
+left as a standing question.
 
 **Amended 2026-08-08 (f)** — the add flow shipped as a strict one-way
 three-step wizard, which was never the intent, and decisions 11-14 replaced
@@ -379,6 +386,26 @@ current one. Everything below is now superseded by what shipped.*
     plus a separate `highball_flag`.)* They encode the same fact and will
     drift the moment someone fills one and not the other. Keep optional
     `height_m`, derive the "highball" label in the UI at a threshold.
+
+    **The threshold is not the whole rule — the rock's type gates it too**
+    *(added 2026-09-06, after shipping it wrong)*. As shipped,
+    `ProblemDetailPage`'s `detailRows` compared `height_m` against
+    `HIGHBALL_THRESHOLD_M` (4.5 m) and nothing else, so every route on a
+    `wall` past that height was labelled a highball — the seed's Gunung
+    Parang lines rendered "300 m -- highball", which is not a thing.
+    Decision 1 landed `boulders.type` a day later and nothing revisited
+    this. "Highball" is a bouldering word for a problem high enough that
+    falling off it stops being routine; on a roped wall it means nothing,
+    because the rope is the answer to the height. A wall gets the plain
+    number. Fixed 2026-09-06 by passing the rock's type into `detailRows`
+    alongside the problem.
+
+    The general form, worth carrying to anything derived later: a value
+    derived from one column is only as correct as the assumptions that
+    column carries, and `height_m` alone stopped meaning "how far you can
+    fall" the moment cliffs came into scope. Deriving beats storing a
+    second flag (that part holds), but a derivation needs re-checking
+    every time the entity underneath it gains a type.
 11. **Adding is three intents, and each one saves on its own.**
     *(2026-08-08(f). This was the original intent; the shipped wizard lost
     it. Extended the same day from two intents to three — see below.)*
@@ -700,16 +727,30 @@ current one. Everything below is now superseded by what shipped.*
     2026-09-04, not yet built — no schema/backend/frontend work has
     started.)* Prompted by realising `boulders.type` (`boulder | wall`,
     decision 1) has nowhere to put "and this one takes three rope-lengths
-    to finish" — and the seed data already contains the counter-example
-    that rules out the obvious fix. Gunung Parang's "Menara 2 (Tower 2)"
-    (`scripts/seed-demo-crags.sql`) is one `boulders` row carrying three
-    problems: "Jalur Klasik" is multi-pitch by its own note, "Menara
-    Tengah" and "Scant Holds" are single-pitch face climbs on the same
-    tower. A third `boulders.type` value (`multipitch`) can't express
-    that without splitting the tower into two rock rows — which
-    duplicates its shared topo photo across both, the exact fracture
-    decision 2 closed by giving the photo to the boulder in the first
-    place. Wrong level.
+    to finish".
+
+    *(Premise corrected 2026-09-06. This originally claimed the seed's
+    Menara 2 carries a mix — one multi-pitch line and two single-pitch
+    face climbs — and rested the argument on that. It does not: all
+    three of its problems say multi-pitch or "many pitches" in their own
+    notes (`scripts/seed-demo-crags.sql`, the `Jalur Klasik` /
+    `Menara Tengah` / `Scant Holds` rows). The conclusion is unchanged,
+    but it rests on the count, not on a mix that isn't there.)*
+
+    Gunung Parang's "Menara 2 (Tower 2)" is one `boulders` row carrying
+    three problems, every one of them multi-pitch — and they are not the
+    same number of pitches. "Jalur Klasik" is roughly ten by its own
+    note; the other two say only "many". A rock-level flag can record
+    *that a rock is climbed in pitches*; it can never record *how many*,
+    which is the number a climber actually needs, and which differs per
+    line on the same rock. A third `boulders.type` value (`multipitch`)
+    can't express that without splitting the tower into one rock row per
+    pitch count — which duplicates its shared topo photo across all of
+    them, the exact fracture decision 2 closed by giving the photo to the
+    boulder in the first place. Wrong level. (A rock also accumulates
+    both kinds over time: one bolted single-pitch line at the base of a
+    wall whose other routes go to the summit is ordinary, and would force
+    the same split.)
 
     **Shape.** `boulders.type` stays exactly `boulder | wall`, untouched.
     `problems` gains an optional `pitch_count` (int; null or 1 means
@@ -721,15 +762,52 @@ current one. Everything below is now superseded by what shipped.*
     pitch's grade, exactly how thecrag and Mountain Project both do it;
     the per-pitch breakdown is additive detail, never a replacement.
 
-    **Two follow-ons this deliberately doesn't resolve:**
+    **`pitch_count` is a deliberate exception to decision 10, and needs
+    its rule stated.** Decision 10 refused to store "highball" as a flag
+    beside `height_m` because two representations of one fact drift
+    apart; `ProblemDetailPage`'s `detailRows` derives the label from the
+    height and the rock's type instead. A `pitch_count` column beside N `problem_pitches`
+    rows is that same pair — except it is genuinely not derivable, and
+    the seed is the proof: "roughly 10 pitches" is known while the
+    per-pitch breakdown is not (`scripts/seed-demo-crags.sql` says so in
+    as many words). So both exist, and the rule is that neither derives
+    from the other: **`pitch_count` is the claim about the route,
+    `problem_pitches` is however much of it somebody has documented, and
+    they are not required to agree.** Never backfill one from the other,
+    never reject a save because they differ, and surface the gap rather
+    than hiding it — "4 of 10 pitches documented", not a silent 4.
+
+    **`length_m` never relates to `height_m`.** `problems.height_m`
+    already exists and the seed already uses it as the total height of
+    the route (300/380/420 m on Menara 2), not of one rope-length. It
+    keeps that meaning. `problem_pitches.length_m` is per pitch, is never
+    summed into `height_m`, and is never validated against it — a route
+    with 3 of 10 pitches documented would fail any such check for the
+    ordinary reason that the other 7 aren't entered yet.
+
+    **Three follow-ons this deliberately doesn't resolve:**
     - Whether pitches need their own line drawn on the shared topo photo.
       `topo_annotations` is keyed `(problem_id, image_url)` — fine while
       one problem draws one line, but a 3-pitch route drawing three lines
-      on the same wall photo needs a pitch number added to that key, or
-      the lines can't be told apart or numbered.
+      on the same wall photo needs some way to tell them apart and number
+      them. Note there are two cures and the cheap one is probably right:
+      `data` is already a `Shape[]` in a single row, so an optional
+      `pitch?: number` per shape (`palabatu-fe/src/types/annotation.ts`)
+      needs no migration and leaves `listAnnotationsForBoulder`'s
+      every-line-on-this-rock view untouched. Adding a pitch number to
+      the unique key instead splits one drawing session across N rows and
+      makes that view reassemble them, for no gain — don't reach for it
+      first.
     - Whether to add an overall commitment/seriousness grade (French
       PD/AD/D/TD/ED or similar) alongside the technical grade.
       Multi-pitch routes conventionally carry both; nothing here does.
+    - What a "send" means on a route you retreated off. `sends` is a
+      binary tick (`internal/social`), which is the whole truth for a
+      boulder problem and not for a ten-pitch line, where "got to the top
+      of pitch 4" is a real and commonly logged outcome. Recording a high
+      point needs a column on `sends` and a change to `ToggleSend`'s
+      one-bit contract, so it is out of scope here — but it lands the
+      moment pitch-level detail does, and shouldn't be discovered then.
 
 24. **An admin can destroy anything, but never by accident: the purge is
     its own endpoint, not a flag on delete.** *(2026-09-06. Extends open
@@ -984,6 +1062,9 @@ problems
   landing_hazards         -- optional
   descent                 -- optional
   height_m                 -- optional, numeric; highball derived in UI
+                          -- from height + the rock's type, not height
+                          -- alone (decision 10) -- a wall never gets the
+                          -- label whatever the number says
   notes                   -- optional, freeform catch-all
   image_urls              -- RE-ADDED 2026-08-08(f) with a NEW meaning:
                           -- beta/action shots (crux hold, start position,
@@ -1464,14 +1545,46 @@ up from here.
    decision 24 for what was built instead of relaxing the rule, and for why
    "just let an admin delete anything" turned out not to be a smaller change
    than the purge, but a larger one with the safeguards removed.
-9. **Where loosely-filed contributions surface for admins.** UX principle 5
-   promises somebody tidies up later; nothing currently shows an admin
-   what needs tidying. An unnamed, photoless rock holding exactly one
-   problem is a strong signal that somebody wasn't sure. Open — needs
-   either a flag written at add time, a derived "needs attention" list
-   (cheap: it's a query, not a schema change), or an explicit decision that
-   the merge queue is enough. Related: the same surface is where a
-   duplicate-spot review would live if open item 8 goes that way.
+9. ~~**Where loosely-filed contributions surface for admins.**~~
+   **Resolved 2026-09-06: both signals, one queue** — the flag written at
+   add time *and* the derived list, rather than choosing between them, since
+   they cover different things. `GET /api/boulders/needs-attention`
+   (admin-only) plus `AdminNeedsAttention` at `/admin/needs-attention`, and
+   `boulders.filed_uncertain` (migrations/0020). This also closes
+   `handoff-add-sheet.md` C11, which was waiting on this decision: the flag
+   is what makes "It's a new rock" and "Not sure which one" different rows
+   rather than byte-identical ones.
+
+   Three things worth keeping:
+
+   - **The flag is three-state, not a boolean.** `true` said not sure,
+     `false` said it was a new rock, `NULL` was never asked — every rock
+     predating the column, and every one created through the rock intent's
+     own form, where the question does not arise. A `NOT NULL DEFAULT false`
+     would have flattened "we never asked" into "they said no", which is
+     exactly the inference this item exists to stop making.
+   - **The derived signal stays, and is not a fallback.** It is the only
+     thing that sees the existing backlog (5 rocks in the local data on the
+     day this shipped, against zero flagged), and the queue labels which
+     signal a row came from — `said_unsure` is what somebody told us,
+     `looks_unsure` is inferred, and they do not deserve equal weight.
+   - **The queue is drainable, and that shaped the query.** A row qualifies
+     only while the rock is still *unidentified* — no name and no photo —
+     so naming or photographing it removes the row. That is precisely the
+     tidying being asked for, which means no dismiss button, no flag to
+     clear, and no way for the queue to disagree with the data. The flag is
+     never mutated: the record of what the person said outlives the queue's
+     interest in it. The unidentified precondition is also what keeps the
+     flag earning its place — a "not sure" rock that has since collected a
+     second problem is still anonymous and still possibly a duplicate, and
+     the one-problem heuristic alone would have dropped it.
+
+   **The surface acts on nothing itself.** Every fix already exists on the
+   rock's own page (name it, merge it, move its problem, delete it), so each
+   row explains what it is, says what is worth doing, and links there —
+   a queue with its own copies of those actions would be a second place for
+   them to drift. Related: this is also where a duplicate-spot review would
+   live, though open item 8 resolved without needing one.
 10. ~~**Whether wall-type children are called "routes" in the UI.**~~
     **Resolved 2026-08-09(g): switch on the rock's type.** Decision 1
     already settled that copy switches on type ("which rock?" vs "which
@@ -1569,23 +1682,48 @@ up from here.
     is at least Weathered Stone. Screens still using the old value are
     not a regression to chase separately; they get it as they are touched.
 14. **Whether to build multi-pitch pitch-level detail at all yet.**
-    *(2026-09-04.)* Decision 23 settles *where* it would live if built; it
-    does not decide *when*. Today "multi-pitch" exists exactly once in
-    the whole app, as a word inside one seed row's free-text `notes`
-    (`scripts/seed-demo-crags.sql`) — real content, but zero rows would
-    populate `problem_pitches` if it shipped tomorrow. Given PRODUCT.md's
-    audience is Indonesian bouldering enthusiasts first, this is
-    plausibly a "document the gap, revisit once a real multi-pitch crag
-    gets added in numbers" item rather than a build-now one. Open — needs
-    a product call, not an engineering one.
+    *(2026-09-04. Counts corrected and a trigger added 2026-09-06.)*
+    Decision 23 settles *where* it would live if built; it does not
+    decide *when*.
+
+    The count this originally gave was wrong — it said "multi-pitch
+    exists exactly once in the whole app, as a word inside one seed row's
+    free-text `notes`". Measured against the database rather than
+    memory: 8 of 22 rocks are `type = 'wall'`, carrying 15 of the 31
+    problems, and 3 of those describe themselves as multi-pitch in their
+    notes. Rope climbing is not a rounding error in this data. What is
+    true, and is the actual argument for waiting, is that **every one of
+    those rows is seed data** — `scripts/seed-demo-crags.sql`, authored
+    to have one deliberate non-boulder crag in it. No contributor has
+    added a rope route, so zero rows would populate `problem_pitches` if
+    it shipped tomorrow, and building it now would be designing a form
+    against three rows somebody wrote to be an example.
+
+    Against that: PRODUCT.md's audience is Indonesian bouldering
+    enthusiasts first, and free-text `notes` is carrying pitch
+    information today the way the seed rows carry it. Nothing filters or
+    sorts on pitch count, so nothing is being lost in a shape that can't
+    be recovered later by reading those notes.
+
+    **Deferred, with a trigger rather than a someday.** Revisit when the
+    first *user-created* (non-seed) problem on a `wall` rock mentions
+    pitches in its notes, and build when there are roughly ten. That is
+    checkable in one query, which "once a real multi-pitch crag gets
+    added in numbers" was not. Still open only in the sense that the
+    trigger hasn't fired — the product call itself is made.
 
 **The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
-were resolved before implementation and remain resolved; 8 and 10 were
-resolved or narrowed, and 12 and 13 resolved, in (g); 7 and 8 were both
-resolved 2026-09-06 — 7 by amending merge design note 6 to match the
-shipped default, 8 by building the admin-only empty-crag delete.
-Still open: 9 is the needs-attention surface, and 11 is now policy-only —
-decision 22 builds the mechanism and ships it behaving exactly as today. **Nothing still open blocks implementation.**
+were resolved before implementation and remain resolved; 10 was resolved and
+8 narrowed, and 12 and 13 resolved, in (g); 7 and 8 were both closed
+2026-09-06 — 7 by amending merge design note 6 to match the shipped default,
+8 by building the admin-only empty-crag delete plus decision 24's purge.
+9 was resolved 2026-09-06 by the needs-attention queue, which also closed
+`handoff-add-sheet.md`'s C11. **14** was deferred 2026-09-06 against a
+checkable trigger (the first non-seed problem on a wall rock that mentions
+pitches; build at roughly ten), so the only thing still genuinely open is
+**11**, now policy-only — decision 22 builds the mechanism and ships it
+behaving exactly as today, and widening it is a product call rather than
+engineering. **Nothing still open blocks implementation.**
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

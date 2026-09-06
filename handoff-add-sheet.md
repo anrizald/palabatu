@@ -1,6 +1,6 @@
 # Add sheet — review findings (2026-08-13)
 
-Status: **A1-A3, B5-B9, C10-C13 fixed 2026-08-13; B4 fixed 2026-08-17.** A
+Status: **All 13 findings fixed.** A1-A3, B5-B9, C10-C13 on 2026-08-13; B4 on 2026-08-17; C11, the last one, on 2026-09-06. A
 punch list against the add sheet that shipped in `handoff.md` revision (h) —
 `palabatu-fe/src/components/add-sheet/` plus its entry points.
 
@@ -28,11 +28,19 @@ breadcrumb, `BoulderDetailPage` resolves both crag and rock). See
 ROADMAP.md's Phase 1.5 entry for the fuller writeup, now that
 `handoff-directory.md` itself is gone.
 
-**What's still open:** C11 is recorded, not built — a code comment at the
-implicit-new-rock collapse point in `AddSheet.tsx` names the nullable marker
-column that's the eventual fix, but open item 9 (whether/how to surface "not
-sure" rocks to admins) is still undecided, so no schema or admin surface was
-added. C12's confirm-before-discard dialog has since been superseded, not by
+**C11 shipped 2026-09-06**, once `handoff.md` open item 9 was decided — it
+was the blocker, since a marker column with nothing reading it would have
+been schema for its own sake. `boulders.filed_uncertain` (migrations/0020) is
+that nullable marker, written at the collapse point in `AddSheet.tsx`: `true`
+for "Not sure which one", `false` for "It's a new rock", `NULL` when the
+question never came up. The two picks are no longer byte-identical, and the
+distinction is read by the admin tidy-up queue
+(`GET /api/boulders/needs-attention`, `AdminNeedsAttention`) rather than
+being inferred after the fact from an unnamed, photoless, single-problem
+rock. Verified live through the sheet at 360px: picking "Not sure which one"
+POSTs `filed_uncertain: true` and picking "It's a new rock" POSTs `false`.
+See open item 9 in `handoff.md` for the queue's design, including why the
+derived heuristic was kept alongside the flag rather than replaced by it. C12's confirm-before-discard dialog has since been superseded, not by
 this file but by [handoff-drafts.md](handoff-drafts.md)'s Milestone 1
 (shipped 2026-08-17, same day as B4): the sheet now autosaves, so
 `handleClose` replaces the confirm-before-discard prompt shipped here with
@@ -402,7 +410,8 @@ Recorded so a later pass doesn't undo deliberate work:
 5. ~~**B4** — larger, and shared with `handoff-directory.md` step 2; do it
    there.~~ **Done 2026-08-17.**
 6. **B5, C10, C12** — as time allows.
-7. **C11** — only when open item 9 gets decided; record the intent now.
+7. ~~**C11** — only when open item 9 gets decided; record the intent now.~~
+   **Done 2026-09-06**, when item 9 was decided. See the status note above.
 
 `tsc`, `eslint`, `go vet` clean at every step. Verify live at 360 px, not
 just typechecked — (h)'s own notes and `CLAUDE.md`'s lucide/flex rule both

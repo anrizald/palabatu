@@ -482,6 +482,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/boulders/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rocks that were filed loosely and may need tidying
+         * @description Admin-only (Council/Associate title). Returns rocks a contribution was filed loosely against, from two signals: the contributor explicitly picked "Not sure which one" (reason "said_unsure"), or the rock is unnamed, photoless and holds exactly one problem (reason "looks_unsure"). Rocks already merged away are excluded.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_boulders.NeedsAttentionItem"][];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/boulders/{id}": {
         parameters: {
             query?: never;
@@ -4444,6 +4501,14 @@ export interface components {
         };
         "internal_boulders.CreateBoulderRequest": {
             crag_id?: string;
+            /**
+             * @description FiledUncertain records that the contributor said "Not sure which one"
+             *     rather than "It's a new rock" when this rock was created implicitly by
+             *     the add sheet (handoff-add-sheet.md C11). Three-state on purpose:
+             *     true said so, false said it was new, nil was never asked -- every
+             *     other creation path leaves it nil rather than guessing.
+             */
+            filed_uncertain?: boolean;
             image_urls?: string[];
             lat?: number;
             lng?: number;
@@ -4485,6 +4550,20 @@ export interface components {
             suggester_name?: string;
             target_boulder_id?: string;
             target_boulder_name?: string;
+        };
+        "internal_boulders.NeedsAttentionItem": {
+            crag_id?: string;
+            crag_name?: string;
+            created_at?: string;
+            created_by?: string;
+            creator_name?: string;
+            id?: string;
+            image_count?: number;
+            name?: string;
+            problem_count?: number;
+            reason?: string;
+            sample_problem_name?: string;
+            sibling_count?: number;
         };
         "internal_boulders.ObjectToMergeRequest": {
             body?: string;

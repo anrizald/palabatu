@@ -13,7 +13,7 @@ import RockPicker from '../components/add-sheet/RockPicker.js';
 import { invalidateCragCache } from '../lib/cragCache.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
 import type { ProblemDetail, ProblemRow, UpdateProblemRequest, TopoUploadResponse } from '../types/problem.js';
-import type { BoulderListItem } from '../types/boulder.js';
+import type { BoulderListItem, BoulderType } from '../types/boulder.js';
 import type { CragListItem } from '../types/crag.js';
 import type { Comment, SendStatusResponse, ActionResponse } from '../types/social.js';
 import type { ErrorResponse } from '../types/apitypes.js';
@@ -41,7 +41,15 @@ function formatDate(iso: string) {
 // Rows for the "more details" block -- decision 10: one height field, the
 // "highball" label derived here at a threshold rather than stored as a
 // second flag that could drift out of sync with height_m.
-function detailRows(problem: ProblemDetail): { label: string; value: string }[] {
+//
+// The derivation needs the rock's type as well as the number: "highball"
+// is a bouldering word for a problem high enough that falling off it stops
+// being routine, and it means nothing on a roped wall. Without the type,
+// every wall route past 4.5 m read as a highball -- the seed's 300 m
+// Gunung Parang lines rendered "300 m -- highball". A wall gets the plain
+// height. An unknown type (the boulder hasn't loaded yet) is treated as a
+// boulder, matching what the page shows for everything else meanwhile.
+function detailRows(problem: ProblemDetail, boulderType: BoulderType | null): { label: string; value: string }[] {
     const rows: { label: string; value: string }[] = [];
     if (problem.first_ascensionist) rows.push({ label: 'First ascent', value: problem.first_ascensionist });
     if (problem.discovered_by && problem.discovered_by !== problem.first_ascensionist) {
@@ -50,8 +58,8 @@ function detailRows(problem: ProblemDetail): { label: string; value: string }[] 
     if (problem.landing_hazards) rows.push({ label: 'Landing / spotting', value: problem.landing_hazards });
     if (problem.descent) rows.push({ label: 'Descent', value: problem.descent });
     if (problem.height_m != null) {
-        const highball = problem.height_m >= HIGHBALL_THRESHOLD_M ? ' -- highball' : '';
-        rows.push({ label: 'Height', value: `${problem.height_m} m${highball}` });
+        const isHighball = boulderType !== 'wall' && problem.height_m >= HIGHBALL_THRESHOLD_M;
+        rows.push({ label: 'Height', value: `${problem.height_m} m${isHighball ? ' -- highball' : ''}` });
     }
     return rows;
 }
@@ -379,7 +387,7 @@ export default function ProblemDetailPage() {
         return null;
     }, [boulder, crag]);
 
-    const rows = useMemo(() => problem ? detailRows(problem) : [], [problem]);
+    const rows = useMemo(() => problem ? detailRows(problem, boulder?.type ?? null) : [], [problem, boulder]);
 
     if (isLoading) return (
         <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">

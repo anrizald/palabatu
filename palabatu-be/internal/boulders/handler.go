@@ -18,6 +18,9 @@ func Routes(rg *gin.RouterGroup) {
 	// requires the same wildcard name wherever two route trees share a
 	// path segment, and internal/crags already registered /crags/:id.
 	rg.GET("/crags/:id/boulders", handleListBoulders)
+	// Registered ahead of /boulders/:id so gin matches the literal segment
+	// rather than treating "needs-attention" as a boulder id.
+	rg.GET("/boulders/needs-attention", middleware.RequireAuth, handleNeedsAttention)
 	rg.GET("/boulders/:id", handleGetBoulder)
 	rg.POST("/boulders", middleware.RequireAuth, handleCreateBoulder)
 	rg.PUT("/boulders/:id", middleware.RequireAuth, handleUpdateBoulder)
@@ -92,7 +95,7 @@ func handleCreateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.ImageURLs)
+	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.ImageURLs, body.FiledUncertain)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)
@@ -224,6 +227,30 @@ func handleDeleteBoulderImage(c *gin.Context) {
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this boulder."})
 	case errors.Is(err, ErrImageNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleNeedsAttention godoc
+// @Summary      List rocks that were filed loosely and may need tidying
+// @Description  Admin-only (Council/Associate title). Returns rocks a contribution was filed loosely against, from two signals: the contributor explicitly picked "Not sure which one" (reason "said_unsure"), or the rock is unnamed, photoless and holds exactly one problem (reason "looks_unsure"). Rocks already merged away are excluded.
+// @Tags         boulders
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   boulders.NeedsAttentionItem
+// @Failure      403  {object}  apitypes.ErrorResponse  "not an admin"
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/boulders/needs-attention [get]
+func handleNeedsAttention(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+
+	items, err := ListNeedsAttention(c.Request.Context(), userID)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, items)
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Only an admin can do this."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

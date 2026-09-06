@@ -50,6 +50,13 @@ export type CreateBoulderRequest = {
     lat: number | null
     lng: number | null
     image_urls: string[]
+    // Records which of the add sheet's two picks the person made when a rock
+    // is created implicitly under a problem: true for "Not sure which one",
+    // false for "It's a new rock", null/absent when the question never came
+    // up (the rock intent's own form, or a spot with no rocks at all). The Go
+    // side is a *bool for exactly this three-state reason -- see
+    // handoff-add-sheet.md C11 and handoff.md open item 9.
+    filed_uncertain?: boolean | null
 }
 
 // Mirrors boulders.UpdateBoulderRequest -- no image_urls (images are only
@@ -135,3 +142,26 @@ export type MergeRequestListItem = {
 export type SuggestMergeRequest = { target_boulder_id: string; reason: string }
 export type ObjectToMergeRequest = { body: string }
 export type ResolveMergeRequestRequest = { action: 'merge' | 'reject'; survivor_id: string; override_hold: boolean }
+
+// Mirrors boulders.NeedsAttentionItem (GET /api/boulders/needs-attention),
+// the admin tidy-up queue from handoff.md open item 9. reason is a closed
+// set: 'said_unsure' is the contributor's own words recorded at creation
+// time, 'looks_unsure' is the unnamed + photoless + one-problem heuristic
+// inferred after the fact. sibling_count is how many other rocks are at the
+// same spot, which is what decides whether a merge is even possible.
+export type NeedsAttentionReason = 'said_unsure' | 'looks_unsure'
+
+export type NeedsAttentionItem = {
+    id: string
+    name: string | null
+    crag_id: string
+    crag_name: string
+    image_count: number
+    problem_count: number
+    sample_problem_name: string | null
+    sibling_count: number
+    created_by: string | null
+    creator_name: string | null
+    reason: NeedsAttentionReason
+    created_at: string
+}

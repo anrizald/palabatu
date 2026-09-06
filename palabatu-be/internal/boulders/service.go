@@ -52,7 +52,7 @@ func normalizeBoulderType(t string) (string, error) {
 
 // CreateBoulder has no role gate: any signed-in user may add a boulder to
 // any crag, including someone else's (handoff.md decision 6).
-func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, rockType string, lat, lng *float64, imageURLs []string) (*Boulder, error) {
+func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, rockType string, lat, lng *float64, imageURLs []string, filedUncertain *bool) (*Boulder, error) {
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, ro
 		return nil, err
 	}
 
-	b, err := createBoulder(ctx, cragID, name, normalizedType, rockType, lat, lng, imageURLs, createdBy)
+	b, err := createBoulder(ctx, cragID, name, normalizedType, rockType, lat, lng, imageURLs, createdBy, filedUncertain)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.ConstraintName == "boulders_crag_id_fkey" {
@@ -247,6 +247,16 @@ func DeleteBoulder(ctx context.Context, userID, boulderID string) error {
 	}
 
 	return nil
+}
+
+// ListNeedsAttention backs the admin tidy-up queue (handoff.md open item 9).
+// Admin-only via the same requireAdmin the merge resolution uses: this is a
+// moderation surface over everybody's rocks, not something anyone owns.
+func ListNeedsAttention(ctx context.Context, userID string) ([]NeedsAttentionItem, error) {
+	if err := requireAdmin(ctx, userID); err != nil {
+		return nil, err
+	}
+	return listNeedsAttention(ctx)
 }
 
 // authorizeBoulderEdit mirrors problems.authorizeProblemEdit exactly --

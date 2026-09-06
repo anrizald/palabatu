@@ -1,5 +1,7 @@
 package boulders
 
+import "time"
+
 // CreateBoulderRequest is handleCreateBoulder's request body. Type is
 // "boulder" or "wall" (handoff.md decision 1: cliffs are in scope) -- empty
 // defaults to "boulder" at the service layer.
@@ -11,6 +13,12 @@ type CreateBoulderRequest struct {
 	Lat       *float64 `json:"lat"`
 	Lng       *float64 `json:"lng"`
 	ImageURLs []string `json:"image_urls"`
+	// FiledUncertain records that the contributor said "Not sure which one"
+	// rather than "It's a new rock" when this rock was created implicitly by
+	// the add sheet (handoff-add-sheet.md C11). Three-state on purpose:
+	// true said so, false said it was new, nil was never asked -- every
+	// other creation path leaves it nil rather than guessing.
+	FiledUncertain *bool `json:"filed_uncertain"`
 }
 
 // UpdateBoulderRequest is handleUpdateBoulder's request body. CragID
@@ -59,4 +67,32 @@ type ResolveMergeRequestRequest struct {
 	Action       string `json:"action"`
 	SurvivorID   string `json:"survivor_id"`
 	OverrideHold bool   `json:"override_hold"`
+}
+
+// NeedsAttentionItem is one row of the admin tidy-up queue
+// (GET /api/boulders/needs-attention), closing handoff.md open item 9.
+//
+// Reason says which of the two signals put it here, because they do not
+// deserve equal trust: "said_unsure" is the contributor's own words,
+// recorded at the moment they said them; "looks_unsure" is item 9's
+// heuristic -- an unnamed, photoless rock holding exactly one problem --
+// inferred after the fact, and the only signal available for anything
+// created before that flag existed.
+//
+// SiblingCount is how many other rocks are at the same spot, because it
+// decides what the admin can actually do: with siblings the fix is usually
+// a merge or a re-parent, with none it is naming the rock or leaving it be.
+type NeedsAttentionItem struct {
+	ID                string    `json:"id"`
+	Name              *string   `json:"name"`
+	CragID            string    `json:"crag_id"`
+	CragName          string    `json:"crag_name"`
+	ImageCount        int       `json:"image_count"`
+	ProblemCount      int       `json:"problem_count"`
+	SampleProblemName *string   `json:"sample_problem_name"`
+	SiblingCount      int       `json:"sibling_count"`
+	CreatedBy         *string   `json:"created_by"`
+	CreatorName       *string   `json:"creator_name"`
+	Reason            string    `json:"reason"`
+	CreatedAt         time.Time `json:"created_at"`
 }

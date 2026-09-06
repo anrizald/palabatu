@@ -76,6 +76,12 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const [isNewSpot, setIsNewSpot] = useState(false)
     const [newSpotDraft, setNewSpotDraft] = useState<NewSpotDraft>(blankSpot)
     const [overlayOpen, setOverlayOpen] = useState(false)
+    // C11: "It's a new rock" and "Not sure which one" used to be
+    // byte-identical. This is the difference, recorded at the moment the
+    // person says it rather than inferred later from an unnamed, photoless,
+    // single-problem rock (handoff.md open item 9). null means the question
+    // never came up -- an implicit rock created because the spot has none.
+    const [filedUncertain, setFiledUncertain] = useState<boolean | null>(null)
 
     const [newRockDraft, setNewRockDraft] = useState<NewRockDraft>(blankRock)
     // The resolved spot's already-pinned rocks, for the rock tab's pin map:
@@ -224,9 +230,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 setCragId(crag.id); setIsNewSpot(false); setBoulderId(boulder.id); setResolvedBoulder(boulder)
                 setAnnotationShapes([]); setLineDrawn(false); setOverlayOpen(false)
             }}
-            onPickSpotNoRocks={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setOverlayOpen(false) }}
-            onPickNewRock={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setOverlayOpen(false) }}
-            onPickNotSure={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setOverlayOpen(false) }}
+            onPickSpotNoRocks={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setFiledUncertain(null); setOverlayOpen(false) }}
+            onPickNewRock={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setFiledUncertain(false); setOverlayOpen(false) }}
+            onPickNotSure={crag => { setCragId(crag.id); setIsNewSpot(false); clearRockSelection(); setFiledUncertain(true); setOverlayOpen(false) }}
             onConfirmNewSpot={() => { setIsNewSpot(true); setCragId(null); clearRockSelection(); setOverlayOpen(false) }}
         />
     )
@@ -326,24 +332,21 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
             if (!resolvedBoulderId) {
                 // Implicit new rock, explicit "it's a new rock", and "not
-                // sure which one" all collapse to the same operation
-                // (handoff.md's prototype: identical handlers, different
-                // narrative only) -- a bare boulder, named/photographed only
-                // if the user happened to stage a photo here.
-                // The "not sure" narrative is real but unrecorded
-                // (handoff-add-sheet.md C11) -- once open item 9 is decided,
-                // the fix is a nullable marker written here at creation
-                // time (e.g. an `uncertain_at`/`suggested_duplicate` column),
-                // not inferring it after the fact from an unnamed,
-                // photoless, single-problem boulder. Deliberately not built
-                // yet: don't add the admin surface until item 9 lands.
+                // sure which one" all create the same bare boulder -- but
+                // they are no longer indistinguishable afterwards
+                // (handoff-add-sheet.md C11, closed 2026-09-06 alongside
+                // handoff.md open item 9). filedUncertain carries which of
+                // the three it was: true said not sure, false said it was
+                // new, null was never asked. The admin tidy-up queue keys on
+                // it rather than inferring uncertainty from an unnamed,
+                // photoless, single-problem rock after the fact.
                 const imageUrls = stagedFile ? await uploadPhotos([stagedFile]) : []
                 if (imageUrls[0]) {
                     targetPhotoUrl = imageUrls[0]
                 } else if (stagedFile) {
                     showError('The photo did not upload -- the rock was saved without it, and your line was not saved')
                 }
-                const body: CreateBoulderRequest = { crag_id: resolved.id, name: '', type: 'boulder', rock_type: '', lat: null, lng: null, image_urls: imageUrls }
+                const body: CreateBoulderRequest = { crag_id: resolved.id, name: '', type: 'boulder', rock_type: '', lat: null, lng: null, image_urls: imageUrls, filed_uncertain: filedUncertain }
                 const res = await api.post<Boulder | ErrorResponse>('/api/boulders', body)
                 if ('error' in res) { showError(res.error); return }
                 resolvedBoulderId = res.id
