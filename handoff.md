@@ -1617,6 +1617,92 @@ up from here.
     to any signed-in user, and whether that is global or per-crag. No
     longer blocks anything; needs a product call whenever you want to turn
     it on.
+
+    **Scoped 2026-09-06: the item is two halves with very different
+    costs, and only one of them needs building.** Decision 22 lists two
+    things the mechanism must carry regardless of policy. Audited against
+    the shipped code, one is done everywhere and the other is done in
+    exactly one place:
+
+    - **A removal path exists for every contribution surface.**
+      `boulders.DeleteBoulderImage`, `crags.DeleteCragImage`,
+      `problems.DeleteProblemImage` and `approaches.DeleteApproach` are all
+      gated by `authz.CanEditOwned` (creator-or-admin), so the owner can
+      already remove junk added to their own entity. Nothing to build.
+    - **Attribution exists for approaches and not for photos.**
+      `approaches.created_by` records who documented a walk in, at the
+      right granularity, because an approach is one contribution and one
+      row. Photos are the opposite: `crags.image_urls`,
+      `boulders.image_urls` and `problems.image_urls` are all
+      `jsonb DEFAULT '[]'` arrays of **bare URL strings**, so nothing
+      anywhere records who added a given photo.
+
+    So `KindAddApproach` can widen today — one line in `CanContribute`, no
+    schema change, and the surface that made this item urgent in the first
+    place is the one that is ready. `KindAddPhoto` cannot: widen it now and
+    there is no way to credit a photo, and no way to judge or revert a bad
+    one, which is precisely the retrofit decision 22 warned costs more
+    later.
+
+    **Proposed shape for photo attribution: a sidecar credits table, not a
+    change to `image_urls`.** Three options were weighed:
+
+    - *Make `image_urls` an array of objects* (`[{url, by, at}]`).
+      Rejected — it touches every reader and writer of a field that
+      otherwise needed no change: the `image_urls || $2::jsonb` append and
+      `image_urls - $2::text` delete, `jsonb_array_length` in the
+      needs-attention query, three Go `[]string` scans, the frontend mirror
+      types, and `topo_annotations`' membership check.
+    - *A normalized `photos` table replacing `image_urls`.* Rejected for
+      the same blast radius at greater cost, and it re-keys things that
+      were not asking to be re-keyed.
+    - **A sidecar table keyed by `(entity, url)`.** Chosen. This repo has
+      already done exactly this twice, for exactly this reason:
+      `topo_annotations` is keyed `(problem_id, image_url)` and `reports`
+      carries `(problem_id, target_type, image_url)`, both because a photo
+      inside a jsonb array has no id to point at. A third instance is a
+      pattern, not a workaround — and it changes no existing read or write
+      path at all.
+
+    ```
+    photo_credits(
+      entity_kind text CHECK (entity_kind IN ('crag','boulder','problem')),
+      entity_id   uuid,
+      image_url   text,
+      uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+      created_at  timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (entity_kind, entity_id, image_url)
+    )
+    ```
+
+    No FK can point at a jsonb array element, so a credit row can outlive
+    its photo. That is tolerable and matches both precedents; the three
+    delete paths already enumerate the removed URL one at a time to call
+    `cloudinary.DestroyByURL`, so dropping the credit row is one more
+    statement somewhere that already exists.
+
+    **An absent row means "the creator", not "unknown" — which is why no
+    backfill is needed.** Until the policy widens, every photo was added by
+    the entity's creator or by an admin, because that is what
+    `CanEditOwned` enforced. So the display falls back to the entity's own
+    `created_by` with nothing guessed. Write credit rows from the moment
+    the table exists, *before* widening anything, and the ambiguous window
+    is only historical. One gap worth naming rather than hiding: an admin
+    who added a photo to someone else's entity before the table existed
+    will read as the creator. There are 17 photos in the local data today
+    (6 on crags, 11 on boulders, 0 on problems), so if that ever matters it
+    is checkable by hand rather than by migration.
+
+    **Sequencing, if built:** the migration, then credit writes on the
+    three add paths, credit deletes on the three remove paths, and the
+    "photo by X" line on the three detail pages — all with the policy
+    unchanged and behaviour identical to today. Only after that is widening
+    `KindAddPhoto` the one-line change decision 22 promised. None of it
+    needs the product call made first, which is the useful part: the
+    blocking work can proceed while the policy stays undecided.
+
+    **Still open, and still the actual question:** which kinds widen to any
+    signed-in user, and whether that is global or per-crag.
 13. ~~**What the crag pin actually means, given decision 21.**~~
     **Resolved 2026-08-09(g): three layers, chosen by zoom.** Decision 4
     said the crag's `lat`/`lng` is "the approach/parking point". Decision
@@ -1721,9 +1807,17 @@ were resolved before implementation and remain resolved; 10 was resolved and
 `handoff-add-sheet.md`'s C11. **14** was deferred 2026-09-06 against a
 checkable trigger (the first non-seed problem on a wall rock that mentions
 pitches; build at roughly ten), so the only thing still genuinely open is
-**11**, now policy-only — decision 22 builds the mechanism and ships it
-behaving exactly as today, and widening it is a product call rather than
-engineering. **Nothing still open blocks implementation.**
+**11**, scoped 2026-09-06 into a policy half and a build half. This
+paragraph previously called 11 "policy-only, a product call rather than
+engineering"; that was half right. Decision 22's removal path is done
+everywhere and its attribution requirement is done for approaches, so
+`KindAddApproach` really can widen on a product call alone. Photos cannot:
+all three `image_urls` columns are jsonb arrays of bare URL strings, so
+there is nothing to build a credit from, and `KindAddPhoto` needs the
+`photo_credits` sidecar sketched under item 11 before the policy question
+is even reachable. That build does not depend on the product call, so it
+can proceed while the call stays unmade. **Nothing still open blocks
+implementation.**
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend
