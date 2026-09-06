@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Compass, Layers, MapPin, Pencil, Plus, Footprints, Trash2 } from 'lucide-react'
+import { Compass, Layers, MapPin, Pencil, Plus, Footprints, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
@@ -8,10 +8,12 @@ import { useAddSheet } from '../lib/useAddSheet.js'
 import { invalidateCragCache } from '../lib/cragCache.js'
 import type { CragListItem, CragRequest } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
+import type { TopoUploadResponse } from '../types/problem.js'
 import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import PurgeSpotModal from '../components/PurgeSpotModal.js'
+import PhotoCreditLine from '../components/PhotoCreditLine.js'
 import { MAX_NAME_LEN } from '../lib/constants.js';
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
@@ -48,6 +50,8 @@ export default function CragDetailPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [showPurge, setShowPurge] = useState(false)
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+    const [removingPhotoUrl, setRemovingPhotoUrl] = useState<string | null>(null)
 
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
@@ -73,6 +77,10 @@ export default function CragDetailPage() {
     useEffect(load, [id])
 
     const canEdit = !!crag && !!user && (user.id === crag.created_by || isAdmin)
+    // Adding a photo is widened to any signed-in user (handoff.md open item
+    // 11, resolved 2026-09-06, authz.CanContribute) -- removing one stays on
+    // canEdit above, creator-or-admin, unchanged.
+    const canAddPhoto = !!crag && !!user
 
     const handleSave = async () => {
         if (!crag || !editName.trim()) { showError('Please give the spot a name'); return }
@@ -86,6 +94,41 @@ export default function CragDetailPage() {
         if ('error' in res) { showError(res.error); return }
         invalidateCragCache()
         setIsEditing(false)
+        load()
+    }
+
+    // Adding a crag photo is gated through authz.CanContribute on the backend
+    // (handoff.md decision 22) -- today that's still creator-or-admin, same
+    // as canEdit, so the frontend gate doesn't need a separate check. Upload
+    // goes through the same generic /api/upload/topo endpoint every other
+    // photo in the app uses (spots, rocks, problems), not just boulder topos.
+    const handleAddPhotos = async (files: File[]) => {
+        if (!crag || files.length === 0) return
+        setIsUploadingPhoto(true)
+        try {
+            const uploads = await Promise.all(files.map(file => {
+                const formData = new FormData()
+                formData.append('image', file)
+                return api.upload<Partial<TopoUploadResponse & ErrorResponse>>('/api/upload/topo', formData)
+            }))
+            const uploadedUrls = uploads.filter((r): r is TopoUploadResponse => !!r.url).map(r => r.url)
+            if (uploadedUrls.length === 0) return
+            const res = await api.post<CragListItem | ErrorResponse>(`/api/crags/${crag.id}/images`, { image_urls: uploadedUrls })
+            if ('error' in res) { showError(res.error); return }
+            invalidateCragCache()
+            load()
+        } finally {
+            setIsUploadingPhoto(false)
+        }
+    }
+
+    const handleRemovePhoto = async (url: string) => {
+        if (!crag || !window.confirm('Remove this photo?')) return
+        setRemovingPhotoUrl(url)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/crags/${crag.id}/images`, { url })
+        setRemovingPhotoUrl(null)
+        if (res.error) { showError(res.error); return }
+        invalidateCragCache()
         load()
     }
 
@@ -232,6 +275,52 @@ export default function CragDetailPage() {
                                 <div className="text-xs text-text-muted">Added by {crag.creator_name}</div>
                             )}
                         </>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    <h2 className="font-serif text-lg font-black text-text">Photos</h2>
+                    {crag.image_urls.length === 0 ? (
+                        <div className="rounded-2xl bg-panel border border-dashed border-text-faint flex flex-col items-center justify-center gap-2 py-8">
+                            <Layers size={24} className="shrink-0 text-text-faint" />
+                            <div className="text-sm text-text-muted">No photo yet</div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {crag.image_urls.map(url => (
+                                <div key={url} className="relative">
+                                    <div className="aspect-square rounded-2xl overflow-hidden border border-border">
+                                        <img src={url} className="w-full h-full object-cover" alt={crag.name} />
+                                    </div>
+                                    {canEdit && (
+                                        <button
+                                            onClick={() => handleRemovePhoto(url)}
+                                            disabled={removingPhotoUrl === url}
+                                            className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 cursor-pointer flex items-center justify-center disabled:opacity-50"
+                                            aria-label="Remove photo"
+                                        ><X size={14} className="shrink-0" /></button>
+                                    )}
+                                    <PhotoCreditLine url={url} credits={crag.image_credits} creatorName={crag.creator_name} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {canAddPhoto && (
+                        <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
+                            <Plus size={13} className="shrink-0" /> {isUploadingPhoto ? 'Uploading...' : 'Add a photo'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                disabled={isUploadingPhoto}
+                                className="hidden"
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files || [])
+                                    e.target.value = ''
+                                    handleAddPhotos(files)
+                                }}
+                            />
+                        </label>
                     )}
                 </div>
 

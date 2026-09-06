@@ -194,8 +194,13 @@ palabatu-be/
 │   │                        # a signed-in submitter, e.g. feedback) + UserFromContext;
 │   │                        # owner.go: RequireOwner; ratelimit.go: RateLimit
 │   ├── authz/authz.go       # stateless admin-role policy: IsAdmin(titles), CanEditOwned(userID, ownerID, titles),
-│   │                        # CanContribute(userID, kind, ownerID, titles) — the last one is the widen-later seam for
-│   │                        # additive acts (adding a photo) that need not stay creator-or-admin forever.
+│   │                        # CanContribute(userID, kind, ownerID, titles) — the seam handoff.md decision 22 asked
+│   │                        # for, so an additive kind's policy can move independently of CanEditOwned's
+│   │                        # creator-or-admin. Widened 2026-09-06 (open item 11, resolved): KindAddPhoto and
+│   │                        # KindAddApproach now grant to any signed-in user, globally. KindAddNote has no call
+│   │                        # site yet and stays on CanEditOwned's default; removing a contribution (any
+│   │                        # DeleteXImage, DeleteApproach) is a different question and still creator-or-admin via
+│   │                        # CanEditOwned directly, never through this function.
 │   │                        # Takes already-fetched data as args — never reaches into another domain's repository,
 │   │                        # so problems/social/auth -> authz stays one-way with no import cycle possible.
 │   ├── photocredits/        # who added a given photo, so an additive contribution can be credited, judged and
@@ -206,12 +211,13 @@ palabatu-be/
 │   │                        # table, because a photo inside a jsonb array has no id to point at. That's the
 │   │                        # third instance of this shape here (topo_annotations and report are the others),
 │   │                        # so it's a pattern, not a workaround, and it changed no existing read/write path.
-│   │                        # This is handoff.md open item 11's blocking half: decision 22 wants attribution on
-│   │                        # every contribution BEFORE authz.CanContribute widens past creator-or-admin, and
-│   │                        # photos had none. Deliberately not backfilled — until the policy widens, an absent
-│   │                        # row means "the entity's creator", which is what CanEditOwned enforced, so the FE
-│   │                        # falls back to created_by and guesses nothing. Surfaces as `image_credits` on the
-│   │                        # crag/boulder/problem responses; rendered by components/PhotoCreditLine.tsx.
+│   │                        # This built handoff.md open item 11's blocking half: decision 22 required attribution
+│   │                        # on every contribution before authz.CanContribute could widen past creator-or-admin
+│   │                        # (it has, 2026-09-06 — see authz/authz.go above), and photos had none. Deliberately
+│   │                        # not backfilled — a photo added before this migration has no row, so the FE falls
+│   │                        # back to the entity's own created_by and guesses nothing. Surfaces as `image_credits`
+│   │                        # on the crag/boulder/problem responses; rendered by components/PhotoCreditLine.tsx,
+│   │                        # including on CragDetailPage's own photo gallery, which didn't exist before this.
 │   │                        # No FK can point into a jsonb array, so a credit row can outlive its photo: every
 │   │                        # delete path that already enumerates a URL for cloudinary.DestroyByURL drops the
 │   │                        # credit in the same place. Keep that pairing when you add a new one.
@@ -375,7 +381,7 @@ palabatu-be/
 - Problem authorization model (`problems.authorizeProblemEdit` in `problems/service.go`, policy in `internal/authz`):
   - **Creating** a problem (`POST /problems`) has no role gate — any logged-in user can add one, for now.
   - **Editing/deleting** a problem is allowed for two groups: admins, whose `profiles.title` includes `'Council'` or `'Associate'` (`authz.IsAdmin`), who can CRUD *any* problem; and that problem's own creator (its "Founder"), who can only CRUD the problem(s) they added. The policy function is `authz.CanEditOwned(userID, ownerID, titles)` — generic over any creator-owned row, which is why `crags` and `boulders` reuse it verbatim. (There is no `authz.CanEditProblem`; if you see that name referenced anywhere, it's stale.)
-  - **Additive** acts route through `authz.CanContribute(userID, kind, ownerID, titles)` instead — same answer today, but a separate seam so "anyone signed in may add a photo" can be turned on without touching every call site (`boulders.AddBoulderImages` is the live example).
+  - **Additive** acts route through `authz.CanContribute(userID, kind, ownerID, titles)` instead of `CanEditOwned` directly — a separate seam so a kind's policy can move independently, without touching every call site. As of 2026-09-06 (handoff.md open item 11, resolved) `KindAddPhoto` and `KindAddApproach` grant to any signed-in user; `boulders.AddBoulderImages` is one of three add-photo call sites (crags, boulders, problems) that now behave this way. Removing a contribution is unaffected — every delete path still calls `CanEditOwned` directly, creator-or-admin, same as before.
 - **Crags/boulders/problems hierarchy** (shipped end to end 2026-08-08 — schema, backend, and frontend; see `handoff.md` at the repo root for the full design and `ROADMAP.md`'s Phase 1.5 entry): a problem is the bottom level of `crags -> boulders -> problems` (migrations 0014/0015). A crag is the place you park and walk in from (required `lat`/`lng`, optional `directions`/`access_notes`); a boulder is one rock (optional `lat`/`lng`, owns `image_urls` — the photo(s) every problem on it shares); a problem is one way up that rock, with no location of its own (`crag_id`/`boulder_id` FKs only, `crag_id` denormalized so hot queries skip the two-hop join). Duplicate boulders are a normal state, not a bug: the one-off `cmd/backfill-crags` script gave each pre-existing problem its own boulder (no data said which problems shared a rock), contributors standing at the same rock keep creating more, and the add sheet's "Not sure which one" files one too. They're resolved through `internal/boulders`' merge sub-flow — anyone signed in may suggest "these are the same rock", only the two boulders' own creators may object, only an admin executes the merge (picking which boulder survives), gated by a 48h objection hold an admin can override.
   - Frontend surfaces for it: the single add sheet (`components/add-sheet/` — see the bullet below), `CragDetailPage`/`BoulderDetailPage`/`ProblemDetailPage` (the only problem-detail surface — `ProblemDetails` and `AddProblemModal` were deleted rather than ported), `Map.tsx` (see the map-layers bullet below), `MergeSuggestModal` plus the `AdminMergeRequests` review queue, `AdminNeedsAttention` (the client for `GET /boulders/needs-attention` — a queue with no dismiss action, since naming or photographing a rock is what drains it), `PurgeSpotModal` (the client for the two purge routes, and the thing that saves the destroyed-rows snapshot to a file — that download is the only surviving copy, so treat it as part of the operation rather than a convenience), `components/PhotoCreditLine.tsx` with `types/photocredit.ts` (rendering `image_credits`, falling back to the entity's creator when a photo predates `migrations/0021`), and `lib/cragCache.ts` — a small client-side join so list/card surfaces resolve crag/boulder names, thumbnails, and "near you" distance through the existing crag/boulder list endpoints rather than new backend denormalization.
   - **The map is three layers chosen by zoom, not one pin per crag** (handoff.md open item 13, resolved 2026-08-09(g)). Far out: one pin per crag (`PinpointMarker`), dimmed when the crag has no problems yet. Past `DETAIL_ZOOM` (15, in `lib/constants.ts`, shared so `Map.tsx` and `PinpointMarker` can't drift): `CragDetailLayer` mounts that crag's own rocks (`BoulderPinMarker`, a tailless badge — "an object is here") and its approach start points (`ApproachStartMarker`, a teardrop — "you go here"), both drawn from `lib/mapIcons.ts`'s shared badge/teardrop SVG language. The crag pin then de-emphasizes, and hides outright once `onContentAvailability` confirms real detail pins are on screen — but *only* then, because a crag whose rocks all lack coordinates would otherwise lose its only marker. `crags.lat/lng` means "the climbing, approximately"; it is explicitly not the parking spot any more.

@@ -1705,8 +1705,50 @@ up from here.
     needs the product call made first, which is the useful part: the
     blocking work can proceed while the policy stays undecided.
 
-    **Still open, and still the actual question:** which kinds widen to any
-    signed-in user, and whether that is global or per-crag.
+    **Resolved 2026-09-06: the build half shipped, same day as this
+    scoping.** `migrations/0021_photo_credits` and `internal/photocredits`
+    (`Record`/`Remove`/`RemoveEntity`/`RemoveURLs`/`List`) exist exactly as
+    sketched above, and the sequencing ran in full: `photocredits.Record` on
+    all three add paths, `Remove` on all three per-photo delete paths,
+    `RemoveEntity` on all three whole-entity deletes, `RemoveURLs` on the
+    crag purge, and `PhotoCreditLine.tsx` rendering "Photo by X" on
+    `BoulderDetailPage` and `ProblemDetailPage`.
+
+    One thing this turned up that neither this item nor the sidecar's own
+    design anticipated: `CragDetailPage` had no photo section at all.
+    `crags.service.go` was computing and returning `image_credits` same as
+    the other two domains, but a crag's own `image_urls` (the approach shot)
+    were only ever shown as thumbnails elsewhere — `SpotCard`, `Directory`,
+    `SpotList`, the rock picker — with no gallery, no add, no remove, and
+    therefore nowhere to put a credit line. Built alongside this resolution:
+    a minimal photo section on `CragDetailPage` mirroring
+    `BoulderDetailPage`'s (grid, add via the existing
+    `POST /crags/:id/images`, remove via the existing
+    `DELETE /crags/:id/images`) with `PhotoCreditLine` wired in — closing the
+    gap rather than leaving credits computed and returned with nothing to
+    display them.
+
+    **Resolved 2026-09-06: the policy call is made too.** `KindAddPhoto` and
+    `KindAddApproach` both widen to any signed-in user, globally (not
+    per-crag — nobody asked for per-crag and it would need a settings
+    surface that doesn't exist). `authz.CanContribute` now branches on kind:
+    those two return `userID != ""` (every call site already sits behind
+    `middleware.RequireAuth`, so that's "any signed-in user," not "anyone");
+    everything else still falls through to `CanEditOwned`. Removal is
+    deliberately untouched — `DeleteBoulderImage`/`DeleteCragImage`/
+    `DeleteProblemImage`/`DeleteApproach` all call `CanEditOwned` directly,
+    never `CanContribute`, so only the creator or an admin can take a
+    contribution back down, same as before. On the frontend, the three photo
+    galleries (`CragDetailPage`, `BoulderDetailPage`, `ProblemDetailPage`)
+    now gate their "Add a photo" control on a separate `canAddPhoto` (any
+    signed-in user) rather than `canEdit` (creator-or-admin) — remove stays
+    on `canEdit`. The "Add the way in" buttons on `CragDetailPage` needed no
+    change: they were never gated on `canEdit` to begin with, which in
+    hindsight was the frontend already built for this decision before the
+    backend caught up to it. `KindAddNote` has no call site yet and is
+    untouched.
+
+    **Nothing is open in this document any more.**
 13. ~~**What the crag pin actually means, given decision 21.**~~
     **Resolved 2026-08-09(g): three layers, chosen by zoom.** Decision 4
     said the crag's `lat`/`lng` is "the approach/parking point". Decision
@@ -1810,18 +1852,16 @@ were resolved before implementation and remain resolved; 10 was resolved and
 9 was resolved 2026-09-06 by the needs-attention queue, which also closed
 `handoff-add-sheet.md`'s C11. **14** was deferred 2026-09-06 against a
 checkable trigger (the first non-seed problem on a wall rock that mentions
-pitches; build at roughly ten), so the only thing still genuinely open is
-**11**, scoped 2026-09-06 into a policy half and a build half. This
-paragraph previously called 11 "policy-only, a product call rather than
-engineering"; that was half right. Decision 22's removal path is done
-everywhere and its attribution requirement is done for approaches, so
-`KindAddApproach` really can widen on a product call alone. Photos cannot:
-all three `image_urls` columns are jsonb arrays of bare URL strings, so
-there is nothing to build a credit from, and `KindAddPhoto` needs the
-`photo_credits` sidecar sketched under item 11 before the policy question
-is even reachable. That build does not depend on the product call, so it
-can proceed while the call stays unmade. **Nothing still open blocks
-implementation.**
+pitches; build at roughly ten). **11** was scoped 2026-09-06 into a policy
+half and a build half, and both shipped the same day: the `photo_credits`
+sidecar exists (`migrations/0021`, `internal/photocredits`), wired into every
+add/remove/whole-entity-delete/purge path across crags, boulders and
+problems, with `PhotoCreditLine` rendering "Photo by X" on all three detail
+pages (crags' own photo gallery didn't exist until this pass either — see
+item 11); and `authz.CanContribute` now grants `KindAddPhoto` and
+`KindAddApproach` to any signed-in user, globally, with removal still
+creator-or-admin via `CanEditOwned` unchanged. **Every open item in this
+document is now resolved.**
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

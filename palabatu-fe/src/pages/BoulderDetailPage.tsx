@@ -110,6 +110,10 @@ export default function BoulderDetailPage() {
     useEffect(load, [id])
 
     const canEdit = !!boulder && !!user && (user.id === boulder.created_by || isAdmin)
+    // Adding a photo is widened to any signed-in user (handoff.md open item
+    // 11, resolved 2026-09-06, authz.CanContribute) -- removing one stays on
+    // canEdit above, creator-or-admin, unchanged.
+    const canAddPhoto = !!boulder && !!user
 
     const nearbyRocks: NearbyRock[] = siblingRocks
         .filter((b): b is BoulderListItem & { lat: number; lng: number } => b.lat != null && b.lng != null)
@@ -436,7 +440,7 @@ export default function BoulderDetailPage() {
                             </div>
                         ))
                     )}
-                    {canEdit && (
+                    {canAddPhoto && (
                         <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
                             <Plus size={13} className="shrink-0" /> {isUploadingPhoto ? 'Uploading...' : 'Add a photo'}
                             <input

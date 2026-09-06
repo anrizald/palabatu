@@ -42,12 +42,33 @@ const (
 )
 
 // CanContribute is the collaborative-contribution mechanism handoff.md
-// decision 22 asks for, separated from the (still undecided) policy of who
-// it grants to. It ships identical to CanEditOwned -- creator-or-admin for
-// every kind, i.e. today's behaviour exactly -- so nothing changes on day
-// one. Widening a single kind to "any signed-in user" is a one-line change
-// in this function later, not an audit of every call site that uses it.
+// decision 22 asks for, kept separate from CanEditOwned so a kind's policy
+// can move independently of "owns this resource." It shipped identical to
+// CanEditOwned for every kind (creator-or-admin, i.e. today's behaviour
+// exactly) so nothing changed on day one -- see git history before
+// 2026-09-06 if you need that baseline.
+//
+// Widened 2026-09-06 (handoff.md open item 11, resolved): KindAddPhoto and
+// KindAddApproach now grant to any signed-in user. The person best placed to
+// supply a missing photo, or document a walk-in, is whoever is standing at
+// the rock right now, not the entity's creator -- and every call site sits
+// behind middleware.RequireAuth, so userID is already guaranteed to be a
+// real signed-in user by the time this runs. ownerID/titles stay unused for
+// these two kinds but are not dropped from the signature, so a kind can be
+// pulled back to creator-or-admin, or a new kind added with its own answer,
+// without touching any call site. KindAddNote has no call site yet and
+// stays on CanEditOwned's default until it has one to decide against.
+//
+// Removing someone else's contribution is a different question and
+// unaffected by this: every delete path (DeleteBoulderImage,
+// DeleteCragImage, DeleteProblemImage, DeleteApproach) still calls
+// CanEditOwned directly, not this function, so only the creator or an admin
+// can take a photo or approach back down.
 func CanContribute(userID string, kind ContributionKind, ownerID *string, titles []string) bool {
-	_ = kind // not yet used to differentiate policy -- see doc comment above
-	return CanEditOwned(userID, ownerID, titles)
+	switch kind {
+	case KindAddPhoto, KindAddApproach:
+		return userID != ""
+	default:
+		return CanEditOwned(userID, ownerID, titles)
+	}
 }

@@ -110,6 +110,10 @@ export default function ProblemDetailPage() {
 
     const isCreator = !!user && !!problem && user.id === problem.created_by;
     const canEdit = isCreator || isAdmin;
+    // Adding a beta/action photo is widened to any signed-in user
+    // (handoff.md open item 11, resolved 2026-09-06, authz.CanContribute) --
+    // removing one stays on canEdit above, creator-or-admin, unchanged.
+    const canAddPhoto = !!user && !!problem;
 
     useEffect(() => {
         if (!id) return;
@@ -531,7 +535,7 @@ export default function ProblemDetailPage() {
                                 <p className="text-sm text-text-secondary leading-relaxed">{problem.notes}</p>
                             )}
 
-                            {(problem.image_urls.length > 0 || canEdit) && (
+                            {(problem.image_urls.length > 0 || canAddPhoto) && (
                                 <div className="flex flex-col gap-2">
                                     <div className="text-[11px] text-text-muted tracking-[0.1em] uppercase">Beta &amp; action shots</div>
                                     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -553,7 +557,7 @@ export default function ProblemDetailPage() {
                                                 </div>
                                             </div>
                                         ))}
-                                        {canEdit && (
+                                        {canAddPhoto && (
                                             <label className={`min-w-[110px] h-[110px] bg-surface border border-dashed border-text-faint rounded-lg cursor-pointer flex flex-col items-center justify-center text-text-muted text-xl shrink-0 ${isUploadingBeta ? 'opacity-50' : ''}`}>
                                                 +
                                                 <span className="text-[10px] mt-1">{isUploadingBeta ? 'Uploading...' : 'Add photo'}</span>
