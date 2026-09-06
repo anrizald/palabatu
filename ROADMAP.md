@@ -81,6 +81,40 @@ contributions exist. Both schema/backend and frontend are now complete.
   cropped card photo — the annotation overlay math isn't crop-safe) and two
   were named but not started (search ranking, catalog pagination) — see
   Deferred below for both.
+- **Admin tidy-up queue — done 2026-09-06.** `handoff.md` open item 9, and
+  `handoff-add-sheet.md` C11 with it. `boulders.filed_uncertain`
+  (migrations/0020) records what a contributor said when their problem
+  created a rock implicitly — three-state, so "we never asked" stays
+  distinct from "they said no" — and
+  `GET /api/boulders/needs-attention` + `AdminNeedsAttention` pair it with
+  item 9's derived heuristic rather than choosing between them, labelling
+  which signal each row came from. Drainable by construction: a row
+  qualifies only while the rock is still unidentified, so naming or
+  photographing it removes the row, which is why there is no dismiss action
+  and the flag is never mutated.
+- **Photo attribution — done 2026-09-06.** The build half of `handoff.md`
+  open item 11, and the last thing decision 22 required before the
+  `authz.CanContribute` policy can widen past creator-or-admin. Photos had
+  no attribution at all: `crags`/`boulders`/`problems.image_urls` are jsonb
+  arrays of bare URL strings. `photo_credits` (migrations/0021) is a sidecar
+  keyed `(entity_kind, entity_id, image_url)`, following the shape
+  `topo_annotations` and `reports` already use for the same reason — a photo
+  inside a jsonb array has no id to point at — so it changed no existing
+  read or write path. `internal/photocredits` is shared infrastructure in
+  the mould of `internal/cloudinary`: three domains use it, it imports none
+  of them. Credits attach to the single-entity GETs only, never to a list.
+  No backfill, because an absent row is not unknown: until the policy
+  widens, a photo with no credit was added by the entity's creator, which is
+  what `CanEditOwned` enforced, so the UI falls back to `creator_name`.
+
+  **What this does and doesn't unblock.** `KindAddApproach` could already
+  widen on a product call alone (approaches carry `created_by`); now
+  `KindAddPhoto` can too. **Which kinds widen, and whether globally or
+  per-crag, is still an open product call** — nothing about this change
+  alters today's creator-or-admin behaviour. Also still open: the crag
+  detail page has no surface that renders a crag's own photo at full size
+  (they appear only as card thumbnails on Directory/SpotList/SpotCard), so
+  crag credits are recorded and returned but have nowhere to display yet.
 
 ## Phase 2 — Post-launch, near-term
 
@@ -105,7 +139,9 @@ Separate from the four product phases above — public-facing presence around pa
 
 - **Waitlist / coming-soon page** — gated email capture, being built in a separate session as of 2026-07-26. Planned flow: submitted emails land in a new `waitlist_subscribers` table (source of truth, owned data) and are also synced to a Resend Audience via its Audiences API, so Resend Automations (instant welcome email, drip sequences) and Broadcasts (manual one-off sends) can actually reach them — Resend already being the transactional-email provider means no second email service is needed.
 - **Discord community** — a direct feedback/beta-testing channel ahead of in-app social features (Crew, Phase 3). Open question not yet decided: public-open vs. invite-gated off the waitlist.
-- **Support section on the Landing page** — reversed 2026-07-26: NOT a separate About page or route. `Landing.tsx` already has a live, styled `about` section (`section.about`, ~line 437) with an origin-story paragraph, a 3-feature grid (Spot Map/Logbook/Crew), and a "Create your profile" CTA already linked to `/signup` — that CTA already exists, nothing to add there. What's actually missing is a **support subsection** to add into (or directly after) that same existing section: **financial** contribution (Saweria for IDR — QRIS/e-wallet/bank transfer; GitHub Sponsors + Ko-fi for USD, deliberately capped at two USD platforms) and **skills** contribution (a call for people who want to help as a dev, artist, copywriter, etc. instead of/alongside donating — needs some intake mechanism, e.g. a simple form or a link to a specific Discord channel, not yet decided). Give it its own in-page anchor (e.g. `#support`) so a direct link (Discord bio, etc.) can jump straight there. Match the section's existing bespoke inline-style aesthetic (Playfair Display headings, DM Sans body, the `#f0e0c8`/`#6a5848`/`#8a7060`/`#c87a30` palette already used in that section) rather than pulling in the rest of the app's Tailwind tokens. **Note:** an earlier pass at this roadmap wrongly assumed this meant reviving the dead, unwired `About()` component in `App.tsx` (see CLAUDE.md's "Known WIP rough edges") — that's a separate, unrelated leftover and is NOT part of this item.
+- ~~**Support section on the Landing page**~~ — **built.** Verified in place 2026-09-06 (this entry still described it as unbuilt and specced it in detail; the spec is left below only as the record of what was asked for). `Landing.tsx` carries a `#support` panel inside the existing `about` section, with the `scroll-margin-top` and the hash-scroll handler that make a direct link from a Discord bio land on it. Both lanes shipped: **Duit** (Saweria for IDR, Ko-fi for USD) and **Tenaga** (a call for devs, illustrators, writers and translators, with Discord and Instagram as the intake), in the section's own bespoke inline-style aesthetic rather than the app's Tailwind tokens.
+
+  Two deviations from the spec below, both deliberate as far as the code shows: **GitHub Sponsors is absent**, and the GitHub link in the Tenaga lane is commented out — consistent with the repo still being private, so a "help us build it" link would lead nowhere. Revisit both if the repo opens up. The original spec, for reference: financial contribution (Saweria for IDR via QRIS/e-wallet/bank transfer; GitHub Sponsors + Ko-fi for USD, deliberately capped at two USD platforms) and skills contribution with an intake mechanism, given its own in-page anchor, matched to the section's Playfair Display / DM Sans / `#f0e0c8`/`#6a5848`/`#8a7060`/`#c87a30` palette. **Note:** an earlier pass at this roadmap wrongly assumed this meant reviving the dead, unwired `About()` component in `App.tsx` — a separate, unrelated leftover, and not part of this item.
 - **Public interactive roadmap page** — a visitor-facing version of this file: a custom map-like background (user supplying the art personally, same ownership pattern as the Phase 1 art assets) with each phase revealed on click/hover. A private prototype of the "phases as an ascending climbing route" visual concept already exists as a Claude artifact from this planning session — worth using as a design reference, not something to build directly on top of.
 
 ## Developer / ops tooling (parallel track, owner-only)

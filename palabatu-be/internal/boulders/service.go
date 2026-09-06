@@ -17,6 +17,7 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
 	"palabatu-be/internal/cloudinary"
+	"palabatu-be/internal/photocredits"
 )
 
 func ListBoulders(ctx context.Context, cragID string) ([]BoulderListItem, error) {
@@ -31,6 +32,16 @@ func GetBoulder(ctx context.Context, id string) (*BoulderListItem, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Credits are attached on the single-rock fetch only, never on
+	// ListBoulders -- a photo-grid of rocks would pay one extra query per
+	// tile for a line nobody reads at that size.
+	credits, err := photocredits.List(ctx, photocredits.KindBoulder, id)
+	if err != nil {
+		return nil, err
+	}
+	b.ImageCredits = credits
+
 	return b, nil
 }
 
@@ -139,7 +150,19 @@ func AddBoulderImages(ctx context.Context, userID, boulderID string, imageURLs [
 		return nil, ErrForbidden
 	}
 
-	return addBoulderImages(ctx, boulderID, imageURLs)
+	boulder, err := addBoulderImages(ctx, boulderID, imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Credit the uploader (handoff.md decision 22 / open item 11). Recorded
+	// even while the policy is still creator-or-admin, so the window where a
+	// photo's origin has to be inferred stays historical rather than growing.
+	if err := photocredits.Record(ctx, photocredits.KindBoulder, boulderID, userID, imageURLs); err != nil {
+		return nil, err
+	}
+
+	return boulder, nil
 }
 
 // DeleteBoulderImage authorizes and removes a single image from a
@@ -184,6 +207,13 @@ func DeleteBoulderImage(ctx context.Context, userID, boulderID, imageURL string)
 	// the image.
 	if err := deleteAnnotationsForImage(ctx, boulderID, imageURL); err != nil {
 		log.Printf("failed to delete annotations for image: %v", err)
+	}
+
+	// Same best-effort treatment: the credit describes a photo that no longer
+	// exists, and nothing else would ever clean it up (no FK can point at an
+	// element inside a jsonb array).
+	if err := photocredits.Remove(ctx, photocredits.KindBoulder, boulderID, imageURL); err != nil {
+		log.Printf("failed to delete photo credit: %v", err)
 	}
 	return nil
 }
@@ -244,6 +274,9 @@ func DeleteBoulder(ctx context.Context, userID, boulderID string) error {
 		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
 			log.Printf("failed to delete boulder image from Cloudinary: %v", err)
 		}
+	}
+	if err := photocredits.RemoveEntity(ctx, photocredits.KindBoulder, boulderID); err != nil {
+		log.Printf("failed to delete boulder photo credits: %v", err)
 	}
 
 	return nil

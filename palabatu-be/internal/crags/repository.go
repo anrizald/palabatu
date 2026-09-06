@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/photocredits"
 )
 
 // Crag is the place you drive to and park at -- the top level of the
@@ -46,6 +47,12 @@ type CragListItem struct {
 	ProblemCount  int       `json:"problem_count"`
 	ApproachCount int       `json:"approach_count"`
 	CreatedAt     time.Time `json:"created_at"`
+
+	// ImageCredits is populated by GetCrag only, never by listCrags -- hence
+	// omitempty, so list responses stay byte-identical. See
+	// internal/photocredits for why an absent entry means this crag's own
+	// creator rather than an unknown uploader.
+	ImageCredits []photocredits.Credit `json:"image_credits,omitempty"`
 }
 
 const cragListSelect = `

@@ -16,6 +16,7 @@ import TopoAnnotationOverlay from '../components/topo-annotations/TopoAnnotation
 import MergeSuggestModal from '../components/MergeSuggestModal.js'
 import RockPointMap, { type NearbyRock } from '../components/RockPointMap.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
+import PhotoCreditLine from '../components/PhotoCreditLine.js'
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
@@ -425,6 +426,7 @@ export default function BoulderDetailPage() {
                                         aria-label="Remove photo"
                                     ><X size={14} className="shrink-0" /></button>
                                 )}
+                                <PhotoCreditLine url={url} credits={boulder.image_credits} creatorName={boulder.creator_name} />
                             </div>
                         ))
                     )}

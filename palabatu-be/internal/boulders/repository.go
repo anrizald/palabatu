@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/photocredits"
 )
 
 // Boulder is one rock at a crag -- the middle level of the crags ->
@@ -49,6 +50,13 @@ type BoulderListItem struct {
 	ProblemCount      int       `json:"problem_count"`
 	SampleProblemName *string   `json:"sample_problem_name"`
 	CreatedAt         time.Time `json:"created_at"`
+
+	// ImageCredits is populated by GetBoulder only, never by listBoulders --
+	// hence omitempty, so list responses stay byte-identical. An image with
+	// no entry here was added by this boulder's own creator; see
+	// internal/photocredits for why absent means the creator rather than
+	// unknown.
+	ImageCredits []photocredits.Credit `json:"image_credits,omitempty"`
 }
 
 const boulderListSelect = `
@@ -299,13 +307,13 @@ func deleteBoulderRow(ctx context.Context, boulderID string) error {
 // photo, the two things that make a rock recognisable to the next person
 // (UX principle 3) -- and either of two signals applies:
 //
-//   said_unsure  -- filed_uncertain, written at creation time when the
-//                   person picked "Not sure which one" (migrations/0020).
-//                   Trustworthy: it is what they told us.
-//   looks_unsure -- item 9's heuristic: it holds exactly one problem.
-//                   Inferred, and the only signal available for every rock
-//                   created before the flag existed, which today is all of
-//                   them.
+//	said_unsure  -- filed_uncertain, written at creation time when the
+//	                person picked "Not sure which one" (migrations/0020).
+//	                Trustworthy: it is what they told us.
+//	looks_unsure -- item 9's heuristic: it holds exactly one problem.
+//	                Inferred, and the only signal available for every rock
+//	                created before the flag existed, which today is all of
+//	                them.
 //
 // The unidentified precondition is what makes this queue drainable rather
 // than a permanent list of everything ever filed uncertainly. Naming or

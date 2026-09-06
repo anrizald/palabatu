@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { MapPin, Calendar, Share2, ArrowLeft, Flame, Compass, X, GitCompare } from 'lucide-react';
 import { RecenterButton, ZoomControlButtons } from '../components/MapControls.js';
+import PhotoCreditLine from '../components/PhotoCreditLine.js';
 
 const HIGHBALL_THRESHOLD_M = 4.5
 
@@ -461,6 +462,11 @@ export default function ProblemDetailPage() {
                                             onSaved={(shapes) => setAnnotationsByUrl(prev => ({ ...prev, [url]: shapes }))}
                                             className="h-[320px] w-full max-w-[820px]"
                                         />
+                                        {/* The topo belongs to the rock, so its credit comes from the
+                                            boulder's own credits and creator, never this problem's. */}
+                                        <div className="px-1">
+                                            <PhotoCreditLine url={url} credits={boulder?.image_credits} creatorName={boulder?.creator_name} />
+                                        </div>
                                     </div>
                                 ))}
                             </HorizontalScrollCarousel>
@@ -530,16 +536,21 @@ export default function ProblemDetailPage() {
                                     <div className="text-[11px] text-text-muted tracking-[0.1em] uppercase">Beta &amp; action shots</div>
                                     <div className="flex gap-2 overflow-x-auto pb-1">
                                         {problem.image_urls.map(url => (
-                                            <div key={url} className="relative min-w-[110px] h-[110px] rounded-lg overflow-hidden shrink-0 border border-border">
-                                                <img src={url} className="w-full h-full object-cover" alt="Beta" />
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={() => handleRemoveBetaPhoto(url)}
-                                                        disabled={removingBetaUrl === url}
-                                                        className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center disabled:opacity-50"
-                                                        aria-label="Remove photo"
-                                                    ><X size={13} className="shrink-0" /></button>
-                                                )}
+                                            <div key={url} className="min-w-[110px] shrink-0">
+                                                <div className="relative w-[110px] h-[110px] rounded-lg overflow-hidden border border-border">
+                                                    <img src={url} className="w-full h-full object-cover" alt="Beta" />
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => handleRemoveBetaPhoto(url)}
+                                                            disabled={removingBetaUrl === url}
+                                                            className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-6 h-6 cursor-pointer flex items-center justify-center disabled:opacity-50"
+                                                            aria-label="Remove photo"
+                                                        ><X size={13} className="shrink-0" /></button>
+                                                    )}
+                                                </div>
+                                                <div className="w-[110px] truncate">
+                                                    <PhotoCreditLine url={url} credits={problem.image_credits} creatorName={problem.creator_name} />
+                                                </div>
                                             </div>
                                         ))}
                                         {canEdit && (

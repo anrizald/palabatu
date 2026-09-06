@@ -20,6 +20,7 @@ import (
 	"palabatu-be/internal/authz"
 	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/notification"
+	"palabatu-be/internal/photocredits"
 )
 
 func ListProblems(ctx context.Context, cragID, boulderID string) ([]ProblemListItem, error) {
@@ -34,6 +35,16 @@ func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// The beta/action shots this problem owns, not the boulder's topo -- that
+	// photo belongs to the rock and carries the rock's credits (see
+	// boulders.GetBoulder). Single-problem fetch only, never listProblems.
+	credits, err := photocredits.List(ctx, photocredits.KindProblem, id)
+	if err != nil {
+		return nil, err
+	}
+	p.ImageCredits = credits
+
 	return p, nil
 }
 
@@ -138,7 +149,18 @@ func AddProblemImages(ctx context.Context, userID, problemID string, imageURLs [
 		return nil, ErrForbidden
 	}
 
-	return addProblemImages(ctx, problemID, imageURLs)
+	problem, err := addProblemImages(ctx, problemID, imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Credit the uploader, mirroring boulders.AddBoulderImages -- see
+	// internal/photocredits and handoff.md open item 11.
+	if err := photocredits.Record(ctx, photocredits.KindProblem, problemID, userID, imageURLs); err != nil {
+		return nil, err
+	}
+
+	return problem, nil
 }
 
 // DeleteProblemImage authorizes and removes a single beta/action photo from
@@ -174,7 +196,15 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 		log.Printf("failed to delete image from Cloudinary: %v", err)
 	}
 
-	return removeProblemImage(ctx, problemID, imageURL)
+	if err := removeProblemImage(ctx, problemID, imageURL); err != nil {
+		return err
+	}
+
+	// Best-effort, mirroring the Cloudinary destroy above.
+	if err := photocredits.Remove(ctx, photocredits.KindProblem, problemID, imageURL); err != nil {
+		log.Printf("failed to delete photo credit: %v", err)
+	}
+	return nil
 }
 
 // DeleteProblem authorizes and removes a problem row. Unlike before the

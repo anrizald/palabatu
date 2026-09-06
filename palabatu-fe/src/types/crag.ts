@@ -1,3 +1,5 @@
+import type { PhotoCredit } from './photocredit.js'
+
 // Mirrors the backend's crags.Crag (see palabatu-be/internal/crags/repository.go
 // and the generated internal_crags.Crag schema in src/types/api.d.ts) -- the
 // top level of the crags -> boulders -> problems hierarchy, see handoff.md at
@@ -30,6 +32,9 @@ export type CragListItem = Crag & {
     boulder_count: number
     problem_count: number
     approach_count: number
+    // Present on GET /api/crags/:id only, never on the crag list -- see
+    // boulder.ts's identical field and photocredit.ts for the fallback rule.
+    image_credits?: PhotoCredit[]
 }
 
 // Mirrors crags.UpdateCragRequest (see palabatu-be/internal/crags/dto.go) --

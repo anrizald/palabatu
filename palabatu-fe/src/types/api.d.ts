@@ -4489,6 +4489,14 @@ export interface components {
             created_by?: string;
             creator_name?: string;
             id?: string;
+            /**
+             * @description ImageCredits is populated by GetBoulder only, never by listBoulders --
+             *     hence omitempty, so list responses stay byte-identical. An image with
+             *     no entry here was added by this boulder's own creator; see
+             *     internal/photocredits for why absent means the creator rather than
+             *     unknown.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             lat?: number;
             lng?: number;
@@ -4608,6 +4616,13 @@ export interface components {
             creator_name?: string;
             directions?: string;
             id?: string;
+            /**
+             * @description ImageCredits is populated by GetCrag only, never by listCrags -- hence
+             *     omitempty, so list responses stay byte-identical. See
+             *     internal/photocredits for why an absent entry means this crag's own
+             *     creator rather than an unknown uploader.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             lat?: number;
             lng?: number;
@@ -4738,6 +4753,14 @@ export interface components {
             grade?: string;
             height_m?: number;
             id?: string;
+            /**
+             * @description ImageCredits covers this problem's own beta/action shots only -- the
+             *     topo photo belongs to the boulder and carries the boulder's credits.
+             *     Populated by GetProblem only, never by listProblems, hence omitempty.
+             *     See internal/photocredits for why an absent entry means this problem's
+             *     own creator rather than an unknown uploader.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             landing_hazards?: string;
             name?: string;
@@ -4885,6 +4908,12 @@ export interface components {
         };
         "palabatu-be_internal_apitypes.SuccessResponse": {
             success?: boolean;
+        };
+        "palabatu-be_internal_photocredits.Credit": {
+            created_at?: string;
+            image_url?: string;
+            uploaded_by?: string;
+            username?: string;
         };
     };
     responses: never;

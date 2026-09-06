@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/photocredits"
 )
 
 // ProblemListItem is the shape returned by GET /problems. CragID/BoulderID
@@ -110,6 +111,13 @@ type ProblemDetail struct {
 	CreatorSlug       *string         `json:"creator_slug"`
 	SendCount         int             `json:"send_count"`
 	CreatedAt         time.Time       `json:"created_at"`
+
+	// ImageCredits covers this problem's own beta/action shots only -- the
+	// topo photo belongs to the boulder and carries the boulder's credits.
+	// Populated by GetProblem only, never by listProblems, hence omitempty.
+	// See internal/photocredits for why an absent entry means this problem's
+	// own creator rather than an unknown uploader.
+	ImageCredits []photocredits.Credit `json:"image_credits,omitempty"`
 }
 
 const problemListSelect = `

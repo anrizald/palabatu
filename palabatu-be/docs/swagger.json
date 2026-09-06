@@ -495,6 +495,14 @@
                     "id": {
                         "type": "string"
                     },
+                    "image_credits": {
+                        "description": "ImageCredits is populated by GetBoulder only, never by listBoulders --\nhence omitempty, so list responses stay byte-identical. An image with\nno entry here was added by this boulder's own creator; see\ninternal/photocredits for why absent means the creator rather than\nunknown.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "image_urls": {
                         "items": {
                             "type": "string"
@@ -838,6 +846,14 @@
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "image_credits": {
+                        "description": "ImageCredits is populated by GetCrag only, never by listCrags -- hence\nomitempty, so list responses stay byte-identical. See\ninternal/photocredits for why an absent entry means this crag's own\ncreator rather than an unknown uploader.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "image_urls": {
                         "items": {
@@ -1254,6 +1270,14 @@
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "image_credits": {
+                        "description": "ImageCredits covers this problem's own beta/action shots only -- the\ntopo photo belongs to the boulder and carries the boulder's credits.\nPopulated by GetProblem only, never by listProblems, hence omitempty.\nSee internal/photocredits for why an absent entry means this problem's\nown creator rather than an unknown uploader.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "image_urls": {
                         "items": {
@@ -1700,6 +1724,23 @@
                 "properties": {
                     "success": {
                         "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
+            "palabatu-be_internal_photocredits.Credit": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "image_url": {
+                        "type": "string"
+                    },
+                    "uploaded_by": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
                     }
                 },
                 "type": "object"

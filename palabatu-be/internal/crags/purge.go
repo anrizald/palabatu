@@ -8,6 +8,7 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/cloudinary"
 	"palabatu-be/internal/notification"
+	"palabatu-be/internal/photocredits"
 )
 
 // Purging a crag is the deliberate, destructive counterpart to DeleteCrag's
@@ -118,6 +119,13 @@ func PurgeCrag(ctx context.Context, userID, cragID string, expected PurgeCounts)
 			continue
 		}
 		destroyed++
+	}
+
+	// The crag, its rocks and their problems are all gone, so every credit
+	// recorded against any of them describes a photo that no longer exists.
+	// Best-effort, matching the destroy loop above.
+	if err := photocredits.RemoveURLs(ctx, photoURLs); err != nil {
+		log.Printf("purge: failed to delete photo credits: %v", err)
 	}
 
 	return &CragPurgeResult{

@@ -13,6 +13,7 @@ import (
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
 	"palabatu-be/internal/cloudinary"
+	"palabatu-be/internal/photocredits"
 )
 
 func ListCrags(ctx context.Context) ([]CragListItem, error) {
@@ -27,6 +28,14 @@ func GetCrag(ctx context.Context, id string) (*CragListItem, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Single-spot fetch only, never listCrags -- see boulders.GetBoulder.
+	credits, err := photocredits.List(ctx, photocredits.KindCrag, id)
+	if err != nil {
+		return nil, err
+	}
+	c.ImageCredits = credits
+
 	return c, nil
 }
 
@@ -87,7 +96,18 @@ func AddCragImages(ctx context.Context, userID, cragID string, imageURLs []strin
 		return nil, ErrForbidden
 	}
 
-	return addCragImages(ctx, cragID, imageURLs)
+	crag, err := addCragImages(ctx, cragID, imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Credit the uploader, mirroring boulders.AddBoulderImages -- see
+	// internal/photocredits and handoff.md open item 11.
+	if err := photocredits.Record(ctx, photocredits.KindCrag, cragID, userID, imageURLs); err != nil {
+		return nil, err
+	}
+
+	return crag, nil
 }
 
 // DeleteCragImage authorizes and removes a single image from a crag's
@@ -122,7 +142,15 @@ func DeleteCragImage(ctx context.Context, userID, cragID, imageURL string) error
 		log.Printf("failed to delete image from Cloudinary: %v", err)
 	}
 
-	return removeCragImage(ctx, cragID, imageURL)
+	if err := removeCragImage(ctx, cragID, imageURL); err != nil {
+		return err
+	}
+
+	// Best-effort, mirroring the Cloudinary destroy above.
+	if err := photocredits.Remove(ctx, photocredits.KindCrag, cragID, imageURL); err != nil {
+		log.Printf("failed to delete photo credit: %v", err)
+	}
+	return nil
 }
 
 // DeleteCrag removes an empty crag outright, admin-only. This is the cure
@@ -170,6 +198,9 @@ func DeleteCrag(ctx context.Context, userID, cragID string) error {
 		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
 			log.Printf("failed to delete crag image from Cloudinary: %v", err)
 		}
+	}
+	if err := photocredits.RemoveEntity(ctx, photocredits.KindCrag, cragID); err != nil {
+		log.Printf("failed to delete crag photo credits: %v", err)
 	}
 
 	return deleteCragRow(ctx, cragID)

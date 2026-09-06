@@ -1,3 +1,5 @@
+import type { PhotoCredit } from './photocredit.js'
+
 import type { Shape } from './annotation.js'
 
 // "boulder" or "wall" (handoff.md decision 1: cliffs are in scope). Drives
@@ -38,6 +40,10 @@ export type BoulderListItem = Boulder & {
     creator_name: string | null
     problem_count: number
     sample_problem_name: string | null
+    // Present on GET /api/boulders/:id only, never on the crag's rock list --
+    // omitempty on the Go side. See photocredit.ts for why a photo missing
+    // from this array is credited to creator_name rather than "unknown".
+    image_credits?: PhotoCredit[]
 }
 
 // Mirrors boulders.CreateBoulderRequest (see

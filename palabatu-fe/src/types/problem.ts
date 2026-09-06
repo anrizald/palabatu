@@ -1,3 +1,5 @@
+import type { PhotoCredit } from './photocredit.js'
+
 import type { BoulderType } from './boulder.js'
 import type { Shape } from './annotation.js'
 
@@ -80,9 +82,14 @@ export type ProblemListItem = {
     created_at: string
 }
 
-// Mirrors problems.ProblemDetail (GET /api/problems/:id) -- identical
-// field set to ProblemListItem.
-export type ProblemDetail = ProblemListItem
+// Mirrors problems.ProblemDetail (GET /api/problems/:id) -- ProblemListItem
+// plus the photo credits for this problem's own beta/action shots. It stopped
+// being a bare alias when those arrived: the topo photo belongs to the
+// boulder and carries the boulder's credits, so these two shapes are no
+// longer the same field set.
+export type ProblemDetail = ProblemListItem & {
+    image_credits?: PhotoCredit[]
+}
 
 // Mirrors problems.ProblemRow (PUT /api/problems/:id's response) -- same
 // fields as ProblemDetail minus crag_name/boulder_name/creator_name/
