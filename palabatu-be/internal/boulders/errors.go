@@ -10,6 +10,7 @@ var (
 	ErrInvalidType     = errors.New("invalid type")
 	ErrImageNotFound   = errors.New("image not found")
 	ErrNoImages        = errors.New("no images provided")
+	ErrHasProblems     = errors.New("boulder still has problems")
 	ErrCannotMergeSelf = errors.New("cannot merge a boulder with itself")
 	ErrNotMergeCreator = errors.New("only the boulder's creator may object")
 	ErrAlreadyResolved = errors.New("merge request already resolved")

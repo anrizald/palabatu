@@ -600,7 +600,69 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Delete a rock that has no problems on it
+         * @description Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Boulder ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description not the creator and not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description rock still has problems on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1287,7 +1349,69 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Delete an empty crag
+         * @description Admin-only (Council/Associate title). Refuses any crag that still has rocks, problems, or approach guides -- the cure half of handoff.md open item 8: re-parent the rocks off a duplicate spot first, then delete the emptied husk.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description crag still has rocks, problems or approach guides */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1525,6 +1649,167 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crags/{id}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge a crag and everything under it
+         * @description Admin-only, irreversible. Deletes the crag, its rocks, its problems, and every send, comment, drawn line, report and approach guide beneath them, destroys the associated Cloudinary assets, and notifies each affected problem creator. The request must carry the exact counts returned by the preview: if the crag has changed since, the purge is refused rather than silently taking the difference with it. The response body holds the only surviving record of what was deleted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Counts confirmed from the preview */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_crags.CragPurgeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_crags.CragPurgeResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description confirmation does not match what is there now */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crags/{id}/purge-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview what purging a crag would destroy
+         * @description Admin-only. Returns the counts a purge would remove and the full snapshot of every row involved, so an admin can save the record before committing. Read-only -- nothing is deleted.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_crags.CragPurgePreview"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4250,6 +4535,27 @@ export interface components {
             name?: string;
             problem_count?: number;
         };
+        "internal_crags.CragPurgePreview": {
+            counts?: components["schemas"]["internal_crags.PurgeCounts"];
+            crag_id?: string;
+            crag_name?: string;
+            snapshot?: components["schemas"]["internal_crags.CragSnapshot"];
+        };
+        "internal_crags.CragPurgeRequest": {
+            expected?: components["schemas"]["internal_crags.PurgeCounts"];
+        };
+        "internal_crags.CragPurgeResult": {
+            creators_notified?: number;
+            deleted?: components["schemas"]["internal_crags.PurgeCounts"];
+            photos_destroyed?: number;
+            photos_failed?: number;
+            snapshot?: components["schemas"]["internal_crags.CragSnapshot"];
+        };
+        "internal_crags.CragSnapshot": {
+            data?: Record<string, never>;
+            purged_at?: string;
+            purged_by?: string;
+        };
         "internal_crags.CreateCragRequest": {
             access_notes?: string;
             directions?: string;
@@ -4260,6 +4566,16 @@ export interface components {
         };
         "internal_crags.DeleteCragImageRequest": {
             url?: string;
+        };
+        "internal_crags.PurgeCounts": {
+            approaches?: number;
+            boulders?: number;
+            comments?: number;
+            lines?: number;
+            photos?: number;
+            problems?: number;
+            reports?: number;
+            sends?: number;
         };
         "internal_crags.UpdateCragRequest": {
             access_notes?: string;

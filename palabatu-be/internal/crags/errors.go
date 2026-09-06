@@ -8,4 +8,6 @@ var (
 	ErrInvalidLocation = errors.New("invalid location")
 	ErrNoImages        = errors.New("no images provided")
 	ErrImageNotFound   = errors.New("image not found")
+	ErrCragNotEmpty    = errors.New("crag not empty")
+	ErrCountMismatch   = errors.New("purge confirmation does not match")
 )

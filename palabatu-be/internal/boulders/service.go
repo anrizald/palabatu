@@ -195,6 +195,60 @@ func ListAnnotationsForBoulder(ctx context.Context, boulderID string) ([]Boulder
 	return listAnnotationsForBoulder(ctx, boulderID)
 }
 
+// DeleteBoulder removes a rock that has no problems on it, creator-or-
+// admin -- the same policy as editing it, and as problems.DeleteProblem
+// applies one level down.
+//
+// Until this existed the middle level of the hierarchy had no delete at
+// all: a junk rock could be created by anyone (handoff.md decision 6) and
+// nothing could remove it. The merge flow was the only corrective
+// operation, and merging is the wrong tool for junk -- it needs a plausible
+// target rock to fold into, and "these are the same rock" is a claim about
+// two real rocks, not a way to dispose of one bad row.
+//
+// Empty-only for the same reason crags.DeleteCrag is: problems.boulder_id
+// is NO ACTION, so a rock with problems on it cannot be deleted without
+// destroying them, and destroying somebody's documented lines is a purge,
+// not a delete. The way out for a rock that does have problems is
+// decision 13's re-parenting -- move them to the right rock first -- or, if
+// the whole spot is junk, crags.PurgeCrag.
+func DeleteBoulder(ctx context.Context, userID, boulderID string) error {
+	createdBy, imageURLs, err := getBoulderOwnerAndImages(ctx, boulderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := authorizeBoulderEdit(ctx, userID, createdBy); err != nil {
+		return err
+	}
+
+	count, err := countProblemsOnBoulder(ctx, boulderID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrHasProblems
+	}
+
+	if err := deleteBoulderRow(ctx, boulderID); err != nil {
+		return err
+	}
+
+	// After the row is gone, and best-effort, matching DeleteBoulderImage:
+	// nothing else will ever clean these up, since a database cascade runs
+	// no Go and the URLs live only on the row just deleted.
+	for _, url := range imageURLs {
+		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
+			log.Printf("failed to delete boulder image from Cloudinary: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // authorizeBoulderEdit mirrors problems.authorizeProblemEdit exactly --
 // same creator-or-admin policy, applied per domain rather than shared,
 // matching this codebase's existing convention.

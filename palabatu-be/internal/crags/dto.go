@@ -34,3 +34,51 @@ type AddCragImagesRequest struct {
 type DeleteCragImageRequest struct {
 	URL string `json:"url"`
 }
+
+// PurgeCounts is what a purge destroys, counted per kind. It is both the
+// preview's answer and the confirmation the caller has to echo back --
+// handoff.md open item 8's purge decision: an admin has to have looked at
+// the number before the number is allowed to become zero.
+type PurgeCounts struct {
+	Boulders    int `json:"boulders"`
+	Problems    int `json:"problems"`
+	Sends       int `json:"sends"`
+	Comments    int `json:"comments"`
+	Lines       int `json:"lines"`
+	Approaches  int `json:"approaches"`
+	Reports     int `json:"reports"`
+	Photos      int `json:"photos"`
+}
+
+// CragPurgePreview is GET /api/crags/{id}/purge-preview's response: what
+// would die, plus the snapshot that would be the only surviving record of
+// it. Deliberately the same Snapshot shape the purge itself returns, so an
+// admin can save the file before committing rather than only after.
+type CragPurgePreview struct {
+	CragID   string       `json:"crag_id"`
+	CragName string       `json:"crag_name"`
+	Counts   PurgeCounts  `json:"counts"`
+	Snapshot CragSnapshot `json:"snapshot"`
+}
+
+// CragPurgeRequest is POST /api/crags/{id}/purge's body. Expected must
+// match the server's own recount exactly or the purge is refused -- it
+// makes the admin's confirmation specific rather than a reflex, and it
+// closes the race where somebody adds a problem between the preview and
+// the purge.
+type CragPurgeRequest struct {
+	Expected PurgeCounts `json:"expected"`
+}
+
+// CragPurgeResult is what the caller gets back, and for the destroyed rows
+// it is the only copy that still exists -- the frontend saves Snapshot to a
+// file. PhotosDestroyed/PhotosFailed report the Cloudinary side honestly
+// rather than implying success: a failed destroy leaves a real orphan, and
+// the admin is the only one who can act on knowing that.
+type CragPurgeResult struct {
+	Deleted         PurgeCounts  `json:"deleted"`
+	PhotosDestroyed int          `json:"photos_destroyed"`
+	PhotosFailed    int          `json:"photos_failed"`
+	CreatorsNotified int         `json:"creators_notified"`
+	Snapshot        CragSnapshot `json:"snapshot"`
+}

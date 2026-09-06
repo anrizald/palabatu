@@ -16,8 +16,11 @@ func Routes(rg *gin.RouterGroup) {
 	rg.GET("/crags/:id", handleGetCrag)
 	rg.POST("/crags", middleware.RequireAuth, handleCreateCrag)
 	rg.PUT("/crags/:id", middleware.RequireAuth, handleUpdateCrag)
+	rg.DELETE("/crags/:id", middleware.RequireAuth, handleDeleteCrag)
 	rg.POST("/crags/:id/images", middleware.RequireAuth, handleAddCragImages)
 	rg.DELETE("/crags/:id/images", middleware.RequireAuth, handleDeleteCragImage)
+
+	registerPurgeRoutes(rg)
 }
 
 // handleListCrags godoc
@@ -126,6 +129,38 @@ func handleUpdateCrag(c *gin.Context) {
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this crag."})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleDeleteCrag godoc
+// @Summary      Delete an empty crag
+// @Description  Admin-only (Council/Associate title). Refuses any crag that still has rocks, problems, or approach guides -- the cure half of handoff.md open item 8: re-parent the rocks off a duplicate spot first, then delete the emptied husk.
+// @Tags         crags
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Crag ID"
+// @Success      200  {object}  apitypes.SuccessResponse
+// @Failure      403  {object}  apitypes.ErrorResponse  "not an admin"
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      409  {object}  apitypes.ErrorResponse  "crag still has rocks, problems or approach guides"
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/crags/{id} [delete]
+func handleDeleteCrag(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	err := DeleteCrag(c.Request.Context(), userID, id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Only an admin can delete a spot."})
+	case errors.Is(err, ErrCragNotEmpty):
+		c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: "This spot still has rocks, problems or a way in mapped. Move or remove those first."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

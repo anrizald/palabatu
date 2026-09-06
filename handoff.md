@@ -731,6 +731,70 @@ current one. Everything below is now superseded by what shipped.*
       PD/AD/D/TD/ED or similar) alongside the technical grade.
       Multi-pitch routes conventionally carry both; nothing here does.
 
+24. **An admin can destroy anything, but never by accident: the purge is
+    its own endpoint, not a flag on delete.** *(2026-09-06. Extends open
+    item 8; built the same day.)*
+
+    The question that prompted this was reasonable on its face -- an admin
+    should be able to remove any row in the project, so why does
+    `DELETE /api/crags/:id` refuse a crag with content in it? Investigating
+    it turned up three things that changed the shape of the answer:
+
+    - **"Just drop the rule" does not produce a working endpoint.**
+      `boulders.crag_id` and `approaches.crag_id` are `ON DELETE CASCADE`,
+      but `problems.crag_id` and `problems.boulder_id` are `NO ACTION`. A
+      bare `DELETE FROM crags` fails on `problems_crag_id_fkey` the moment
+      the crag has a single problem. Somebody has to author the destruction
+      order either way, so the real choice was never "with or without a
+      rule" -- it was "with a rule, or with a hand-written cascade".
+    - **A database cascade runs no Go, so it skips every safeguard this
+      app has.** No `cloudinary.DestroyByURL`, so every photo becomes an
+      orphan that cannot even be enumerated afterwards, its URL having gone
+      with the row. No notification, though `problems.DeleteProblem`
+      notifies a creator when an admin removes one problem. And
+      `reports.problem_id` cascades, so pending moderation records vanish
+      with the content they were filed against.
+    - **This codebase had already answered the question three times.** The
+      boulder merge is explicitly soft and reversible (merge design note 1).
+      `report.Resolve`'s remove action deletes exactly one comment or one
+      image, never the container. Photo deletion destroys the asset rather
+      than just dropping the row. The consistent line is: remove the
+      specific thing, keep it reversible, clean up properly.
+
+    So the power exists, and it is deliberate rather than default:
+    `GET /api/crags/:id/purge-preview` and `POST /api/crags/:id/purge`
+    (`internal/crags/purge.go`), admin-only, with the three guarantees a
+    cascade cannot give -- the caller echoes back the exact counts the
+    server independently recomputes (a stale confirmation is refused, which
+    also closes the add-a-problem-while-you-were-looking race), every
+    Cloudinary asset is destroyed explicitly, and every affected problem
+    creator is notified via the existing `problem_deleted` type. The
+    response body carries a Postgres-generated snapshot of every destroyed
+    row, which the frontend saves as a file: it is the only surviving copy,
+    and it is generated from the schema (`row_to_json`) rather than
+    hand-modelled, so it cannot quietly stop capturing a column somebody
+    adds later.
+
+    `PurgeSpotModal` is where the deliberateness lives on the UI side: it
+    fetches what will die rather than trusting the page behind it, marks the
+    rows that are *other people's* work in the danger colour, offers the
+    record as a download before anything happens rather than only after, and
+    requires the spot's name typed out. The plain delete stays the default
+    and the purge is offered only from the blocked state, so the destructive
+    path is reachable but never the first thing to hand.
+
+    **A rock can be deleted too, which it could not before**
+    (`DELETE /api/boulders/:id`, `boulders.DeleteBoulder`): the middle level
+    had no delete anywhere in the app, so a junk rock created by anyone
+    (decision 6) could never be removed -- only merged, and merging needs a
+    plausible target and asserts "these are the same rock", which is a claim
+    about two real rocks rather than a way to dispose of one bad row.
+    Creator-or-admin, matching every other edit, and empty-only for the same
+    reason crags are: `problems.boulder_id` is `NO ACTION`, and taking
+    somebody's documented lines with the rock is a purge, not a delete. Its
+    photos are destroyed in Cloudinary on the way out, since nothing else
+    ever will.
+
 ## UX principles — non-negotiable for this effort
 
 Three levels of nesting is the single biggest risk in this design. It is
@@ -1184,8 +1248,23 @@ Design notes, in rough order of how much they matter:
    creator on both rocks, spam, clear vandalism). The hold applies to
    *merging*; rejecting a bad suggestion needs no wait.
 6. **Which rock survives is the admin's pick, not automatic.** Default the
-   UI's suggestion to the older / more-documented rock, but let the admin
-   flip it — the better-named rock isn't always the older one.
+   UI's suggestion to the **source** rock — the one the suggestion was
+   filed from — but let the admin flip it, because the better-named rock
+   isn't always the obvious one.
+
+   *(Amended 2026-09-06, resolving open item 7. This originally said
+   "default to the older / more-documented rock", and the shipped UI never
+   did that. The note moved rather than the code, for two reasons. The
+   suggester is not a passer-by: they were standing at one rock, opened its
+   page, and picked the other as the target deliberately, so the rock they
+   filed from is a meaningful default rather than an arbitrary one. And the
+   comparison the original note asked for isn't computable where the
+   decision is made — `MergeRequestListItem` carries both boulders' names
+   and nothing else about them, so "older / more-documented" would mean
+   joining each boulder's `created_at` and problem count onto the
+   merge-request payload to seed a default the admin overrides by radio
+   button anyway. Both rocks are linked from the queue for whoever wants to
+   look before flipping it.)*
 7. **Duplicate problem names after a merge are fine.** Two rocks each
    having a "Sit Start" is a naming collision, not a data error. No
    constraint, no auto-rename; leave it to admins to tidy if it matters.
@@ -1316,16 +1395,22 @@ up from here.
 6. ~~**Does a creator's objection outweigh a passer-by's?**~~ **Resolved
    2026-08-07: only the boulder creators can object at all.** See merge
    design note 3.
-7. **Which rock the admin UI defaults to keeping.** Merge design note 6
-   says default to the older / more-documented rock. The shipped UI
+7. ~~**Which rock the admin UI defaults to keeping.**~~ **Resolved
+   2026-09-06: the note moved, not the default.** The shipped UI
    (`AdminMergeRequests.tsx`) defaults to the **source** boulder — the one
-   the suggestion was filed from — with no age or documentation
-   comparison. Since the suggester picks the target, that default
-   systematically favours whichever rock the suggester happened to be
-   standing at. Either the note or the default should move; it's a
-   one-line change on the UI side. Open.
-8. ~~**What "Not sure which rock" actually files.**~~ **Mostly resolved
-   2026-08-08(f)** — decision 13 (re-parenting) gives "tidy up later" a
+   the suggestion was filed from — and that is now what merge design note 6
+   specifies. Two things settled it. The suggester picked the target
+   deliberately from the source rock's own page, so favouring the rock they
+   filed from is a real signal rather than an accident of who was standing
+   where. And this item's own "one-line change on the UI side" was wrong:
+   `MergeRequestListItem` carries the two boulders' names and nothing else
+   about them, so an "older / more-documented" default needs each boulder's
+   `created_at` and problem count joined onto the merge-request payload
+   first — backend DTO, swag regen, `gen:types`, and the hand-written
+   mirror — to seed a default the admin flips with one radio button. Not
+   worth it; both rocks are already linked from the queue.
+8. ~~**What "Not sure which rock" actually files.**~~ **Resolved
+   2026-08-08(f) for rocks, 2026-09-06 for spots** — decision 13 (re-parenting) gives "tidy up later" a
    real operation, and decision 12 removes most of the cases that produced
    an unnamed placeholder rock in the first place. **What remains open is
    duplicate *spots*, not duplicate rocks.** Rocks have a merge path;
@@ -1348,6 +1433,37 @@ up from here.
    already provides the mechanism) and delete the emptied husk. No new
    tables, no new notification types, no 48h hold. Still open only as
    "confirm that's enough" rather than "design a crag merge".
+
+   **Resolved 2026-09-06: the cheap half is confirmed and built.**
+   `DELETE /api/crags/:id` (`crags.DeleteCrag`) removes an empty crag,
+   admin-only via `crags.requireAdmin` — the third package to call
+   `authz.IsAdmin` directly, following `report` and `boulders`' merge
+   resolution, and for the same reason: cleaning up somebody else's
+   duplicate is not an act of ownership. `CragDetailPage`'s edit form grows
+   an admin-only delete with the disabled-plus-reason treatment decision 19
+   established, naming what is in the way rather than hiding the button.
+
+   Two things the design didn't anticipate, both found while building:
+
+   - **"Empty" has to include approach guides, not just rocks.** `boulders`
+     and `approaches` both cascade from `crags` (migrations 0014/0017), so
+     the obvious "no rocks" check would have let one admin tap silently
+     destroy a photographed jalan masuk and its step photos — decision 21's
+     "actual deliverable". Approaches are therefore a blocker too, and the
+     admin's path forward is `DELETE /approaches/:id`, which already exists
+     and which admins can already call. Problems are checked as well:
+     `problems.crag_id` has no `ON DELETE` clause at all, so that case would
+     otherwise surface as a raw FK 500 rather than a refusal.
+   - **No crag merge is needed and none should be built.** Re-parenting
+     (decision 13) plus this delete covers the duplicate-spot case end to
+     end, which is what this item asked someone to confirm.
+
+   **Extended 2026-09-06 with decision 24's purge and the rock delete.** The
+   empty-only rule answers the duplicate-spot case and deliberately does not
+   answer the spam or takedown case, where the content *is* the problem. See
+   decision 24 for what was built instead of relaxing the rule, and for why
+   "just let an admin delete anything" turned out not to be a smaller change
+   than the purge, but a larger one with the safeguards removed.
 9. **Where loosely-filed contributions surface for admins.** UX principle 5
    promises somebody tidies up later; nothing currently shows an admin
    what needs tidying. An unnamed, photoless rock holding exactly one
@@ -1465,10 +1581,11 @@ up from here.
 
 **The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
 were resolved before implementation and remain resolved; 8 and 10 were
-resolved or narrowed, and 12 and 13 resolved, in (g). Still open: 7 is a
-one-line UI default, 9 is the needs-attention surface, and 11 is now
-policy-only — decision 22 builds the mechanism and ships it behaving
-exactly as today. **Nothing still open blocks implementation.**
+resolved or narrowed, and 12 and 13 resolved, in (g); 7 and 8 were both
+resolved 2026-09-06 — 7 by amending merge design note 6 to match the
+shipped default, 8 by building the admin-only empty-crag delete.
+Still open: 9 is the needs-attention surface, and 11 is now policy-only —
+decision 22 builds the mechanism and ships it behaving exactly as today. **Nothing still open blocks implementation.**
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

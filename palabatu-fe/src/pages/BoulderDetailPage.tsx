@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search, MapPin } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search, MapPin, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
@@ -42,6 +42,8 @@ export default function BoulderDetailPage() {
     const isAdmin = useIsAdmin()
     const { openAddSheet } = useAddSheet()
 
+    const navigate = useNavigate()
+
     const [boulder, setBoulder] = useState<BoulderListItem | null>(null)
     const [crag, setCrag] = useState<CragListItem | null>(null)
     const [annotations, setAnnotations] = useState<BoulderAnnotation[]>([])
@@ -60,6 +62,7 @@ export default function BoulderDetailPage() {
     // pinned late can just as easily land on top of one already mapped.
     const [siblingRocks, setSiblingRocks] = useState<BoulderListItem[]>([])
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
     const [removingUrl, setRemovingUrl] = useState<string | null>(null)
 
@@ -223,6 +226,21 @@ export default function BoulderDetailPage() {
         load()
     }
 
+    // Deleting a rock is creator-or-admin (same policy as editing it) and
+    // only when nothing is on it: problems.boulder_id is NO ACTION, so a rock
+    // with lines on it can't go without taking them, and that is a purge, not
+    // a delete. The way out is decision 13's re-parenting -- move the problems
+    // to the rock they actually belong on first.
+    const handleDeleteRock = async () => {
+        if (!boulder || problems.length > 0) return
+        if (!window.confirm('Delete this rock? This cannot be undone.')) return
+        setIsDeleting(true)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/boulders/${boulder.id}`)
+        setIsDeleting(false)
+        if (res.error) { showError(res.error); return }
+        navigate(`/crags/${boulder.crag_id}`)
+    }
+
     if (isLoading) {
         return (
             <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
@@ -332,6 +350,21 @@ export default function BoulderDetailPage() {
                                 <button onClick={cancelEdit} className="flex-1 p-2 bg-white/5 border border-border text-text-muted rounded-lg cursor-pointer text-xs">
                                     Cancel
                                 </button>
+                            </div>
+                            <div className="border-t border-border pt-3 flex flex-col gap-1.5">
+                                <button
+                                    onClick={handleDeleteRock}
+                                    disabled={isDeleting || problems.length > 0}
+                                    className="w-full p-2 bg-danger/10 border border-danger/40 text-danger rounded-lg text-xs cursor-pointer hover:bg-danger/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+                                >
+                                    <Trash2 size={13} className="shrink-0" />
+                                    {isDeleting ? 'Deleting...' : 'Delete this rock'}
+                                </button>
+                                <div className="text-[11px] text-text-muted text-center">
+                                    {problems.length > 0
+                                        ? `Still has ${problems.length} ${problems.length === 1 ? 'problem' : 'problems'} on it. Move them to another rock first.`
+                                        : 'This cannot be undone.'}
+                                </div>
                             </div>
                         </div>
                     ) : (

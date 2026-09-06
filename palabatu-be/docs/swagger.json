@@ -816,6 +816,65 @@
                 },
                 "type": "object"
             },
+            "internal_crags.CragPurgePreview": {
+                "properties": {
+                    "counts": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "crag_name": {
+                        "type": "string"
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/internal_crags.CragSnapshot"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragPurgeRequest": {
+                "properties": {
+                    "expected": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragPurgeResult": {
+                "properties": {
+                    "creators_notified": {
+                        "type": "integer"
+                    },
+                    "deleted": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    },
+                    "photos_destroyed": {
+                        "type": "integer"
+                    },
+                    "photos_failed": {
+                        "type": "integer"
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/internal_crags.CragSnapshot"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragSnapshot": {
+                "properties": {
+                    "data": {
+                        "type": "object"
+                    },
+                    "purged_at": {
+                        "type": "string"
+                    },
+                    "purged_by": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "internal_crags.CreateCragRequest": {
                 "properties": {
                     "access_notes": {
@@ -847,6 +906,35 @@
                 "properties": {
                     "url": {
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.PurgeCounts": {
+                "properties": {
+                    "approaches": {
+                        "type": "integer"
+                    },
+                    "boulders": {
+                        "type": "integer"
+                    },
+                    "comments": {
+                        "type": "integer"
+                    },
+                    "lines": {
+                        "type": "integer"
+                    },
+                    "photos": {
+                        "type": "integer"
+                    },
+                    "problems": {
+                        "type": "integer"
+                    },
+                    "reports": {
+                        "type": "integer"
+                    },
+                    "sends": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -2104,6 +2192,81 @@
             }
         },
         "/api/boulders/{id}": {
+            "delete": {
+                "description": "Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not the creator and not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "rock still has problems on it"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete a rock that has no problems on it",
+                "tags": [
+                    "boulders"
+                ]
+            },
             "get": {
                 "parameters": [
                     {
@@ -2883,6 +3046,81 @@
             }
         },
         "/api/crags/{id}": {
+            "delete": {
+                "description": "Admin-only (Council/Associate title). Refuses any crag that still has rocks, problems, or approach guides -- the cure half of handoff.md open item 8: re-parent the rocks off a duplicate spot first, then delete the emptied husk.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "crag still has rocks, problems or approach guides"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete an empty crag",
+                "tags": [
+                    "crags"
+                ]
+            },
             "get": {
                 "parameters": [
                     {
@@ -3293,6 +3531,180 @@
                     }
                 ],
                 "summary": "Add images to a crag",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}/purge": {
+            "post": {
+                "description": "Admin-only, irreversible. Deletes the crag, its rocks, its problems, and every send, comment, drawn line, report and approach guide beneath them, destroys the associated Cloudinary assets, and notifies each affected problem creator. The request must carry the exact counts returned by the preview: if the crag has changed since, the purge is refused rather than silently taking the difference with it. The response body holds the only surviving record of what was deleted.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.CragPurgeRequest",
+                                        "summary": "body",
+                                        "description": "Counts confirmed from the preview"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Counts confirmed from the preview",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.CragPurgeResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "confirmation does not match what is there now"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Purge a crag and everything under it",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}/purge-preview": {
+            "get": {
+                "description": "Admin-only. Returns the counts a purge would remove and the full snapshot of every row involved, so an admin can save the record before committing. Read-only -- nothing is deleted.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.CragPurgePreview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Preview what purging a crag would destroy",
                 "tags": [
                     "crags"
                 ]

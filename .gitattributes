@@ -1,0 +1,29 @@
+# Line endings.
+#
+# Git for Windows ships core.autocrlf=true in its *system* config (not this
+# repo, not the global file), so a checkout here produced CRLF working-tree
+# files while the index stayed LF. gofmt requires LF and treats a CRLF file as
+# unformatted, so `gofmt -l ./...` in palabatu-be reported 69 of 74 Go files as
+# needing formatting purely because of line endings, which makes it useless as
+# a real formatting check. Same class of noise for any other tool that reads
+# the working tree rather than the index.
+#
+# These rules override core.autocrlf per path, so every clone on every machine
+# checks out LF regardless of local git config. Do not "fix" a CRLF complaint
+# by editing files or changing core.autocrlf -- change it here.
+* text=auto eol=lf
+
+# Windows-only scripts. Run by powershell.exe/cmd.exe and by nothing in the Go
+# or Node toolchains, so they keep the platform convention.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never diffed or line-ending-converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary

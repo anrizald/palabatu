@@ -174,3 +174,46 @@ func removeCragImage(ctx context.Context, id, url string) error {
 	_, err := db.Pool.Exec(ctx, `UPDATE crags SET image_urls = image_urls - $2::text WHERE id = $1`, id, url)
 	return err
 }
+
+// cragDeleteCheck is everything DeleteCrag needs in one round-trip: the
+// photos to clean up out of Cloudinary, and the three counts that decide
+// whether the crag is empty enough to remove at all.
+//
+// All three counts matter, and for different reasons. boulders and
+// approaches both cascade from crags (migrations 0014/0017), so deleting a
+// crag that still has either destroys real contributed work silently --
+// including an approach's step photos, which are the "actual deliverable"
+// of handoff.md decision 21. problems.crag_id has no ON DELETE clause at
+// all, so a crag with problems would fail on the raw FK constraint; it is
+// checked here so the caller gets ErrCragNotEmpty instead of a 500.
+// Problems should be unreachable while boulder_count is 0 (every problem
+// has a NOT NULL boulder_id), but crag_id is denormalized onto problems
+// independently, so this does not assume the two agree.
+type cragDeleteCheck struct {
+	imageURLs     []string
+	boulderCount  int
+	problemCount  int
+	approachCount int
+}
+
+func getCragDeleteCheck(ctx context.Context, id string) (*cragDeleteCheck, error) {
+	var d cragDeleteCheck
+	err := db.Pool.QueryRow(ctx,
+		`SELECT
+			c.image_urls,
+			COALESCE((SELECT COUNT(*) FROM boulders WHERE crag_id = c.id), 0)::int,
+			COALESCE((SELECT COUNT(*) FROM problems WHERE crag_id = c.id), 0)::int,
+			COALESCE((SELECT COUNT(*) FROM approaches WHERE crag_id = c.id), 0)::int
+		 FROM crags c WHERE c.id = $1`,
+		id,
+	).Scan(&d.imageURLs, &d.boulderCount, &d.problemCount, &d.approachCount)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func deleteCragRow(ctx context.Context, id string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM crags WHERE id = $1`, id)
+	return err
+}

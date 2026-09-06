@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Compass, Layers, MapPin, Pencil, Plus, Footprints } from 'lucide-react'
+import { Compass, Layers, MapPin, Pencil, Plus, Footprints, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
@@ -11,9 +11,16 @@ import type { BoulderListItem } from '../types/boulder.js'
 import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
+import PurgeSpotModal from '../components/PurgeSpotModal.js'
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
+
+// "1 rock, 3 problems and 1 way in" -- a plain spoken list, not
+// `join(' and ')`, which stacks up as "a and b and c" once a spot has more
+// than two kinds of thing on it.
+const listSentence = (parts: string[]) =>
+    parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 
 // A crag's page (handoff.md decision 3: tapping a crag pin opens this).
 // Shows the spot's own info and a photo grid of its rocks -- picked by
@@ -38,6 +45,8 @@ export default function CragDetailPage() {
     const [editDirections, setEditDirections] = useState('')
     const [editAccessNotes, setEditAccessNotes] = useState('')
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [showPurge, setShowPurge] = useState(false)
 
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
@@ -79,6 +88,33 @@ export default function CragDetailPage() {
         load()
     }
 
+    // Deleting a spot is admin-only and empty-only (handoff.md open item 8:
+    // duplicate spots have no merge flow, so an admin re-parents the rocks off
+    // the duplicate and then removes the husk). The counts are already on
+    // CragListItem, so the page can name what's in the way instead of letting
+    // the request fail -- the backend still refuses either way.
+    //
+    // A way in counts as a blocker even though the FK would happily cascade
+    // it: an approach guide is somebody's photographed walk, and decision 21
+    // calls the reading view the actual deliverable. Deleting the approach
+    // first has to be a deliberate act, not a side effect.
+    const deleteBlockers = crag ? [
+        crag.boulder_count > 0 ? `${crag.boulder_count} ${crag.boulder_count === 1 ? 'rock' : 'rocks'}` : null,
+        crag.problem_count > 0 ? `${crag.problem_count} ${crag.problem_count === 1 ? 'problem' : 'problems'}` : null,
+        crag.approach_count > 0 ? `${crag.approach_count} ${crag.approach_count === 1 ? 'way in' : 'ways in'}` : null,
+    ].filter((b): b is string => b !== null) : []
+
+    const handleDelete = async () => {
+        if (!crag || deleteBlockers.length > 0) return
+        if (!window.confirm(`Delete "${crag.name}"? This cannot be undone.`)) return
+        setIsDeleting(true)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/crags/${crag.id}`)
+        setIsDeleting(false)
+        if (res.error) { showError(res.error); return }
+        invalidateCragCache()
+        navigate('/directory/spots')
+    }
+
     if (isLoading) {
         return (
             <div className="min-h-[var(--content-h)] bg-ink flex items-center justify-center">
@@ -99,6 +135,14 @@ export default function CragDetailPage() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
+            {showPurge && crag && (
+                <PurgeSpotModal
+                    cragId={crag.id}
+                    cragName={crag.name}
+                    onClose={() => setShowPurge(false)}
+                    onPurged={() => { invalidateCragCache(); navigate('/directory/spots') }}
+                />
+            )}
 
             <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                 <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-3">
@@ -124,6 +168,31 @@ export default function CragDetailPage() {
                                     Cancel
                                 </button>
                             </div>
+                            {isAdmin && (
+                                <div className="border-t border-border pt-3 flex flex-col gap-1.5">
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={isDeleting || deleteBlockers.length > 0}
+                                        className="w-full p-2 bg-danger/10 border border-danger/40 text-danger rounded-lg text-xs cursor-pointer hover:bg-danger/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+                                    >
+                                        <Trash2 size={13} className="shrink-0" />
+                                        {isDeleting ? 'Deleting...' : 'Delete this spot'}
+                                    </button>
+                                    <div className="text-[11px] text-text-muted text-center">
+                                        {deleteBlockers.length > 0
+                                            ? `Still has ${listSentence(deleteBlockers)}. Move or remove those first.`
+                                            : 'Admins only. This cannot be undone.'}
+                                    </div>
+                                    {deleteBlockers.length > 0 && (
+                                        <button
+                                            onClick={() => setShowPurge(true)}
+                                            className="w-full p-2 bg-transparent border border-danger/30 text-danger/80 rounded-lg text-[11px] cursor-pointer hover:bg-danger/10 transition-colors"
+                                        >
+                                            Or purge it and everything on it
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -199,7 +268,7 @@ export default function CragDetailPage() {
                             >
                                 <Plus size={13} className="shrink-0" /> Add another way in
                             </button>
-                            <p className="text-xs text-text-muted">More than one is fine &mdash; people arrive from different directions.</p>
+                            <p className="text-xs text-text-muted">More than one is fine. People arrive from different directions.</p>
                         </>
                     )}
                 </div>

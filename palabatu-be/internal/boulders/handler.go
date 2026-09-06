@@ -23,6 +23,7 @@ func Routes(rg *gin.RouterGroup) {
 	rg.PUT("/boulders/:id", middleware.RequireAuth, handleUpdateBoulder)
 	rg.POST("/boulders/:id/images", middleware.RequireAuth, handleAddBoulderImages)
 	rg.DELETE("/boulders/:id/images", middleware.RequireAuth, handleDeleteBoulderImage)
+	rg.DELETE("/boulders/:id", middleware.RequireAuth, handleDeleteBoulder)
 	rg.GET("/boulders/:id/annotations", handleListBoulderAnnotations)
 
 	registerMergeRoutes(rg)
@@ -223,6 +224,38 @@ func handleDeleteBoulderImage(c *gin.Context) {
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this boulder."})
 	case errors.Is(err, ErrImageNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleDeleteBoulder godoc
+// @Summary      Delete a rock that has no problems on it
+// @Description  Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.
+// @Tags         boulders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Boulder ID"
+// @Success      200  {object}  apitypes.SuccessResponse
+// @Failure      403  {object}  apitypes.ErrorResponse  "not the creator and not an admin"
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      409  {object}  apitypes.ErrorResponse  "rock still has problems on it"
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/boulders/{id} [delete]
+func handleDeleteBoulder(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	err := DeleteBoulder(c.Request.Context(), userID, id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this rock."})
+	case errors.Is(err, ErrHasProblems):
+		c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: "This rock still has problems on it. Move them to another rock first."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

@@ -275,3 +275,18 @@ func problemCreatorsOnBoulder(ctx context.Context, boulderID string) ([]string, 
 	}
 	return ids, rows.Err()
 }
+
+// countProblemsOnBoulder backs DeleteBoulder's empty-only rule. Direct SQL
+// against problems rather than a call into internal/problems, following the
+// same one-way rule the rest of this package uses for the annotations and
+// image-cascade queries -- boulders and problems never import each other.
+func countProblemsOnBoulder(ctx context.Context, boulderID string) (int, error) {
+	var n int
+	err := db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM problems WHERE boulder_id = $1`, boulderID).Scan(&n)
+	return n, err
+}
+
+func deleteBoulderRow(ctx context.Context, boulderID string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM boulders WHERE id = $1`, boulderID)
+	return err
+}

@@ -36,6 +36,15 @@ There is no test suite configured in either project (no test script/runner in th
 
 Both `palabatu-fe/` and `palabatu-be/` must run simultaneously for the app to work end to end. Vite proxies `/api` and `/auth` to `http://localhost:3001` in dev ([palabatu-fe/vite.config.ts](palabatu-fe/vite.config.ts)), and `palabatu-fe/src/lib/api.ts` falls back to `VITE_API_URL` or `http://localhost:3001` otherwise.
 
+## Line endings
+
+`.gitattributes` at the repo root declares `* text=auto eol=lf`, with `*.ps1`/`*.bat`/`*.cmd` pinned to `eol=crlf` and image/font types marked `binary`. It exists because Git for Windows ships `core.autocrlf=true` in its **system** config (`C:/Program Files/Git/etc/gitconfig` — not this repo's config, not the global one), which checked out CRLF working-tree files against an LF index. gofmt requires LF and reports a CRLF file as unformatted, so `gofmt -l .` in `palabatu-be` flagged 69 of 74 Go files purely on line endings, making it useless as a real formatting check. Path attributes override `core.autocrlf`, so this holds on any machine without anyone reconfiguring git.
+
+The working tree was normalized to LF in the same pass (383 tracked files, `.ps1` excluded). It produced **zero** content diff — the index was already LF, so git had been converting on checkout only.
+
+- Don't "fix" a CRLF complaint by reformatting files or flipping `core.autocrlf` — change `.gitattributes`.
+- If `gofmt -l` ever flags a file you didn't touch, check `git ls-files --eol <path>` before assuming a formatting problem: `w/crlf` on a `.go` file means a tool wrote it with CRLF, not that it needs gofmt.
+
 ## Browser automation & E2E testing
 
 Playwright is already installed (`@playwright/test` dev dependency) and the browser
@@ -164,14 +173,32 @@ palabatu-be/
 │   │   └── errors.go        # ErrEmailExists, ErrInvalidCredentials, ErrNotVerified, ErrInvalidToken, etc.
 │   ├── crags/                # top level of the crags -> boulders -> problems hierarchy (see handoff.md at the repo
 │   │   │                     # root for the full design): the place you drive to and park at. Create is open to any
-│   │   │                     # signed-in user; edit is creator-or-admin, same authz.CanEditOwned policy as problems.
-│   │   ├── handler.go        # Routes(rg) mounted at /api — /crags, /crags/:id
-│   │   ├── service.go        # ListCrags/GetCrag/CreateCrag/UpdateCrag; authorizeCragEdit mirrors
-│   │   │                     # problems.authorizeProblemEdit exactly (per-domain helper, not shared)
+│   │   │                     # signed-in user; edit is creator-or-admin, same authz.CanEditOwned policy as problems;
+│   │   │                     # delete is admin-only AND empty-only (handoff.md open item 8's cure for duplicate
+│   │   │                     # spots: re-parent the rocks off the duplicate, then remove the husk). "Empty" means no
+│   │   │                     # rocks, no problems, and no approach guides — boulders/approaches both cascade from
+│   │   │                     # crags, so an approach-bearing crag would silently lose a photographed jalan masuk,
+│   │   │                     # while problems.crag_id has no ON DELETE clause and would 500 on the raw FK instead.
+│   │   ├── handler.go        # Routes(rg) mounted at /api — /crags, /crags/:id; also calls registerPurgeRoutes
+│   │   ├── service.go        # ListCrags/GetCrag/CreateCrag/UpdateCrag/DeleteCrag; authorizeCragEdit mirrors
+│   │   │                     # problems.authorizeProblemEdit exactly (per-domain helper, not shared), while
+│   │   │                     # requireAdmin mirrors report/boulders' (third package to call authz.IsAdmin directly)
+│   │   ├── purge.go / purge_repository.go / purge_handler.go
+│   │   │                     # the destructive counterpart to DeleteCrag's empty-only rule (handoff.md decision 24):
+│   │   │                     # GET /crags/:id/purge-preview + POST /crags/:id/purge, admin-only, removing a crag AND
+│   │   │                     # everything under it. A separate endpoint rather than a flag, because a plain cascade
+│   │   │                     # skips every safeguard the app has — it runs no Go, so no Cloudinary destroy (orphaning
+│   │   │                     # photos whose URLs die with the rows), no notification to the creators losing work, and
+│   │   │                     # it silently erases pending reports. The purge does all three explicitly, refuses unless
+│   │   │                     # the caller echoes back the exact counts the server recomputes, and returns a
+│   │   │                     # row_to_json snapshot of everything destroyed (the FE saves it as a file — the only
+│   │   │                     # surviving copy). Deletion order is forced by the schema: problems must go first and
+│   │   │                     # explicitly, since problems.crag_id/boulder_id are NO ACTION while boulders/approaches
+│   │   │                     # are ON DELETE CASCADE.
 │   │   ├── repository.go     # `crags` table queries; CragListItem includes boulder_count/problem_count so a dimmed
 │   │   │                     # empty-crag UI doesn't need a second round-trip
 │   │   ├── validate.go       # Indonesia bounding-box lat/lng check, this domain's own copy (see boulders/validate.go)
-│   │   └── errors.go         # ErrNotFound, ErrForbidden, ErrInvalidLocation
+│   │   └── errors.go         # ErrNotFound, ErrForbidden, ErrInvalidLocation, ErrCragNotEmpty
 │   ├── boulders/              # middle level of the hierarchy: one rock, and the thing that actually owns the topo
 │   │   │                      # photo(s) problems on it draw their lines on (moved here from problems -- two problems
 │   │   │                      # on the same rock used to mean two uploads of the same photograph). Also owns the
@@ -187,8 +214,12 @@ palabatu-be/
 │   │   ├── handler.go         # Routes(rg) mounted at /api — /boulders, /crags/:id/boulders, /boulders/:id/images,
 │   │   │                      # /boulders/:id/annotations (every problem-on-this-boulder's line together).
 │   │   │                      # Also calls registerMergeRoutes onto the same group.
-│   │   ├── service.go         # ListBoulders/GetBoulder/CreateBoulder/UpdateBoulder/Add|DeleteBoulderImages/
-│   │   │                      # ListAnnotationsForBoulder
+│   │   ├── service.go         # ListBoulders/GetBoulder/CreateBoulder/UpdateBoulder/DeleteBoulder/
+│   │   │                      # Add|DeleteBoulderImages/ListAnnotationsForBoulder. DeleteBoulder (added 2026-09-06,
+│   │   │                      # handoff.md decision 24) is creator-or-admin and empty-only — until it existed the
+│   │   │                      # middle level had no delete at all, so a junk rock could only ever be merged away,
+│   │   │                      # which needs a plausible target and asserts "same rock" rather than "remove this".
+│   │   │                      # Destroys its own Cloudinary photos on the way out, since nothing else will.
 │   │   ├── repository.go      # `boulders` table queries, plus direct SQL against problems/topo_annotations for
 │   │   │                      # image-delete cascade and the annotations-by-boulder listing
 │   │   ├── merge.go / merge_repository.go / merge_handler.go
@@ -265,7 +296,7 @@ palabatu-be/
 - `auth.Signup` requires `email`, `username`, and `password` to be non-empty and `terms_accepted` to be `true` (`ErrMissingFields`/`ErrTermsNotAccepted`), then creates the `users` row and its `profiles` row together in one DB transaction (`insertUserAndProfile` in `repository.go`) — a profile exists from the moment of signup rather than being created lazily on first edit (see `GetProfile`'s doc comment for the pre-existing-account fallback this replaced). `createUser` distinguishes the `users_email_key` and `users_username_key` constraint violations, returning `ErrEmailExists`/`ErrUsernameExists` respectively, so a username collision no longer gets misreported as "email already exists" — that conflation was tolerable back when username was silently derived from the email's local part, but stopped being tenable once `palabatu-fe`'s signup form made username a real, user-typed, user-facing field. If the verification email fails to send, the whole signup (user + profile) is rolled back via `deleteUser`, relying on `profiles_id_fkey`'s `ON DELETE CASCADE` (migrations/0003) to take the profile row with it.
 - `users.terms_accepted_at` (migrations/0009) records ToS/privacy-policy consent at signup — relevant given Indonesia's UU PDP personal-data-protection law. Nullable at the DB level (existing pre-migration accounts have no value and were never asked); enforcement that new signups must accept happens in `auth.Signup`, not via a NOT NULL constraint.
 - `users.guidelines_accepted_at` (migrations/0013) records Community Guidelines acceptance at signup, tracked as a separate consent from `terms_accepted_at` since it's a behavioral/etiquette acknowledgment rather than the legal ToS/Privacy agreement — same nullable-at-the-DB-level, enforced-in-`auth.Signup` shape. Content lives in `LegalModal.tsx`'s `GuidelinesContent` (third tab alongside Terms/Privacy) and carries the same "draft — not yet reviewed or final" disclaimer as the other two docs.
-- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `boulders.DeleteBoulderImage` calls it once per removed URL, best-effort (a destroy failure is logged, not fatal) — moved here from `problems.DeleteProblem` when photo ownership moved to boulders (see the crags/boulders/problems bullet below); deleting a problem no longer touches any Cloudinary images at all, since a boulder's shared photos must survive any single problem on it being deleted.
+- `internal/cloudinary.DestroyByURL` re-derives a Cloudinary `public_id` from a stored secure URL (strip up to `/upload/`, drop a `vNNN/` version segment, drop the extension) and calls `Upload.Destroy`. `boulders.DeleteBoulderImage`, `crags.DeleteCrag` and `approaches.DeleteApproach` each call it once per removed URL, best-effort (a destroy failure is logged, not fatal) — moved here from `problems.DeleteProblem` when photo ownership moved to boulders (see the crags/boulders/problems bullet below); deleting a problem no longer touches any Cloudinary images at all, since a boulder's shared photos must survive any single problem on it being deleted.
 - Cloudinary CDN caveat learned while testing the delete path: destroying an asset removes it from Cloudinary's asset store immediately (verified via the Admin API), but a previously-fetched delivery URL can keep returning `200` from CDN edge cache for a while afterward. Don't use "can I still GET the old URL" as a signal that cleanup failed — check the Admin API (or just trust `Destroy`'s returned `Result`) instead.
 - `auth.Profile.Title` and `.Tags` are `json.RawMessage`, passed through opaquely rather than typed: `tags` is a frontend-defined shape (`{ level, styles }`), and `title` is a JSON array of role strings but has legacy rows that aren't. `auth.GetUserTitles()` is the one place that actually parses `title`; any non-array or missing profile yields `[]` rather than an error.
 - `cmd/api/main.go` strips trailing slashes ahead of every route (its own `stripTrailingSlash` wrapper, applied around the whole `*gin.Engine` at the `http.ListenAndServe` call — not as a `r.Use()` middleware): `palabatu-fe` actually calls `POST /api/upload/avatar/` with a trailing slash. It has to wrap the raw `http.Handler` rather than run as gin middleware because gin resolves routes (and would otherwise 301/307-redirect a trailing slash) before any `r.Use()` middleware executes — and a redirected POST is fragile across CORS (body replay, extra preflight).

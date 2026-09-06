@@ -125,6 +125,71 @@ func DeleteCragImage(ctx context.Context, userID, cragID, imageURL string) error
 	return removeCragImage(ctx, cragID, imageURL)
 }
 
+// DeleteCrag removes an empty crag outright, admin-only. This is the cure
+// half of handoff.md open item 8: duplicate spots have no merge flow, so
+// the resolution is that an admin re-parents every rock off the duplicate
+// (decision 13's UpdateBoulder crag_id) and then deletes the emptied husk.
+// Deliberately not a merge: nothing is moved or rewritten here, and the
+// item's own narrowed recommendation is "the cheap half rather than a full
+// merge flow" -- no new tables, no notification types, no objection hold.
+//
+// Admin-only rather than creator-or-admin, because this is a cleanup
+// operation on somebody else's mess rather than an edit of your own row --
+// same reasoning (and the same authz.IsAdmin call) as resolving a boulder
+// merge, which is not "owned" by anyone either. A creator who wants their
+// own empty spot gone can ask an admin; the alternative is handing every
+// user a button that permanently removes a map pin other people may have
+// started using.
+//
+// "Empty" means no rocks, no problems, and no approach guides. See
+// getCragDeleteCheck for why all three are checked and why an approach
+// counts as content worth blocking on -- the admin's path forward there is
+// DELETE /approaches/:id, which already exists and which admins can call.
+func DeleteCrag(ctx context.Context, userID, cragID string) error {
+	if err := requireAdmin(ctx, userID); err != nil {
+		return err
+	}
+
+	check, err := getCragDeleteCheck(ctx, cragID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if check.boulderCount > 0 || check.problemCount > 0 || check.approachCount > 0 {
+		return ErrCragNotEmpty
+	}
+
+	// Best-effort, matching DeleteCragImage and boulders.DeleteBoulderImage:
+	// a Cloudinary failure is logged, never fatal. The row going away is the
+	// operation; an orphaned asset is a cost, not a reason to leave a
+	// duplicate spot on the map.
+	for _, url := range check.imageURLs {
+		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
+			log.Printf("failed to delete crag image from Cloudinary: %v", err)
+		}
+	}
+
+	return deleteCragRow(ctx, cragID)
+}
+
+// requireAdmin mirrors report.requireAdmin and boulders.requireAdmin --
+// the third package to call authz.IsAdmin directly rather than
+// authz.CanEditOwned, for the same reason both of those do: deleting
+// somebody else's duplicate spot isn't an act of ownership.
+func requireAdmin(ctx context.Context, userID string) error {
+	titles, err := auth.GetUserTitles(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !authz.IsAdmin(titles) {
+		return ErrForbidden
+	}
+	return nil
+}
+
 // authorizeCragEdit mirrors problems.authorizeProblemEdit exactly -- same
 // creator-or-admin policy, applied per domain rather than shared, matching
 // this codebase's existing convention.

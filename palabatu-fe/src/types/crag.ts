@@ -53,3 +53,52 @@ export type CreateCragRequest = CragRequest & { image_urls: string[] }
 // Mirrors crags.AddCragImagesRequest / DeleteCragImageRequest.
 export type AddCragImagesRequest = { image_urls: string[] }
 export type DeleteCragImageRequest = { url: string }
+
+// Mirrors crags.PurgeCounts -- what a purge would destroy, per kind, and
+// the confirmation the caller has to echo back. All plain ints on the Go
+// side, so never null.
+export type PurgeCounts = {
+    boulders: number
+    problems: number
+    sends: number
+    comments: number
+    lines: number
+    approaches: number
+    reports: number
+    photos: number
+}
+
+// Mirrors crags.CragSnapshot. `data` is deliberately opaque: it's one
+// Postgres-generated JSON document of every destroyed row (json.RawMessage
+// on the Go side, `type: object` in the spec), and the app never reads a
+// field out of it -- it exists to be written to a file. Typed as `unknown`
+// rather than a fake shape, because inventing one would drift from the
+// schema the moment a column is added, which is the exact failure the
+// snapshot is generated from the schema to avoid.
+export type CragSnapshot = {
+    purged_at: string
+    purged_by: string
+    data: unknown
+}
+
+// Mirrors crags.CragPurgePreview (GET /api/crags/:id/purge-preview).
+export type CragPurgePreview = {
+    crag_id: string
+    crag_name: string
+    counts: PurgeCounts
+    snapshot: CragSnapshot
+}
+
+// Mirrors crags.CragPurgeRequest (POST /api/crags/:id/purge).
+export type CragPurgeRequest = { expected: PurgeCounts }
+
+// Mirrors crags.CragPurgeResult. photos_failed is reported rather than
+// swallowed: a failed Cloudinary destroy is a real orphan, and the admin is
+// the only one in a position to know it happened.
+export type CragPurgeResult = {
+    deleted: PurgeCounts
+    photos_destroyed: number
+    photos_failed: number
+    creators_notified: number
+    snapshot: CragSnapshot
+}
