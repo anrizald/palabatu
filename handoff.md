@@ -207,7 +207,11 @@ Revision history:
   surfaces this whole restructure left behind. **No decision in this file
   changes**; both outputs are separate documents so this one stays the
   design record rather than becoming a bug tracker.
-  - `handoff-add-sheet.md` — 13 findings against `components/add-sheet/`.
+  - `handoff-add-sheet.md` (historical — all 13 findings fixed by
+    2026-09-06, C11 last, and the file removed that day; see
+    `git log -- handoff-add-sheet.md` for the complete record, and
+    CLAUDE.md's add-sheet bullets for the deliberate-choices list rescued
+    out of it) — 13 findings against `components/add-sheet/`.
     Three break a path this document treats as load-bearing: the
     new-spot → problem → "add another" loop (decisions 11 and 20) dead-ends
     because `submitProblem` never writes the created crag's id back to
