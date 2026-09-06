@@ -43,12 +43,14 @@ DECLARE
     v_klapa_wall uuid;
     v_suwuk_crag uuid;
     v_suwuk_wall uuid;
+    v_long_crag    uuid;
+    v_long_rock    uuid;
 BEGIN
     -- Clean up any previous run of this seed first. problems.crag_id_fkey/
     -- boulder_id_fkey have no ON DELETE CASCADE (unlike boulders.crag_id_fkey),
     -- so problems must go before crags.
-    DELETE FROM problems WHERE crag_id IN (SELECT id FROM crags WHERE name IN ('Tebing Citatah 48', 'Gunung Parang', 'Pantai Siung', 'Gunung Batu (Lembang)', 'Klapanunggal', 'Tebing Suwuk'));
-    DELETE FROM crags WHERE name IN ('Tebing Citatah 48', 'Gunung Parang', 'Pantai Siung', 'Gunung Batu (Lembang)', 'Klapanunggal', 'Tebing Suwuk');
+    DELETE FROM problems WHERE crag_id IN (SELECT id FROM crags WHERE name IN ('Tebing Citatah 48', 'Gunung Parang', 'Pantai Siung', 'Gunung Batu (Lembang)', 'Klapanunggal', 'Tebing Suwuk', 'Tebing Batu Karang Tinggi di Belakang Warung Pak Haji Sebelah Kanan Jalan Menuju Desa Cikadu Kabupaten Bandung Barat yang Dulu Sering Dipakai Latihan Anak-Anak Pecinta Alam Sebelum Jalan Masuknya Ditutup Karena Longsor Waktu Musim Hujan Kemarin'));
+    DELETE FROM crags WHERE name IN ('Tebing Citatah 48', 'Gunung Parang', 'Pantai Siung', 'Gunung Batu (Lembang)', 'Klapanunggal', 'Tebing Suwuk', 'Tebing Batu Karang Tinggi di Belakang Warung Pak Haji Sebelah Kanan Jalan Menuju Desa Cikadu Kabupaten Bandung Barat yang Dulu Sering Dipakai Latihan Anak-Anak Pecinta Alam Sebelum Jalan Masuknya Ditutup Karena Longsor Waktu Musim Hujan Kemarin');
 
     -- 1. Tebing Citatah 48 -- Padalarang, West Bandung Regency, West Java.
     -- Limestone karst, ~48m, the most beginner-friendly of the three
@@ -216,6 +218,34 @@ BEGIN
     INSERT INTO problems (id, name, grade, boulder_id, crag_id, height_m, notes, created_by) VALUES
         (gen_random_uuid(), 'Jalur Awal', '5.4', v_suwuk_wall, v_suwuk_crag, 8, 'Plenty of hand and foot holds, good beginner toprope on the shorter face.', v_owner),
         (gen_random_uuid(), 'Sisi Tinggi', '5.8', v_suwuk_wall, v_suwuk_crag, 20, 'The taller, smoother face -- fewer holds and more vertical than the short side.', v_owner);
+
+    -- Layout fixture, not a real spot: a crag, rock and problem all named at
+    -- just under MAX_NAME_LEN / maxNameLen (250), about as long as a contributor can
+    -- submit. User-typed text is the likeliest cause of a page overflowing
+    -- sideways, and every other row here is short enough to hide that class of
+    -- bug -- the longest real name in this seed is 31 characters.
+    -- tests/no-horizontal-overflow.spec.ts deliberately picks the
+    -- longest-named crag, rock and problem it can find, so seeding this is
+    -- what makes that sweep meaningful rather than decorative.
+    INSERT INTO crags (id, name, lat, lng, directions, access_notes, created_by, image_urls)
+    VALUES (
+        gen_random_uuid(),
+        'Tebing Batu Karang Tinggi di Belakang Warung Pak Haji Sebelah Kanan Jalan Menuju Desa Cikadu Kabupaten Bandung Barat yang Dulu Sering Dipakai Latihan Anak-Anak Pecinta Alam Sebelum Jalan Masuknya Ditutup Karena Longsor Waktu Musim Hujan Kemarin',
+        -6.83000, 107.45000,
+        'Layout fixture. Not a real crag -- delete freely.',
+        'Layout fixture. Not a real crag -- delete freely.',
+        v_owner,
+        '[]'::jsonb
+    ) RETURNING id INTO v_long_crag;
+
+    INSERT INTO boulders (id, crag_id, name, image_urls, rock_type, type, created_by)
+    VALUES (
+        gen_random_uuid(), v_long_crag, 'Batu Besar Sebelah Kiri Setelah Jembatan Bambu yang Roboh Waktu Musim Hujan Kemarin Dekat Pohon Beringin Tua di Pinggir Sawah Pak Ujang, Bukan Batu yang Ada Coretan Catnya Itu Tapi yang Sebelahnya Lagi Agak Ke Belakang Sedikit Ke Arah Sungai',
+        '[]'::jsonb, 'limestone', 'boulder', v_owner
+    ) RETURNING id INTO v_long_rock;
+
+    INSERT INTO problems (id, name, grade, boulder_id, crag_id, height_m, notes, created_by) VALUES
+        (gen_random_uuid(), 'Jalur Panjang Menyusuri Retakan Miring Sampai Puncak Lalu Turun Lewat Sisi Belakang yang Banyak Lumutnya, Hati-Hati Pijakan Ketiga Dari Bawah Suka Lepas Kalau Basah dan Jangan Pegang Akar yang Menjuntai Itu Karena Sudah Lapuk Sekali', 'V3', v_long_rock, v_long_crag, 4, 'Layout fixture.', v_owner);
 
     RAISE NOTICE 'Seeded 6 crags: Tebing Citatah 48 (%), Gunung Parang (%), Pantai Siung (%), Gunung Batu Lembang (%), Klapanunggal (%), Tebing Suwuk (%)',
         v_citatah_crag, v_parang_crag, v_siung_crag, v_gnbatu_crag, v_klapa_crag, v_suwuk_crag;

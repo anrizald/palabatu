@@ -1,6 +1,6 @@
 # Palabatu Roadmap
 
-Status: in active development, not yet deployed. No hosting exists for palabatu.id yet — "v1" is defined here as the first production deploy, not a feature count. See [CLAUDE.md](CLAUDE.md) for architecture and conventions.
+Status: in active development. **Deployed, not launched** — palabatu.id runs on a Hostinger VPS behind Caddy, serving the `stage` branch behind an under-construction screen, with a live API and an empty database. So "v1" can no longer mean "the first production deploy" (that already happened); it means the first *public* release: the curtain down, real data in, real users able to sign up. See [CLAUDE.md](CLAUDE.md)'s Project section for the verified deploy facts and architecture conventions.
 
 This file tracks direction across sessions. Update it as items complete or scope changes — don't let it go stale.
 
@@ -11,8 +11,9 @@ Everything on the original deployability punch list (validation, rate limiting, 
 - **Deployment services** — decide and provision the production tier for every third-party service the app actually depends on, currently all wired up on dev/free-tier credentials only:
   - **Email (Resend)** — on the free tier today, which can only send from the shared `onboarding@resend.dev` sandbox address to the account owner's own inbox. Needs a paid tier + a verified custom domain before signup/reset emails can reach real users.
   - **Image storage/CDN (Cloudinary)** — confirm the production plan and limits; currently a dev account.
-  - **App hosting** — where the Go binary (which also serves the built frontend, per the shareable-URL work) actually runs in production. Nothing chosen yet.
-  - **DNS/domain** — palabatu.id is registered (via Hostinger), but unpointed: it still shows Hostinger's default parking template because nothing's been deployed there yet. Needs DNS pointed at wherever app hosting ends up.
+  - ~~**App hosting**~~ — **done.** The Go binary (which also serves the built frontend, per the shareable-URL work) runs on a Hostinger VPS as one Docker image, behind Caddy. A Railway alternative was written up and abandoned; see `railway_prod_deployment_handoff.md`'s superseded header.
+  - ~~**DNS/domain**~~ — **done.** palabatu.id resolves to the VPS and serves over TLS.
+  - **Edge protection** — still open, and now urgent rather than theoretical, since the origin is publicly reachable. Caddy fronts the app but its config lives on the box, not in this repo, and no CDN/WAF is in play. See CLAUDE.md's Known WIP rough edges.
 - **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
 - ~~**Feedback / bug report form**~~ — **built 2026-07-28.** A global "Feedback" entry point in `Header.tsx` (desktop) and `Sidebar.tsx` (mobile), opening `FeedbackModal.tsx` (mirrors `ReportModal.tsx`'s visual language). Open to logged-out visitors as well as signed-in users: `POST /api/feedback` (`internal/feedback/`) sits behind `middleware.RateLimit` (per-IP, same pattern as `internal/waitlist`) instead of `middleware.RequireAuth`, and runs the new `middleware.OptionalAuth` so a logged-in submitter's `user_id` gets attached without requiring a session. Submissions land in their own `feedback` table (migrations/0012) and trigger an immediate email via `mailer.SendFeedbackNotification`, sent to whatever inbox `OWNER_USER_ID` resolves to (`auth.GetUserEmail`) rather than a second owner-email env var. Review list is a 5th tab ("Feedback") on the Developer page, listing open submissions and marking them reviewed via `POST /api/feedback/:id/reviewed` — same owner-only gate as the rest of that page.
 

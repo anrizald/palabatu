@@ -87,6 +87,8 @@ func handleCreateCrag(c *gin.Context) {
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, crag)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	default:
@@ -123,6 +125,8 @@ func handleUpdateCrag(c *gin.Context) {
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, crag)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	case errors.Is(err, ErrNotFound):

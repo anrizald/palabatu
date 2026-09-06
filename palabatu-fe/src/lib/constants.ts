@@ -45,6 +45,15 @@ export function detectGradeScale(token: string): { type: ProblemType; scale: str
 // 2026-08-17 de-emphasis pass) so the two can't drift out of sync.
 export const DETAIL_ZOOM = 15;
 
+/**
+ * Cap on a user-typed crag/rock/problem name, mirroring maxNameLen in the
+ * three Go validate.go files. The backend is the real enforcement, since the
+ * API is public; this only stops the browser letting someone type past it and
+ * then eat a 400 on submit. Kept in step by hand -- if you change one, change
+ * both.
+ */
+export const MAX_NAME_LEN = 250;
+
 export const circleButtonStyle = {
     background: '#141210',
     border: '1px solid #c87a30',

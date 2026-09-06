@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
+import { GRADE_SCALES, detectGradeScale, type ProblemType, MAX_NAME_LEN } from '../lib/constants.js';
 
 export type ProblemEditFormFields = {
     name: string;
@@ -84,6 +84,7 @@ export default function ProblemEditForm({ form, onChange, onSave, onCancel, isPr
                     value={form.name}
                     onChange={e => onChange({ ...form, name: e.target.value })}
                     placeholder="e.g. Slab Mantap"
+                    maxLength={MAX_NAME_LEN}
                     className={inputClass}
                 />
             </div>

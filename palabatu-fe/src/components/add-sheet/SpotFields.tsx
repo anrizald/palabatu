@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CragListItem } from '../../types/crag.js'
 import type { NewSpotDraft } from './types.js'
 import SpotMiniMap from './SpotMiniMap.js'
+import { MAX_NAME_LEN } from '../../lib/constants.js';
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
 const labelClass = "block text-[12.5px] font-medium text-text-muted mb-1.5"
@@ -29,7 +30,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
         <div className="flex flex-col gap-4">
             <div>
                 <label className={labelClass}>What's it called?</label>
-                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Batu Kalong" className={inputClass} />
+                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Batu Kalong" maxLength={MAX_NAME_LEN} className={inputClass} />
             </div>
 
             <div>

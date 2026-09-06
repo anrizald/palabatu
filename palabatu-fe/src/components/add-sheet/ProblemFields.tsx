@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { GRADE_SCALES, boulderTypeToGradeType, type ProblemType } from '../../lib/constants.js'
+import { GRADE_SCALES, boulderTypeToGradeType, type ProblemType, MAX_NAME_LEN } from '../../lib/constants.js'
 import type { NewProblemDraft } from './types.js'
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
@@ -48,7 +48,7 @@ export default function ProblemFields({
         <div className="flex flex-col gap-4">
             <div>
                 <label className={labelClass}>Name</label>
-                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Slab Mantap" className={inputClass} />
+                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Slab Mantap" maxLength={MAX_NAME_LEN} className={inputClass} />
             </div>
 
             <div>

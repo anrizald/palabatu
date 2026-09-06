@@ -57,6 +57,9 @@ func CreateProblem(
 	heightM *float64,
 	imageURLs []string,
 ) (*ProblemSummary, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}
@@ -83,6 +86,9 @@ func UpdateProblem(
 	userID, problemID, boulderID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
 	heightM *float64,
 ) (*ProblemRow, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateGrade(grade); err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 import type { BoulderType } from '../../types/boulder.js'
 import RockPointMap, { type NearbyRock } from '../RockPointMap.js'
 import type { Geo, NewRockDraft } from './types.js'
+import { MAX_NAME_LEN } from '../../lib/constants.js';
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
 const labelClass = "block text-[12.5px] font-medium text-text-muted mb-1.5"
@@ -99,6 +100,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                     value={draft.name}
                     onChange={e => set({ name: e.target.value })}
                     placeholder={draft.type === 'wall' ? 'the wall by the road' : 'the one with the crack'}
+                    maxLength={MAX_NAME_LEN}
                     className={inputClass}
                 />
                 <p className="text-xs text-text-muted mt-1.5">

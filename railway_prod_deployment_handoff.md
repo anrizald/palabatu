@@ -1,3 +1,11 @@
+> **SUPERSEDED — do not follow as instructions.** This plan was not carried out.
+> palabatu.id is deployed on a **Hostinger VPS** behind Caddy, serving the `stage`
+> branch; the Railway migration this file describes is dead. Note that it has the
+> direction backwards where it says it "replaces the old VPS plan" — the VPS is what
+> actually shipped. Kept for the env-var inventory and the build/`Dockerfile` notes,
+> which are still broadly accurate. Current deploy facts live in README.md's
+> Deployment section and CLAUDE.md's Project section.
+
 # Deploy handoff — palabatu.id on Railway
 
 Goal: get the `stage` branch (currently just the coming-soon/waitlist gate —

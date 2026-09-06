@@ -1,5 +1,7 @@
 package problems
 
+import "unicode/utf8"
+
 import "strings"
 
 // gradeScales mirrors palabatu-fe/src/lib/constants.ts's GRADE_SCALES. The
@@ -46,4 +48,22 @@ func validateGrade(grade string) error {
 		}
 	}
 	return ErrInvalidGrade
+}
+
+// maxNameLen caps a user-typed name. Nothing capped these before -- not the
+// inputs, not the handlers, and the columns are unbounded `text` -- so a
+// pasted essay was a valid problem name, and no amount of CSS makes that a
+// good row. Capping at the source bounds the problem once instead of at every
+// surface that renders it. 120 runes is far above anything real (the longest
+// name in the seed data is 31) and still short enough to lay out.
+//
+// Runes, not bytes: a byte cap would cut a multi-byte character in half and
+// silently shorten non-ASCII names more than ASCII ones.
+const maxNameLen = 250
+
+func validateName(name string) error {
+	if utf8.RuneCountInString(name) > maxNameLen {
+		return ErrNameTooLong
+	}
+	return nil
 }

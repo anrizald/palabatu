@@ -64,6 +64,9 @@ func normalizeBoulderType(t string) (string, error) {
 // CreateBoulder has no role gate: any signed-in user may add a boulder to
 // any crag, including someone else's (handoff.md decision 6).
 func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, rockType string, lat, lng *float64, imageURLs []string, filedUncertain *bool) (*Boulder, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}
@@ -89,6 +92,9 @@ func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, ro
 // cascades the denormalized crag_id onto every problem already on this
 // boulder (reparentBoulder, repository.go).
 func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulderType, rockType string, lat, lng *float64) (*Boulder, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}

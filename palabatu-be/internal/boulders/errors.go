@@ -3,6 +3,7 @@ package boulders
 import "errors"
 
 var (
+	ErrNameTooLong     = errors.New("name too long")
 	ErrNotFound        = errors.New("not found")
 	ErrForbidden       = errors.New("forbidden")
 	ErrCragNotFound    = errors.New("crag not found")

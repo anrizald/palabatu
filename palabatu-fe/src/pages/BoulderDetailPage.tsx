@@ -17,6 +17,7 @@ import MergeSuggestModal from '../components/MergeSuggestModal.js'
 import RockPointMap, { type NearbyRock } from '../components/RockPointMap.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import PhotoCreditLine from '../components/PhotoCreditLine.js'
+import { MAX_NAME_LEN } from '../lib/constants.js';
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
@@ -321,7 +322,7 @@ export default function BoulderDetailPage() {
                         <div className="flex flex-col gap-3">
                             <div>
                                 <div className={labelClass}>Name</div>
-                                <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Most rocks don't have one" className={inputClass} />
+                                <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Most rocks don't have one" maxLength={MAX_NAME_LEN} className={inputClass} />
                             </div>
                             <div>
                                 <div className={labelClass}>Rock type</div>
@@ -371,7 +372,7 @@ export default function BoulderDetailPage() {
                     ) : (
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                             <div>
-                                <h1 className="font-serif text-2xl font-black text-text">{boulder.name ?? 'Unnamed rock'}</h1>
+                                <h1 className="font-serif text-2xl font-black text-text break-words">{boulder.name ?? 'Unnamed rock'}</h1>
                                 {boulder.rock_type && <div className="text-xs text-text-muted mt-1">{boulder.rock_type}</div>}
                                 {boulder.creator_name && <div className="text-xs text-text-muted mt-1">Added by {boulder.creator_name}</div>}
                                 {/* An unpinned rock is invisible on the map's
@@ -387,7 +388,12 @@ export default function BoulderDetailPage() {
                                             : 'No pin yet'}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            {/* flex-wrap, and deliberately not shrink-0: the three
+                                buttons together are wider than a 360px viewport's
+                                content column, so pinning the group's width made the
+                                whole page scroll sideways and clipped "Edit" off the
+                                right edge. Wrapping lets them stack instead. */}
+                            <div className="flex items-center gap-2 flex-wrap">
                                 {user && (
                                     <button onClick={() => setShowMergeModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <GitCompare size={13} className="shrink-0" /> Same rock as...

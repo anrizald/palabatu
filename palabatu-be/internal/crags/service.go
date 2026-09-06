@@ -43,6 +43,9 @@ func GetCrag(ctx context.Context, id string) (*CragListItem, error) {
 // (handoff.md decision 6) -- adding is open, editing an existing crag stays
 // with its creator or an admin.
 func CreateCrag(ctx context.Context, createdBy, name string, lat, lng float64, directions, accessNotes string, imageURLs []string) (*Crag, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}
@@ -50,6 +53,9 @@ func CreateCrag(ctx context.Context, createdBy, name string, lat, lng float64, d
 }
 
 func UpdateCrag(ctx context.Context, userID, cragID, name string, lat, lng float64, directions, accessNotes string) (*Crag, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	if err := validateLatLng(lat, lng); err != nil {
 		return nil, err
 	}

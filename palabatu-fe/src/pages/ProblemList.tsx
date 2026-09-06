@@ -295,10 +295,16 @@ export function ProblemList() {
                             className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-dim outline-none transition-colors"
                         />
                     </div>
+                    {/* max-w-full and min-w-0 are load-bearing: a native select
+                        sizes itself to its widest <option>, so one long spot name
+                        made this wider than the viewport and scrolled the whole
+                        page sideways. Constrained, the browser truncates the
+                        displayed label itself and the full name is still readable
+                        in the open dropdown. */}
                     <select
                         value={spotFilter}
                         onChange={(e) => setSpotFilter(e.target.value)}
-                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
+                        className="max-w-full min-w-0 bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
                     >
                         <option value="All">All spots</option>
                         {spotOptions.map(([id, name]) => (

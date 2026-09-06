@@ -475,7 +475,7 @@ export default function ProblemDetailPage() {
                         <div className="p-6 flex flex-col gap-4">
                             <div className="flex items-start justify-between gap-4">
                                 <div>
-                                    <h1 className="font-serif text-[28px] font-black text-text leading-tight">{problem.name}</h1>
+                                    <h1 className="font-serif text-[28px] font-black text-text leading-tight break-words">{problem.name}</h1>
                                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                                         <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-[13px] font-bold">
                                             {problem.grade || 'Ungraded'}

@@ -110,6 +110,8 @@ func handleCreateProblem(c *gin.Context) {
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidGrade):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrBoulderNotFound):
@@ -151,6 +153,8 @@ func handleUpdateProblem(c *gin.Context) {
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidGrade):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrBoulderNotFound):

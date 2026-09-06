@@ -12,6 +12,7 @@ import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
 import PurgeSpotModal from '../components/PurgeSpotModal.js'
+import { MAX_NAME_LEN } from '../lib/constants.js';
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
@@ -150,7 +151,7 @@ export default function CragDetailPage() {
                         <div className="flex flex-col gap-3">
                             <div>
                                 <div className={labelClass}>Name</div>
-                                <input value={editName} onChange={e => setEditName(e.target.value)} className={inputClass} />
+                                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={MAX_NAME_LEN} className={inputClass} />
                             </div>
                             <div>
                                 <div className={labelClass}>Patokan (directions)</div>
@@ -197,9 +198,14 @@ export default function CragDetailPage() {
                     ) : (
                         <>
                             <div className="flex items-start justify-between gap-3 flex-wrap">
-                                <div className="flex items-center gap-2">
-                                    <Compass size={20} className="shrink-0 text-accent" />
-                                    <h1 className="font-serif text-2xl font-black text-text">{crag.name}</h1>
+                                {/* items-start, not items-center: a long spot name wraps to
+                                    several lines here, and centring parked the compass in the
+                                    middle of the text block. min-w-0 lets the heading shrink
+                                    inside the flex row, and break-words handles a long name
+                                    with no spaces in it, which nothing else would break. */}
+                                <div className="flex items-start gap-2 min-w-0">
+                                    <Compass size={20} className="shrink-0 text-accent mt-1" />
+                                    <h1 className="font-serif text-2xl font-black text-text break-words min-w-0">{crag.name}</h1>
                                 </div>
                                 {canEdit && (
                                     <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
