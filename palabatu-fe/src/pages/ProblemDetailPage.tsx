@@ -111,9 +111,14 @@ export default function ProblemDetailPage() {
     const isCreator = !!user && !!problem && user.id === problem.created_by;
     const canEdit = isCreator || isAdmin;
     // Adding a beta/action photo is widened to any signed-in user
-    // (handoff.md open item 11, resolved 2026-09-06, authz.CanContribute) --
-    // removing one stays on canEdit above, creator-or-admin, unchanged.
+    // (handoff.md open item 11, resolved 2026-09-06, authz.CanContribute).
     const canAddPhoto = !!user && !!problem;
+    // Removing one is creator-or-admin (canEdit), or -- handoff.md item 15 --
+    // the contributor who uploaded this exact photo. These are the
+    // problem's own beta shots, never the boulder's shared topo, so unlike
+    // boulders this needs no further guard.
+    const canDeletePhoto = (url: string) =>
+        canEdit || (!!user && !!problem && problem.image_credits?.find(c => c.image_url === url)?.uploaded_by === user.id);
 
     useEffect(() => {
         if (!id) return;
@@ -543,7 +548,7 @@ export default function ProblemDetailPage() {
                                             <div key={url} className="min-w-[110px] shrink-0">
                                                 <div className="relative w-[110px] h-[110px] rounded-lg overflow-hidden border border-border">
                                                     <img src={url} className="w-full h-full object-cover" alt="Beta" />
-                                                    {canEdit && (
+                                                    {canDeletePhoto(url) && (
                                                         <button
                                                             onClick={() => handleRemoveBetaPhoto(url)}
                                                             disabled={removingBetaUrl === url}

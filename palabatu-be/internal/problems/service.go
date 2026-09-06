@@ -183,7 +183,7 @@ func DeleteProblemImage(ctx context.Context, userID, problemID, imageURL string)
 		return err
 	}
 
-	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
+	if err := authorizeProblemImageDelete(ctx, userID, problemID, createdBy, imageURL); err != nil {
 		return err
 	}
 
@@ -292,6 +292,26 @@ func authorizeProblemEdit(ctx context.Context, userID string, createdBy *string)
 	}
 
 	if authz.CanEditOwned(userID, createdBy, titles) {
+		return nil
+	}
+	return ErrForbidden
+}
+
+// authorizeProblemImageDelete allows the problem's creator or an admin
+// (unchanged authorizeProblemEdit), or -- handoff.md item 15 -- the
+// contributor who uploaded this exact photo, to remove it. These are the
+// problem's own beta/action shots, never the boulder's shared topo -- a
+// topo line only ever references a boulder's image_urls, never a problem's
+// own -- so unlike boulders this needs no further guard.
+func authorizeProblemImageDelete(ctx context.Context, userID, problemID string, createdBy *string, imageURL string) error {
+	if err := authorizeProblemEdit(ctx, userID, createdBy); err == nil {
+		return nil
+	}
+	uploadedBy, err := photocredits.UploadedBy(ctx, photocredits.KindProblem, problemID, imageURL)
+	if err != nil {
+		return err
+	}
+	if uploadedBy != nil && *uploadedBy == userID {
 		return nil
 	}
 	return ErrForbidden

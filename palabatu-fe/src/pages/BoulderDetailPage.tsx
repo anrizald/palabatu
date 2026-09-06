@@ -111,9 +111,21 @@ export default function BoulderDetailPage() {
 
     const canEdit = !!boulder && !!user && (user.id === boulder.created_by || isAdmin)
     // Adding a photo is widened to any signed-in user (handoff.md open item
-    // 11, resolved 2026-09-06, authz.CanContribute) -- removing one stays on
-    // canEdit above, creator-or-admin, unchanged.
+    // 11, resolved 2026-09-06, authz.CanContribute).
     const canAddPhoto = !!boulder && !!user
+    // Removing one is creator-or-admin (canEdit), or -- handoff.md item 15 --
+    // the contributor who uploaded this exact photo, UNLESS some problem the
+    // deleter doesn't own has a topo line drawn on it: a rock's photo is the
+    // shared canvas every problem on it draws against, so deleting it could
+    // take someone else's line down too. `annotations` and `problems` are
+    // both already loaded on this page for the topo overlay, so this mirrors
+    // the backend's authorizeBoulderImageDelete/hasForeignAnnotation exactly
+    // rather than optimistically showing a button the backend would reject.
+    const canDeletePhoto = (url: string) => {
+        if (canEdit) return true
+        if (!user || !boulder || boulder.image_credits?.find(c => c.image_url === url)?.uploaded_by !== user.id) return false
+        return !annotations.some(a => a.image_url === url && problems.find(p => p.id === a.problem_id)?.created_by !== user.id)
+    }
 
     const nearbyRocks: NearbyRock[] = siblingRocks
         .filter((b): b is BoulderListItem & { lat: number; lng: number } => b.lat != null && b.lng != null)
@@ -428,7 +440,7 @@ export default function BoulderDetailPage() {
                         boulder.image_urls.map(url => (
                             <div key={url} className="relative">
                                 <BoulderPhoto url={url} shapes={annotationsByUrl[url] ?? []} />
-                                {canEdit && (
+                                {canDeletePhoto(url) && (
                                     <button
                                         onClick={() => handleRemovePhoto(url)}
                                         disabled={removingUrl === url}

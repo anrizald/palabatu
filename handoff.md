@@ -1843,6 +1843,92 @@ up from here.
     checkable in one query, which "once a real multi-pitch crag gets
     added in numbers" was not. Still open only in the sense that the
     trigger hasn't fired — the product call itself is made.
+15. ~~**Self-delete for a contributor's own photo, gated against other
+    founders' annotations.**~~ **Resolved 2026-09-06, same day as raised.**
+    Item 11 let any signed-in user add a photo, but removing one was still
+    `CanEditOwned` on the whole entity — creator or admin only. A
+    contributor who added a photo had no way to take back their own mistake
+    (wrong file, wrong rock, changed their mind). Approaches never had this
+    gap (`DeleteApproach` checks `CanEditOwned` against the *approach's own*
+    `created_by`, not the crag's, so an approach's contributor could always
+    delete it themselves). Photos did, because `image_urls` is a bare array
+    with no per-element owner — which is exactly what `photo_credits`
+    (migrations/0021) records.
+
+    **The user's solution, built as specified:** a contributor can now
+    delete a photo they themselves uploaded (`photocredits.UploadedBy ==
+    caller`), *in addition to* the existing creator-or-admin path
+    (`authorizeCragImageDelete`/`authorizeProblemImageDelete`). Boulders get
+    one more guard on top (`authorizeBoulderImageDelete` +
+    `hasForeignAnnotation`): self-delete is refused, falling back to
+    creator-or-admin, if any problem *not* created by the deleter has a
+    `topo_annotations` row on that exact URL.
+
+    Why the guard is load-bearing, not optional: a rock's first photo
+    becomes the shared topo canvas the instant a second problem is created
+    on it — every problem after the first defaults to drawing its line on
+    `boulder.image_urls[0]`, regardless of who created each problem (see
+    item 16). Before item 11 this was never a hazard, because only the
+    rock's own creator or an admin could add *or* remove a photo — the same
+    person held both rights. Once adding opened to any signed-in stranger,
+    that stranger could otherwise delete a photo other founders' lines
+    depend on, with no relationship to those founders and no visibility
+    into what they'd be destroying. The guard keeps "delete your own
+    upload" from becoming "delete strangers' documentation by accident of
+    photo order." Crags and problems needed no such guard: a topo line only
+    ever references a *boulder's* `image_urls`, never a crag's own photo or
+    a problem's own beta shots, so nothing else in the app can ever depend
+    on those.
+
+    Frontend: the remove button on all three photo galleries moved from one
+    blanket `canEdit` gate to a per-photo `canDeletePhoto(url)` check.
+    `BoulderDetailPage` mirrors the backend guard exactly rather than
+    optimistically showing a button the backend would reject — it already
+    loads both `annotations` and `problems` for the topo overlay, so
+    checking "does some other-owned problem have a line on this URL" costs
+    no extra request.
+
+    Verified live against the local DB, not just typechecked: a non-owner,
+    non-admin account could delete a photo it uploaded to someone else's
+    rock right up until a different founder's annotation was planted on
+    that exact URL, at which point the same request 403'd; removing the
+    annotation made self-delete succeed again; the same account still could
+    not delete a photo it never uploaded. Crag and problem self-delete
+    (no guard) verified the same way. All test data restored afterward.
+16. **`AddSheet` forces every new problem onto the rock's one existing
+    photo — a new problem should be able to bring its own instead.**
+    *(2026-09-06, called out directly as a design flaw, not a missing
+    nice-to-have.)* Today, once a rock has a photo, every problem added to
+    it afterward is handed that same `image_urls[0]` as its topo target —
+    `AddSheet.tsx`'s `existingTopoUrl`/`targetPhotoUrl` only let you stage a
+    *new* photo when the boulder has zero so far. There is no path for a
+    second founder to say "I'll shoot my own angle for this line" once any
+    photo already exists.
+
+    **The user's solution:** a new problem gets the choice — draw on the
+    rock's existing shared photo (the normal case for real topos: one
+    photo, several colored lines, when the existing shot already shows the
+    line honestly), *or* stage a new photo of their own with an optional
+    topo on it. Not a replacement for reusing the shared photo, an added
+    option alongside it. This also narrows item 15: a founder who wants no
+    dependency on a stranger's photo can simply supply their own instead of
+    drawing on it.
+
+    Not trivial: `ProblemFields`'/`AddSheet`'s photo-staging UI and the
+    submit path both currently assume "reuse the one existing photo, or
+    stage one only if there are none" as the only two states: it needs a
+    third state (reuse, or stage a new one, even when one already exists).
+    Proposed, not built.
+17. **Open thread, not settled: is there any remaining case for a
+    request/approve step on additive contributions?** *(2026-09-06.)* The
+    "request edit" idea raised alongside items 15/16 does not apply to
+    creating a new problem itself — that has never been gated (decision 6)
+    and item 16 makes it fully independent of anyone else's consent once
+    built (a founder can always bring their own photo). What, if anything,
+    a request/approve step would still apply to — e.g. deliberately reusing
+    someone else's existing shared photo rather than bringing your own — is
+    not discussed further and not decided. Revisit explicitly; don't assume
+    an answer from items 15/16 having narrowed the scope.
 
 **The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
@@ -1860,8 +1946,15 @@ problems, with `PhotoCreditLine` rendering "Photo by X" on all three detail
 pages (crags' own photo gallery didn't exist until this pass either — see
 item 11); and `authz.CanContribute` now grants `KindAddPhoto` and
 `KindAddApproach` to any signed-in user, globally, with removal still
-creator-or-admin via `CanEditOwned` unchanged. **Every open item in this
-document is now resolved.**
+creator-or-admin via `CanEditOwned` unchanged.
+
+That same widening immediately raised three more items, same day. **15**
+(self-delete for a contributor's own photo, guarded against other founders'
+annotations) shipped the same day it was raised. **16** (a new problem
+should be able to bring its own photo instead of being forced onto the
+rock's existing one) is scoped with a concrete proposed solution but not
+built. **17** (whether any case still needs a request/approve step once 16
+exists) is a genuinely open thread, not yet decided.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

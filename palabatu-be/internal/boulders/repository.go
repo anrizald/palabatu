@@ -225,6 +225,25 @@ func deleteAnnotationsForImage(ctx context.Context, boulderID, imageURL string) 
 	return err
 }
 
+// hasForeignAnnotation reports whether some problem on this boulder, other
+// than one created by deleterID, has a line drawn on this exact photo.
+// handoff.md item 15's guard: a rock's photo is the shared topo canvas every
+// problem on it draws against (see item 16), so a bare uploader match isn't
+// enough to let a contributor self-delete it -- this is what stops them
+// from taking down annotations that belong to problems they have no
+// relationship to.
+func hasForeignAnnotation(ctx context.Context, boulderID, imageURL, deleterID string) (bool, error) {
+	var exists bool
+	err := db.Pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM topo_annotations ta
+			JOIN problems p ON p.id = ta.problem_id
+			WHERE ta.image_url = $1 AND p.boulder_id = $2 AND p.created_by IS DISTINCT FROM $3
+		)
+	`, imageURL, boulderID, deleterID).Scan(&exists)
+	return exists, err
+}
+
 // BoulderAnnotation mirrors problems.AnnotationRecord's shape -- duplicated
 // rather than imported (same one-way-dependency reasoning as above).
 type BoulderAnnotation struct {

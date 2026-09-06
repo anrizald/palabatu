@@ -184,7 +184,7 @@ func DeleteBoulderImage(ctx context.Context, userID, boulderID, imageURL string)
 		return err
 	}
 
-	if err := authorizeBoulderEdit(ctx, userID, createdBy); err != nil {
+	if err := authorizeBoulderImageDelete(ctx, userID, boulderID, createdBy, imageURL); err != nil {
 		return err
 	}
 
@@ -310,4 +310,34 @@ func authorizeBoulderEdit(ctx context.Context, userID string, createdBy *string)
 		return nil
 	}
 	return ErrForbidden
+}
+
+// authorizeBoulderImageDelete allows the rock's creator or an admin
+// (unchanged authorizeBoulderEdit), or -- handoff.md item 15 -- the
+// contributor who uploaded this exact photo, to remove it. Unlike crags and
+// problems, this needs a second guard: a rock's photo is the shared topo
+// canvas every problem on it draws its line against (item 16), so a bare
+// uploader match isn't enough -- deleting it could take down annotations
+// belonging to problems the uploader has no relationship to. Self-delete is
+// refused (falling back to creator-or-admin) whenever some problem the
+// deleter doesn't own has a line on this exact photo.
+func authorizeBoulderImageDelete(ctx context.Context, userID, boulderID string, createdBy *string, imageURL string) error {
+	if err := authorizeBoulderEdit(ctx, userID, createdBy); err == nil {
+		return nil
+	}
+	uploadedBy, err := photocredits.UploadedBy(ctx, photocredits.KindBoulder, boulderID, imageURL)
+	if err != nil {
+		return err
+	}
+	if uploadedBy == nil || *uploadedBy != userID {
+		return ErrForbidden
+	}
+	foreign, err := hasForeignAnnotation(ctx, boulderID, imageURL, userID)
+	if err != nil {
+		return err
+	}
+	if foreign {
+		return ErrForbidden
+	}
+	return nil
 }

@@ -129,7 +129,7 @@ func DeleteCragImage(ctx context.Context, userID, cragID, imageURL string) error
 		return err
 	}
 
-	if err := authorizeCragEdit(ctx, userID, createdBy); err != nil {
+	if err := authorizeCragImageDelete(ctx, userID, cragID, createdBy, imageURL); err != nil {
 		return err
 	}
 
@@ -236,6 +236,25 @@ func authorizeCragEdit(ctx context.Context, userID string, createdBy *string) er
 		return err
 	}
 	if authz.CanEditOwned(userID, createdBy, titles) {
+		return nil
+	}
+	return ErrForbidden
+}
+
+// authorizeCragImageDelete allows the crag's creator or an admin (unchanged
+// authorizeCragEdit), or -- handoff.md item 15 -- the contributor who
+// uploaded this exact photo, to remove it. Crag photos are never annotated
+// (a topo line only ever references a boulder's image_urls, never a crag's),
+// so unlike boulders this needs no further guard.
+func authorizeCragImageDelete(ctx context.Context, userID, cragID string, createdBy *string, imageURL string) error {
+	if err := authorizeCragEdit(ctx, userID, createdBy); err == nil {
+		return nil
+	}
+	uploadedBy, err := photocredits.UploadedBy(ctx, photocredits.KindCrag, cragID, imageURL)
+	if err != nil {
+		return err
+	}
+	if uploadedBy != nil && *uploadedBy == userID {
 		return nil
 	}
 	return ErrForbidden

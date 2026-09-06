@@ -78,9 +78,14 @@ export default function CragDetailPage() {
 
     const canEdit = !!crag && !!user && (user.id === crag.created_by || isAdmin)
     // Adding a photo is widened to any signed-in user (handoff.md open item
-    // 11, resolved 2026-09-06, authz.CanContribute) -- removing one stays on
-    // canEdit above, creator-or-admin, unchanged.
+    // 11, resolved 2026-09-06, authz.CanContribute).
     const canAddPhoto = !!crag && !!user
+    // Removing one is creator-or-admin (canEdit), or -- handoff.md item 15 --
+    // the contributor who uploaded this exact photo. Crag photos are never
+    // annotated, so unlike boulders this needs no further guard; the backend
+    // enforces the same rule, this only decides whether to show the button.
+    const canDeletePhoto = (url: string) =>
+        canEdit || (!!user && !!crag && crag.image_credits?.find(c => c.image_url === url)?.uploaded_by === user.id)
 
     const handleSave = async () => {
         if (!crag || !editName.trim()) { showError('Please give the spot a name'); return }
@@ -292,7 +297,7 @@ export default function CragDetailPage() {
                                     <div className="aspect-square rounded-2xl overflow-hidden border border-border">
                                         <img src={url} className="w-full h-full object-cover" alt={crag.name} />
                                     </div>
-                                    {canEdit && (
+                                    {canDeletePhoto(url) && (
                                         <button
                                             onClick={() => handleRemovePhoto(url)}
                                             disabled={removingPhotoUrl === url}

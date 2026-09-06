@@ -17,7 +17,10 @@ package photocredits
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"palabatu-be/internal/db"
 )
@@ -103,6 +106,27 @@ func RemoveURLs(ctx context.Context, urls []string) error {
 	_, err := db.Pool.Exec(ctx,
 		`DELETE FROM photo_credits WHERE image_url = ANY($1::text[])`, urls)
 	return err
+}
+
+// UploadedBy returns who uploaded one specific photo, or nil if no credit
+// row exists for it -- added before this table existed, or before the
+// contribution policy widened (see the Credit doc comment's fallback rule).
+// Callers use this to let a contributor delete a photo they themselves
+// added (handoff.md item 15), alongside the existing creator-or-admin path;
+// a nil result means no such claim can be made, since there is nothing on
+// record saying who added it.
+func UploadedBy(ctx context.Context, kind Kind, entityID, url string) (*string, error) {
+	var uploadedBy *string
+	err := db.Pool.QueryRow(ctx,
+		`SELECT uploaded_by FROM photo_credits WHERE entity_kind = $1 AND entity_id = $2 AND image_url = $3`,
+		string(kind), entityID, url).Scan(&uploadedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return uploadedBy, nil
 }
 
 // List returns every credit recorded against one entity, oldest first.
