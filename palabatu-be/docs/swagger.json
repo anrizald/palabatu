@@ -1020,6 +1020,107 @@
                 },
                 "type": "object"
             },
+            "internal_drafts.CreateDraftRequest": {
+                "properties": {
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.Draft": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.DraftListItem": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.UpdateDraftRequest": {
+                "properties": {
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
             "internal_feedback.Feedback": {
                 "properties": {
                     "created_at": {
@@ -3842,6 +3943,314 @@
                 "summary": "Preview what purging a crag would destroy",
                 "tags": [
                     "crags"
+                ]
+            }
+        },
+        "/api/drafts": {
+            "get": {
+                "description": "Newest-updated first. List items omit payload -- the drafts overlay only needs id/intent/label/updated_at to render its rows.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_drafts.DraftListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List the caller's own add-sheet drafts",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "post": {
+                "description": "The first autosave of an add-sheet session (handoff-drafts.md decision 3) -- created lazily, on the first real edit, not on opening the sheet.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_drafts.CreateDraftRequest",
+                                        "summary": "body",
+                                        "description": "New draft"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New draft",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a draft",
+                "tags": [
+                    "drafts"
+                ]
+            }
+        },
+        "/api/drafts/{id}": {
+            "delete": {
+                "description": "Explicit removal from the drafts overlay, or the client's own best-effort cleanup after the draft was submitted for real (handoff-drafts.md decision 5). Destroys every photo the draft ever staged, unless keep_photos=true -- the post-submit case, where those URLs are now the real problem/boulder/crag's own photo.",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Skip Cloudinary cleanup -- pass true only when the draft's photos were just reused as a real entity's own photo",
+                        "in": "query",
+                        "name": "keep_photos",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete a draft",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "get": {
+                "description": "Fetched when resuming a draft from the drafts overlay.",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get one draft's full payload",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "put": {
+                "description": "Every autosave after the first. Any photo URL the previous version carried that this one doesn't is a provisional upload this write orphaned, and is best-effort destroyed in Cloudinary (handoff-drafts.md decision 10).",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_drafts.UpdateDraftRequest",
+                                        "summary": "body",
+                                        "description": "Updated draft"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Updated draft",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update a draft",
+                "tags": [
+                    "drafts"
                 ]
             }
         },

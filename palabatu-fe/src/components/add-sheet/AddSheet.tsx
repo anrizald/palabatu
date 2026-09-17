@@ -18,7 +18,7 @@ import ProblemFields from './ProblemFields.js'
 import SpotFields from './SpotFields.js'
 import RockFields from './RockFields.js'
 import type { NearbyRock } from '../RockPointMap.js'
-import { putDraft, getAllDrafts, deleteDraft, type AddSheetDraft } from './drafts.js'
+import { createDraft, updateDraft, getDraft, getAllDrafts, deleteDraft, type DraftSummary } from './drafts.js'
 import {
     NEAR_M, haversineKm, formatDistanceM, blankSpot, blankRock, blankProblem,
     type AddIntent, type Geo, type NewSpotDraft, type NewRockDraft, type NewProblemDraft,
@@ -41,9 +41,13 @@ async function uploadPhoto(file: File): Promise<string | null> {
     return res.url ?? null
 }
 
-async function uploadPhotos(files: File[]): Promise<string[]> {
-    const urls = await Promise.all(files.map(uploadPhoto))
-    return urls.filter((u): u is string => !!u)
+// Reuses an already-uploaded URL (drafting's eager upload, handoff-drafts.md
+// decision 10, or a draft resumed from another device with no local File at
+// all) instead of re-uploading the same photo a second time at submit.
+async function resolvePhotoUrl(file: File | null, cachedUrl: string | null): Promise<string | null> {
+    if (cachedUrl) return cachedUrl
+    if (!file) return null
+    return uploadPhoto(file)
 }
 
 // One scrolling sheet, three intents (handoff.md decisions 11-20; see
@@ -105,15 +109,24 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const [rockBanner, setRockBanner] = useState<{ name: string } | null>(null)
     const [spotBanner, setSpotBanner] = useState<{ id: string; name: string } | null>(null)
 
-    // Drafts (handoff-drafts.md M1, client-only IndexedDB autosave).
-    // draftId/draftCreatedAtRef track the one draft this open-to-close
+    // Drafts (handoff-drafts.md M2, backend-synced via internal/drafts).
+    // draftIdRef/draftCreatedAtRef track the one draft this open-to-close
     // session is writing to -- lazily assigned on the first real keystroke,
-    // not on open (decision 3). `drafts` is the full list, used both for
-    // the "N drafts saved" affordance and the overlay's contents.
-    const [draftId, setDraftId] = useState<string | null>(null)
+    // not on open (decision 3). A ref, not state: saveDraftNow is redefined
+    // every render and a debounce timer can fire many renders after it was
+    // scheduled, so reading draftId out of that render's own closure risks
+    // seeing it still null after a *later* render's save already created
+    // the row -- exactly the race that produced a duplicate draft during
+    // testing (ensurePhotosUploaded's own setState mid-save triggers an
+    // extra render before the create's response lands, and *that* render's
+    // debounce timer captured null too). A ref sidesteps this: every
+    // saveDraftNow call, whichever render's closure it runs in, reads the
+    // one current value. `drafts` is the list overlay's contents (summaries
+    // only -- see drafts.ts), also driving the "N drafts saved" affordance.
+    const draftIdRef = useRef<string | null>(null)
     const draftCreatedAtRef = useRef<number | null>(null)
     const draftTimerRef = useRef<number | null>(null)
-    const [drafts, setDrafts] = useState<AddSheetDraft[]>([])
+    const [drafts, setDrafts] = useState<DraftSummary[]>([])
     const [draftsOverlayOpen, setDraftsOverlayOpen] = useState(false)
     // Set only while handleClose is showing the "Saved as a draft" toast in
     // place of the sheet itself (decision 4) -- see the early return below.
@@ -122,7 +135,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     useEffect(() => { getAllCrags().then(setCrags) }, [])
     useEffect(() => { void refreshDrafts() }, [])
     async function refreshDrafts() {
-        try { setDrafts(await getAllDrafts()) } catch { /* IndexedDB unavailable -- drafts feature fails soft */ }
+        try { setDrafts(await getAllDrafts()) } catch { /* network unavailable -- drafts feature fails soft */ }
     }
     useEffect(() => {
         if (!navigator.geolocation) return
@@ -241,8 +254,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     async function resolveCragId(): Promise<{ id: string; name: string } | null> {
         if (!isNewSpot) return cragId ? { id: cragId, name: resolvedCrag?.name ?? '' } : null
         if (!newSpotDraft.name.trim() || newSpotDraft.lat == null || newSpotDraft.lng == null) return null
-        const imageUrls = newSpotDraft.photoFile ? await uploadPhotos([newSpotDraft.photoFile]) : []
-        if (newSpotDraft.photoFile && imageUrls.length === 0) showError('The spot photo did not upload -- saved without it')
+        const uploadedUrl = await resolvePhotoUrl(newSpotDraft.photoFile, newSpotDraft.photoUrl)
+        const imageUrls = uploadedUrl ? [uploadedUrl] : []
+        if (newSpotDraft.photoFile && !uploadedUrl) showError('The spot photo did not upload -- saved without it')
         const body: CreateCragRequest = {
             name: newSpotDraft.name, lat: newSpotDraft.lat, lng: newSpotDraft.lng,
             directions: newSpotDraft.directions, access_notes: newSpotDraft.access_notes, image_urls: imageUrls,
@@ -267,8 +281,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         if (!newSpotDraft.name.trim() || newSpotDraft.lat == null) { showError('Give the place a name and a pin'); return }
         setSubmitting(true)
         try {
-            const imageUrls = newSpotDraft.photoFile ? await uploadPhotos([newSpotDraft.photoFile]) : []
-            if (newSpotDraft.photoFile && imageUrls.length === 0) showError('The photo did not upload -- saved without it')
+            const uploadedUrl = await resolvePhotoUrl(newSpotDraft.photoFile, newSpotDraft.photoUrl)
+            const imageUrls = uploadedUrl ? [uploadedUrl] : []
+            if (newSpotDraft.photoFile && !uploadedUrl) showError('The photo did not upload -- saved without it')
             const body: CreateCragRequest = {
                 name: newSpotDraft.name, lat: newSpotDraft.lat, lng: newSpotDraft.lng!,
                 directions: newSpotDraft.directions, access_notes: newSpotDraft.access_notes, image_urls: imageUrls,
@@ -291,7 +306,10 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         try {
             const resolved = await resolveCragId()
             if (!resolved) { showError('Please finish adding the new spot first'); return }
-            const imageUrls = newRockDraft.imageFiles.length ? await uploadPhotos(newRockDraft.imageFiles) : []
+            const resolvedUrls = newRockDraft.imageFiles.length
+                ? await Promise.all(newRockDraft.imageFiles.map((f, i) => resolvePhotoUrl(f, newRockDraft.imageUrls[i] ?? null)))
+                : []
+            const imageUrls = resolvedUrls.filter((u): u is string => !!u)
             if (newRockDraft.imageFiles.length && imageUrls.length < newRockDraft.imageFiles.length) {
                 showError(imageUrls.length === 0 ? 'The photo did not upload -- saved without it' : 'One of the photos did not upload')
             }
@@ -329,6 +347,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             let resolvedBoulderId = boulderId
             let targetPhotoUrl: string | null = resolvedBoulder?.image_urls[0] ?? null
             const stagedFile = problemDraft.photoFile
+            const stagedUrl = problemDraft.photoUrl
+            // Reuses drafting's eager upload (handoff-drafts.md decision 10)
+            // or a draft resumed from another device (no local File at all)
+            // instead of re-uploading the same photo a second time.
+            const hasStagedPhoto = !!stagedFile || !!stagedUrl
 
             if (!resolvedBoulderId) {
                 // Implicit new rock, explicit "it's a new rock", and "not
@@ -340,9 +363,10 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 // new, null was never asked. The admin tidy-up queue keys on
                 // it rather than inferring uncertainty from an unnamed,
                 // photoless, single-problem rock after the fact.
-                const imageUrls = stagedFile ? await uploadPhotos([stagedFile]) : []
-                if (imageUrls[0]) {
-                    targetPhotoUrl = imageUrls[0]
+                const uploadedUrl = await resolvePhotoUrl(stagedFile, stagedUrl)
+                const imageUrls = uploadedUrl ? [uploadedUrl] : []
+                if (uploadedUrl) {
+                    targetPhotoUrl = uploadedUrl
                 } else if (stagedFile) {
                     showError('The photo did not upload -- the rock was saved without it, and your line was not saved')
                 }
@@ -350,9 +374,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 const res = await api.post<Boulder | ErrorResponse>('/api/boulders', body)
                 if ('error' in res) { showError(res.error); return }
                 resolvedBoulderId = res.id
-            } else if (stagedFile && (resolvedBoulder?.image_urls.length ?? 0) === 0) {
+            } else if (hasStagedPhoto && (resolvedBoulder?.image_urls.length ?? 0) === 0) {
                 // The chosen rock had no topo yet -- this becomes it.
-                const url = await uploadPhoto(stagedFile)
+                const url = await resolvePhotoUrl(stagedFile, stagedUrl)
                 if (url) {
                     targetPhotoUrl = url
                     const attachRes = await api.post<Partial<ErrorResponse>>(`/api/boulders/${resolvedBoulderId}/images`, { image_urls: [url] })
@@ -360,15 +384,26 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 } else {
                     showError('The photo did not upload -- the problem was saved without it, and your line was not saved')
                 }
-            } else if (stagedFile) {
+            } else if (hasStagedPhoto) {
                 // The chosen rock already has a topo -- a staged shot moves
                 // with it as an extra angle rather than being silently
-                // dropped (handoff-add-sheet.md B7), and never replaces the
-                // photo lines get drawn on.
-                const url = await uploadPhoto(stagedFile)
+                // dropped (handoff-add-sheet.md B7). It uploads and attaches
+                // the same way either way; what changes is only which URL
+                // the line targets, per the founder's photoChoice (handoff.md
+                // open item 16) -- 'own' points the line at this shot instead
+                // of the rock's shared photo.
+                const url = await resolvePhotoUrl(stagedFile, stagedUrl)
                 if (url) {
                     const attachRes = await api.post<Partial<ErrorResponse>>(`/api/boulders/${resolvedBoulderId}/images`, { image_urls: [url] })
                     if (attachRes.error) showError('The extra photo did not attach to the rock')
+                    if (problemDraft.photoChoice === 'own') targetPhotoUrl = url
+                } else if (problemDraft.photoChoice === 'own') {
+                    // The line was drawn against this photo specifically
+                    // (its own normalized coordinates) -- with no upload,
+                    // there is nothing honest to fall back to, so the shared
+                    // photo is not drawn on in its place.
+                    targetPhotoUrl = null
+                    showError('Your photo did not upload -- the problem was saved without it, and your line was not saved')
                 } else {
                     showError('The extra photo did not upload')
                 }
@@ -432,17 +467,19 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     // confirm away -- see handleClose (handoff-drafts.md decision 4).
     function hasUnsavedInput(): boolean {
         const spotDirty = newSpotDraft.name.trim() !== '' || newSpotDraft.lat != null
-            || newSpotDraft.directions.trim() !== '' || newSpotDraft.access_notes.trim() !== '' || !!newSpotDraft.photoFile
+            || newSpotDraft.directions.trim() !== '' || newSpotDraft.access_notes.trim() !== ''
+            || !!newSpotDraft.photoFile || !!newSpotDraft.photoUrl
         const rockDirty = newRockDraft.name.trim() !== '' || newRockDraft.rock_type.trim() !== ''
-            || newRockDraft.imageFiles.length > 0 || newRockDraft.lat != null
+            || newRockDraft.imageFiles.length > 0 || newRockDraft.imageUrls.length > 0 || newRockDraft.lat != null
         const problemDirty = problemDraft.name.trim() !== '' || problemDraft.grade !== ''
             || problemDraft.first_ascensionist.trim() !== '' || problemDraft.discovered_by.trim() !== ''
             || problemDraft.landing_hazards.trim() !== '' || problemDraft.descent.trim() !== ''
-            || problemDraft.height_m.trim() !== '' || problemDraft.notes.trim() !== '' || !!problemDraft.photoFile
+            || problemDraft.height_m.trim() !== '' || problemDraft.notes.trim() !== ''
+            || !!problemDraft.photoFile || !!problemDraft.photoUrl
         return spotDirty || rockDirty || problemDirty
     }
 
-    // ------------------------------------------------------------- drafts (M1)
+    // ------------------------------------------------------------- drafts (M2)
     // A draft snapshots the sheet's *entire* live state, not just the active
     // tab -- intent just records which tab was showing when it was saved
     // (handoff-drafts.md's data model mirrors AddSheet's own state shape
@@ -460,27 +497,60 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
         return spotLabel ? `New problem · ${spotLabel}` : 'New problem'
     }
 
-    // Upserts the active draft and returns its id, or null if there is
-    // nothing worth saving. Idempotent -- safe to call from the debounce
-    // timer and from handleClose without double-creating a row.
+    // Uploads whatever staged File doesn't have a matching URL yet (a fresh
+    // pick always clears its URL field -- see SpotFields/RockFields/
+    // ProblemFields' onChange handlers) and returns the three draft objects
+    // with those URLs filled in. Returned, not just set via setState: the
+    // caller needs them synchronously in the same tick to build the
+    // payload, and a setState update wouldn't be visible in this closure
+    // until the next render (handoff-drafts.md decision 10 -- upload
+    // eagerly, not deferred to final submit).
+    async function ensurePhotosUploaded(): Promise<{ spot: NewSpotDraft; rock: NewRockDraft; problem: NewProblemDraft }> {
+        let spot = newSpotDraft
+        if (spot.photoFile && !spot.photoUrl) {
+            const url = await uploadPhoto(spot.photoFile)
+            if (url) { spot = { ...spot, photoUrl: url }; setNewSpotDraft(spot) }
+        }
+
+        let rock = newRockDraft
+        if (rock.imageFiles.some((_, i) => !rock.imageUrls[i])) {
+            const urls = await Promise.all(rock.imageFiles.map((f, i) => rock.imageUrls[i] ?? uploadPhoto(f)))
+            rock = { ...rock, imageUrls: urls }
+            setNewRockDraft(rock)
+        }
+
+        let problem = problemDraft
+        if (problem.photoFile && !problem.photoUrl) {
+            const url = await uploadPhoto(problem.photoFile)
+            if (url) { problem = { ...problem, photoUrl: url }; setProblemDraft(problem) }
+        }
+
+        return { spot, rock, problem }
+    }
+
+    // Creates or updates the active draft and returns its id, or null if
+    // there is nothing worth saving or the request failed. Idempotent --
+    // safe to call from the debounce timer and from handleClose without
+    // double-creating a row (draftIdRef, once set, always routes to update
+    // -- see its declaration for why this has to be a ref, not state).
     async function saveDraftNow(): Promise<string | null> {
         if (!hasUnsavedInput()) return null
-        const id = draftId ?? crypto.randomUUID()
-        const now = Date.now()
-        if (draftCreatedAtRef.current == null) draftCreatedAtRef.current = now
-        const draft: AddSheetDraft = {
-            id, intent, label: computeDraftLabel(),
-            createdAt: draftCreatedAtRef.current, updatedAt: now,
-            cragId, boulderId, isNewSpot, newSpotDraft, newRockDraft, problemDraft,
+        const { spot, rock, problem } = await ensurePhotosUploaded()
+        const label = computeDraftLabel()
+        const fields = { cragId, boulderId, isNewSpot, newSpotDraft: spot, newRockDraft: rock, problemDraft: problem }
+
+        if (draftIdRef.current) {
+            const updated = await updateDraft(draftIdRef.current, { label, ...fields })
+            if (!updated) return null // network/API failure -- fail soft, nothing to resume/undo
+            void refreshDrafts()
+            return draftIdRef.current
         }
-        try {
-            await putDraft(draft)
-        } catch {
-            return null // IndexedDB unavailable -- fail soft, nothing to resume/undo
-        }
-        if (!draftId) setDraftId(id)
+        const created = await createDraft({ intent, label, ...fields })
+        if (!created) return null
+        draftIdRef.current = created.id
+        draftCreatedAtRef.current = created.createdAt
         void refreshDrafts()
-        return id
+        return created.id
     }
 
     // Debounced ~800ms after the last edit (handoff-drafts.md decision 3).
@@ -496,26 +566,36 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
     // A draft is deleted the moment it's submitted for real, and only then
     // or on the owner's own "Remove" tap (decision 5) -- never on a timer
-    // (decision 9).
+    // (decision 9). keepPhotos is true here specifically: by this point the
+    // caller (submitSpot/submitRock/submitProblem) has already reused this
+    // draft's uploaded URLs as the real crag/boulder/problem's own photo --
+    // destroying them now would take down a just-created entity's photo
+    // seconds after attaching it (see internal/drafts.DeleteDraft's doc
+    // comment for the full reasoning).
     async function clearActiveDraft() {
-        if (!draftId) return
-        try { await deleteDraft(draftId) } catch { /* best-effort */ }
-        setDraftId(null)
+        if (!draftIdRef.current) return
+        try { await deleteDraft(draftIdRef.current, { keepPhotos: true }) } catch { /* best-effort */ }
+        draftIdRef.current = null
         draftCreatedAtRef.current = null
         void refreshDrafts()
     }
 
-    // Loads a saved draft back into the sheet's live state. Stored preview
-    // URLs don't survive a reload (object URLs are per-page-load), so
-    // they're regenerated from the persisted File/Blob here rather than
-    // trusted as-is.
-    function loadDraft(d: AddSheetDraft) {
+    // Loads a saved draft back into the sheet's live state. The overlay only
+    // ever held a summary (drafts.ts's DraftSummary -- decision 2's "real
+    // draft list" stays light), so resuming fetches the full payload first.
+    // A resumed draft may carry photoUrl/imageUrls with no matching local
+    // File at all (drafted on this device, or another one) -- photoPreview
+    // falls back straight to that remote URL rather than trying to make a
+    // blob URL that has nothing to be made from.
+    async function loadDraft(id: string) {
+        const d = await getDraft(id)
+        if (!d) { showError('That draft could not be loaded'); return }
         setIntent(d.intent)
         setCragId(d.cragId)
         setBoulderId(d.boulderId)
         setIsNewSpot(d.isNewSpot)
         setResolvedBoulder(null)
-        setNewSpotDraft({ ...d.newSpotDraft, photoPreview: d.newSpotDraft.photoFile ? URL.createObjectURL(d.newSpotDraft.photoFile) : null })
+        setNewSpotDraft(d.newSpotDraft)
         // lat/lng/accuracyM are normalized rather than spread through: drafts
         // saved before the rock pin existed have no such keys, and `undefined`
         // would reach the pin map as a missing prop instead of "no pin yet".
@@ -524,10 +604,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             lat: d.newRockDraft.lat ?? null,
             lng: d.newRockDraft.lng ?? null,
             accuracyM: d.newRockDraft.accuracyM ?? null,
-            imagePreviews: d.newRockDraft.imageFiles.map(f => URL.createObjectURL(f)),
         })
-        setProblemDraft({ ...d.problemDraft, photoPreview: d.problemDraft.photoFile ? URL.createObjectURL(d.problemDraft.photoFile) : null })
-        setDraftId(d.id)
+        setProblemDraft(d.problemDraft)
+        draftIdRef.current = d.id
         draftCreatedAtRef.current = d.createdAt
         if (d.boulderId) {
             void api.get<BoulderListItem | ErrorResponse>(`/api/boulders/${d.boulderId}`).then(b => {
@@ -749,6 +828,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                     existingTopoUrl={resolvedBoulder?.image_urls[0] ?? null}
                     lineDrawn={lineDrawn}
                     onOpenAnnotator={url => { setAnnotatingUrl(url); setAnnotatingProblemId(undefined) }}
+                    onSwitchPhotoTarget={choice => {
+                        setProblemDraft(d => ({ ...d, photoChoice: choice }))
+                        setAnnotationShapes([])
+                        setLineDrawn(false)
+                    }}
                     noun={noun}
                     moreOpen={moreOpen}
                     setMoreOpen={setMoreOpen}

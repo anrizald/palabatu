@@ -1,38 +1,23 @@
-import { useEffect, useState } from 'react'
 import { X, Trash2, Layers, MapPin, Mountain } from 'lucide-react'
-import { type AddSheetDraft, formatDraftAge } from './drafts.js'
+import { type DraftSummary, formatDraftAge } from './drafts.js'
 import type { AddIntent } from './types.js'
 
 const INTENT_LABEL: Record<AddIntent, string> = { problem: 'Problem', spot: 'Spot', rock: 'Rock' }
 const INTENT_ICON: Record<AddIntent, typeof Mountain> = { problem: Mountain, spot: MapPin, rock: Layers }
 
-function thumbnailFile(draft: AddSheetDraft): File | null {
-    if (draft.intent === 'spot') return draft.newSpotDraft.photoFile
-    if (draft.intent === 'rock') return draft.newRockDraft.imageFiles[0] ?? null
-    return draft.problemDraft.photoFile
-}
-
-function DraftRow({ draft, onLoad, onRemove }: { draft: AddSheetDraft; onLoad: () => void; onRemove: () => void }) {
-    const [thumbUrl, setThumbUrl] = useState<string | null>(null)
+// The row's thumbnail is whatever URL the backend already resolved
+// (DraftSummary.thumbnailUrl, photo_urls[1] server-side) -- M2's list
+// endpoint never ships a draft's full payload (decision 2's "real draft
+// list" needs to stay light for someone with many rows), so there's no
+// local File to read a blob URL from here the way M1's IndexedDB rows had.
+function DraftRow({ draft, onLoad, onRemove }: { draft: DraftSummary; onLoad: () => void; onRemove: () => void }) {
     const Icon = INTENT_ICON[draft.intent]
-
-    useEffect(() => {
-        const file = thumbnailFile(draft)
-        if (!file) { setThumbUrl(null); return }
-        const url = URL.createObjectURL(file)
-        setThumbUrl(url)
-        return () => URL.revokeObjectURL(url)
-        // draft.id is enough to key the effect -- the file a given draft
-        // points at doesn't change without a new autosave, which re-renders
-        // the whole list from a fresh getAllDrafts() anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [draft.id])
 
     return (
         <div className="flex items-center gap-3 w-full min-h-14 px-3 py-2.5 rounded-[10px] border border-border bg-surface mt-2">
             <button type="button" onClick={onLoad} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer bg-transparent border-0 p-0">
-                {thumbUrl ? (
-                    <img src={thumbUrl} alt="" className="shrink-0 w-11 h-11 rounded-[8px] object-cover bg-panel" />
+                {draft.thumbnailUrl ? (
+                    <img src={draft.thumbnailUrl} alt="" className="shrink-0 w-11 h-11 rounded-[8px] object-cover bg-panel" />
                 ) : (
                     <div className="shrink-0 w-11 h-11 rounded-[8px] bg-panel flex items-center justify-center">
                         <Icon size={16} className="shrink-0 text-text-faint" />
@@ -56,8 +41,11 @@ function DraftRow({ draft, onLoad, onRemove }: { draft: AddSheetDraft; onLoad: (
 }
 
 type DraftsOverlayProps = {
-    drafts: AddSheetDraft[]
-    onLoad: (draft: AddSheetDraft) => void
+    drafts: DraftSummary[]
+    /** Resuming now means fetching the full draft (GET /api/drafts/:id)
+     * before it can populate the sheet -- the list row only ever had a
+     * summary. AddSheet.tsx owns that fetch; this just reports which id. */
+    onLoad: (id: string) => void
     onRemove: (id: string) => void
     onClose: () => void
 }
@@ -86,7 +74,7 @@ export default function DraftsOverlay({ drafts, onLoad, onRemove, onClose }: Dra
                         <p className="text-xs text-text-muted py-4">Nothing saved yet.</p>
                     ) : (
                         drafts.map(d => (
-                            <DraftRow key={d.id} draft={d} onLoad={() => onLoad(d)} onRemove={() => onRemove(d.id)} />
+                            <DraftRow key={d.id} draft={d} onLoad={() => onLoad(d.id)} onRemove={() => onRemove(d.id)} />
                         ))
                     )}
                 </div>

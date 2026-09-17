@@ -1895,8 +1895,8 @@ up from here.
     annotation made self-delete succeed again; the same account still could
     not delete a photo it never uploaded. Crag and problem self-delete
     (no guard) verified the same way. All test data restored afterward.
-16. **`AddSheet` forces every new problem onto the rock's one existing
-    photo — a new problem should be able to bring its own instead.**
+16. ~~**`AddSheet` forces every new problem onto the rock's one existing
+    photo — a new problem should be able to bring its own instead.**~~
     *(2026-09-06, called out directly as a design flaw, not a missing
     nice-to-have.)* Today, once a rock has a photo, every problem added to
     it afterward is handed that same `image_urls[0]` as its topo target —
@@ -1914,13 +1914,41 @@ up from here.
     dependency on a stranger's photo can simply supply their own instead of
     drawing on it.
 
-    Not trivial: `ProblemFields`'/`AddSheet`'s photo-staging UI and the
-    submit path both currently assume "reuse the one existing photo, or
-    stage one only if there are none" as the only two states: it needs a
-    third state (reuse, or stage a new one, even when one already exists).
-    Proposed, not built.
-17. **Open thread, not settled: is there any remaining case for a
-    request/approve step on additive contributions?** *(2026-09-06.)* The
+    **Resolved and built 2026-09-17.** Turned out smaller than "not
+    trivial" suggested, because the backend needed no change at all:
+    `getProblemOwnerAndBoulderImages` (`annotation_repository.go`) already
+    validates a saved line's URL against the whole boulder `image_urls`
+    array, not just `[0]`, and the staged-photo upload/attach path
+    (`AddSheet.tsx`'s `submitProblem`, the `stagedFile` branch) already
+    uploaded and attached an "extra angle" to the boulder either way — the
+    only thing missing was ever pointing `targetPhotoUrl` at it.
+
+    `NewProblemDraft` gained `photoChoice: 'existing' | 'own'`, defaulting
+    to `'existing'` (reuse stays the default; bringing your own is opt-in,
+    per the decision above). `ProblemFields`' existing-topo branch now
+    renders a third state once a photo is staged alongside an existing one:
+    "Draw my line on this instead" swaps the target to the staged photo
+    (hiding the shared photo's own Draw button while active, since a
+    problem's line has exactly one target) and "Use the shared photo
+    instead" swaps back — both go through a new `onSwitchPhotoTarget`
+    callback that also clears `annotationShapes`/`lineDrawn`, since shapes
+    drawn against one photo's normalized coordinates don't mean anything on
+    a different one. On submit, `photoChoice === 'own'` points
+    `targetPhotoUrl` at the newly-uploaded URL instead of the boulder's
+    `image_urls[0]`; if that upload fails, the line is dropped rather than
+    silently saved against the wrong (shared) photo — same "don't guess"
+    posture as the other two upload-failure branches in `submitProblem`.
+
+    Verified live against the local Docker DB (Playwright, not just
+    typechecked): opened the sheet on a rock with an existing photo,
+    confirmed the default "every problem here draws on this" state, staged
+    a photo (default lands as an extra angle, not the line target), swapped
+    to "own" and confirmed the shared photo's Draw button disappears and
+    the staged photo's own Draw button and "your line draws on this instead
+    of the shared photo" caption appear, then swapped back and confirmed it
+    reverts cleanly. `tsc`/`eslint` clean.
+17. ~~**Open thread, not settled: is there any remaining case for a
+    request/approve step on additive contributions?**~~ *(2026-09-06.)* The
     "request edit" idea raised alongside items 15/16 does not apply to
     creating a new problem itself — that has never been gated (decision 6)
     and item 16 makes it fully independent of anyone else's consent once
@@ -1929,6 +1957,92 @@ up from here.
     someone else's existing shared photo rather than bringing your own — is
     not discussed further and not decided. Revisit explicitly; don't assume
     an answer from items 15/16 having narrowed the scope.
+
+    **Resolved 2026-09-17: no, and the named case (reusing someone else's
+    shared photo) is exactly the wrong place to put a gate.** Two reasons.
+
+    First, reuse is the *intended default*, not an edge case being routed
+    around a missing permission check. Decision 2's whole premise is one
+    photo, several founders' lines — the sheet defaults `photoChoice` to
+    `'existing'` (item 16) precisely because that is the common, honest
+    case: the existing shot already shows the line. Gating the default path
+    on the original photographer's after-the-fact approval would make the
+    normal way of adding a problem the slow way, contradicting every UX
+    principle in this document about not blocking a contributor on someone
+    else's day. A request/approve step only makes sense against a genuine
+    edit of someone else's thing; drawing a new, independently-owned
+    `topo_annotations` row (keyed to the *problem*, not the photo) touches
+    nothing the original photographer made. Nothing is being edited.
+
+    Second, the abuse case a gate would actually be defending against
+    (vandalism, a bad-faith line, a wrong photo) already has a mechanism:
+    `internal/report` plus the admin resolve queue, the same path used for
+    every other piece of user-submitted content in this app. Building a
+    second, bespoke pre-publication approval flow for this one contribution
+    type would duplicate that, not complement it.
+
+    **What the investigation actually found: the real risk in "depending on
+    someone else's photo" is on the delete side, not the create side, and
+    it is wider open than items 11 or 15 accounted for.**
+    `authorizeBoulderImageDelete` (`boulders/service.go`) checks
+    creator-or-admin *first* and returns immediately on success — item 15's
+    `hasForeignAnnotation` guard only runs in the fallback branch, for a
+    non-owning uploader's self-delete. So the rock's own creator, or any
+    admin, can delete a shared photo with zero check for who else's lines
+    are on it, and `DeleteBoulderImage` does then delete every one of those
+    `topo_annotations` rows as a matter of course (`deleteAnnotationsForImage`,
+    a documented "best-effort... loses that annotation row too"). The
+    frontend gate matches exactly: `BoulderDetailPage`'s `canDeletePhoto`
+    returns `true` unconditionally `if (canEdit)`, no confirmation, no
+    count of what would be lost. A founder who chose "reuse the shared
+    photo" today has no protection at all against the photo's owner
+    deleting it out from under them later — not the theoretical risk item
+    16 narrowed, the actual one, still live.
+
+    This is a materially better-scoped problem than "gate reuse behind
+    approval": it is a single deletion path missing a warning it already
+    has the machinery to check for (`hasForeignAnnotation` exists, is
+    correct, and is simply not consulted on this branch), not a new
+    permission system. Recorded as item 18 rather than folded into this
+    item's resolution, since fixing it is a product call on shape (hard
+    block vs. confirm-with-count vs. admin-only override), not settled by
+    deciding request/approve is the wrong tool.
+18. **The creator-or-admin boulder-photo-delete path can silently destroy
+    other founders' lines, with no check and no warning.** *(2026-09-17,
+    found while resolving item 17 above — see that item for the full
+    trace.)* `authorizeBoulderImageDelete` only runs item 15's
+    `hasForeignAnnotation` check on the self-delete fallback branch; a
+    boulder's own creator, or any admin, skips it entirely. Deleting the
+    photo then deletes every `topo_annotations` row pinned to it as a
+    matter of course, including ones belonging to problems the deleter has
+    no relationship to — and both the API and `BoulderDetailPage`'s delete
+    button allow this today with no confirmation and no count of what is
+    about to go. Once item 16 shipped, "draw on the shared photo" became
+    common rather than the only option, which is what makes this worth
+    fixing now rather than a theoretical edge case: more reuse means more
+    exposure.
+
+    Not yet decided is the *shape* of the fix, which is a product call:
+    - **Hard block**, matching item 15's own self-delete behavior exactly —
+      creator-or-admin gets `ErrForbidden` too whenever
+      `hasForeignAnnotation` is true, full stop. Simplest, but a boulder's
+      creator could end up permanently unable to remove their own photo if
+      an admin never intervenes.
+    - **Confirm-with-count** — allow it, but the delete button first says
+      how many other founders' lines would be lost, and requires a second
+      tap. Keeps the creator's authority intact, costs a small UI change on
+      `BoulderDetailPage` (a count is one more field on the existing
+      confirm) and a matching one on `CragDetailPage`'s purge-adjacent
+      flows if this pattern is reused there.
+    - **Admin-only override on top of a hard block for the creator** — the
+      creator is blocked like a self-deleting uploader; only an admin can
+      still force it through, mirroring the 48h merge hold's own
+      admin-override precedent elsewhere in this document.
+
+    Whichever shape, the fix is one function
+    (`authorizeBoulderImageDelete`) plus its frontend mirror
+    (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
+    already correct, it is just not being asked on this branch.
 
 **The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
@@ -1952,9 +2066,15 @@ That same widening immediately raised three more items, same day. **15**
 (self-delete for a contributor's own photo, guarded against other founders'
 annotations) shipped the same day it was raised. **16** (a new problem
 should be able to bring its own photo instead of being forced onto the
-rock's existing one) is scoped with a concrete proposed solution but not
-built. **17** (whether any case still needs a request/approve step once 16
-exists) is a genuinely open thread, not yet decided.
+rock's existing one) was scoped 2026-09-06 and built 2026-09-17. **17**
+(whether any case still needs a request/approve step now that 16 exists)
+was resolved 2026-09-17: no, reuse is the intended default and an
+approval gate on it would be fixing a problem that doesn't exist there.
+Resolving it surfaced a real one adjacent to it, filed as **18**: the
+creator-or-admin delete path bypasses item 15's own foreign-annotation
+guard, so a boulder's photo can be deleted out from under other founders'
+lines with no check and no warning. 18 is open on fix shape, not on
+whether it's a real gap.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

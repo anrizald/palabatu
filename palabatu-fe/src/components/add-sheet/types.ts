@@ -31,11 +31,18 @@ export type NewSpotDraft = {
     access_notes: string
     photoFile: File | null
     photoPreview: string | null
+    /** Set once photoFile has been eagerly uploaded for draft-sync purposes
+     * (handoff-drafts.md decision 10, M2) -- null whenever a new file is
+     * staged, since that invalidates any previous upload. Also how a draft
+     * resumed from another device carries its photo: it has this URL and no
+     * local File at all (see add-sheet/drafts.ts). Submitting reuses this
+     * URL instead of re-uploading when present. */
+    photoUrl: string | null
 }
 
 export const blankSpot: NewSpotDraft = {
     name: '', lat: null, lng: null, accuracyM: null,
-    directions: '', access_notes: '', photoFile: null, photoPreview: null,
+    directions: '', access_notes: '', photoFile: null, photoPreview: null, photoUrl: null,
 }
 
 // "Add a rock" draft -- photo or name required (never both, never neither;
@@ -52,12 +59,18 @@ export type NewRockDraft = {
     accuracyM: number | null
     imageFiles: File[]
     imagePreviews: string[]
+    /** Index-aligned with imageFiles (handoff-drafts.md decision 10, M2):
+     * null at an index means that file hasn't been eagerly uploaded yet,
+     * a string means it has. Every add pushes a matching null; every
+     * remove-by-index splices all three arrays together. A draft resumed
+     * from another device has URLs with no matching local Files at all. */
+    imageUrls: (string | null)[]
 }
 
 export const blankRock: NewRockDraft = {
     name: '', type: 'boulder', rock_type: '',
     lat: null, lng: null, accuracyM: null,
-    imageFiles: [], imagePreviews: [],
+    imageFiles: [], imagePreviews: [], imageUrls: [],
 }
 
 // "Add a problem" draft -- name is the only required field.
@@ -72,10 +85,23 @@ export type NewProblemDraft = {
     notes: string
     photoFile: File | null
     photoPreview: string | null
+    /** Which photo the line gets drawn on, when the rock already has one and
+     * a photo is also staged here (handoff.md open item 16): 'existing'
+     * draws on the rock's shared photo and files the staged shot as an extra
+     * angle; 'own' draws on the staged shot instead. Meaningless (and
+     * ignored) when the rock has no photo yet -- there's only one candidate
+     * then. Defaults to 'existing' since reusing the shared photo is the
+     * common case; bringing your own is opt-in. */
+    photoChoice: 'existing' | 'own'
+    /** Same role as NewSpotDraft.photoUrl (handoff-drafts.md decision 10,
+     * M2) -- set once photoFile is eagerly uploaded for draft-sync, null
+     * whenever a new file is staged, reused instead of re-uploading at
+     * submit. */
+    photoUrl: string | null
 }
 
 export const blankProblem: NewProblemDraft = {
     name: '', grade: '', first_ascensionist: '', discovered_by: '',
     landing_hazards: '', descent: '', height_m: '', notes: '',
-    photoFile: null, photoPreview: null,
+    photoFile: null, photoPreview: null, photoChoice: 'existing', photoUrl: null,
 }

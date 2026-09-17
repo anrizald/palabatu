@@ -339,6 +339,32 @@ palabatu-be/
 │   │                         # map's close-zoom layer can show where the trail actually begins (distinct from the
 │   │                         # crag pin, which means "the climbing, approximately"). Routes at /api —
 │   │                         # /crags/:id/approaches, /approaches/:id.
+│   ├── drafts/                # backend sync for the add sheet's autosave (handoff-drafts.md, both milestones —
+│   │                           # M1 2026-08-17, M2 2026-09-17, M2 built speculatively rather than gated on M1 usage
+│   │                           # signal that client-only IndexedDB storage had no way to ever produce). Every route
+│   │                           # is /api/drafts*, behind middleware.RequireAuth, scoped to the caller in the SQL
+│   │                           # WHERE clause rather than a separate ownership check — someone else's draft id reads
+│   │                           # as 404, never 403, matching "private to owner" (handoff-drafts.md decision 7).
+│   │                           # migrations/0022. payload stays json.RawMessage, an opaque mirror of the frontend's
+│   │                           # own add-sheet/types.ts draft shapes, same passthrough precedent as
+│   │                           # auth.Profile.Title/Tags — this domain has no business interpreting FE form state.
+│   │                           # photo_urls is a separate text[] column, not parsed out of payload, so
+│   │                           # UpdateDraft/DeleteDraft can sweep provisional Cloudinary uploads a later edit
+│   │                           # orphaned without understanding that JSON shape.
+│   │                           # DELETE /api/drafts/:id?keep_photos=true is the one deliberate departure from the
+│   │                           # handoff doc's own text, found while building it: by the time a *submitted* draft's
+│   │                           # post-save cleanup call fires, its photo URLs are already the real
+│   │                           # problem/boulder/crag's own photo (that reuse is the entire point of eager upload —
+│   │                           # AddSheet.tsx's ensurePhotosUploaded/resolvePhotoUrl), so an unconditional destroy
+│   │                           # would take down a just-attached photo seconds later. true is the post-submit path
+│   │                           # only; every other delete (the drafts overlay's "Remove", the "Saved as a draft"
+│   │                           # toast's Undo) defaults to false, genuine abandonment, where the photos really are
+│   │                           # only reachable through the draft. handoff-drafts.md has the full account, including
+│   │                           # a second, unrelated finding from the same build: AddSheet.tsx tracked the active
+│   │                           # draft's id in useState, whose closures go stale once eager upload's own setState
+│   │                           # forces an extra render mid-save — fixed by moving it to a ref (draftIdRef),
+│   │                           # alongside draftCreatedAtRef which already used the same pattern for the same
+│   │                           # reason.
 │   ├── notification/         # in-app notifications (comment/send/report_resolved/content_removed/reaction/
 │   │                         # problem_edited/problem_deleted/mention/merge_suggested/merge_objected/
 │   │                         # merge_resolved — the type CHECK constraint lives in migrations, see 0014)
@@ -395,20 +421,24 @@ palabatu-be/
     - **The sticky footer keeps its disabled button permanently visible with the reason underneath** (decision 19) — naming what's in the way beats hiding the control.
     - **`SpotMiniMap`'s neighbour pins, distances, accuracy radius and under-300 m duplicate warning** (decision 20) — the app's main defense against duplicate spots, which open item 8 has no cure for after the fact.
     - **Single-select grade chips with no "no grade yet" chip** — an unselected row already means that.
-  - **One design handoff still sits alongside `handoff.md`.**
-    [handoff-drafts.md](handoff-drafts.md): **Milestone 1 is built** —
-    client-side IndexedDB autosave (`add-sheet/drafts.ts` +
-    `DraftsOverlay.tsx`, debounced ~800 ms, lazily creating a draft on the
-    first real keystroke so open-and-close never manufactures junk); it
-    replaced the add-sheet review's C12 confirm-before-discard dialog.
-    Milestone 2 (backend sync) is still proposed, not built, and is
-    deliberately gated on whether M1 shows drafts being resumed rather than
-    just abandoned — don't build it speculatively.
-
-    **Two others were removed once everything in them shipped**, per this
-    repo's convention that a drained handoff becomes git history rather than
-    a file nobody reads. Code comments still cite their finding codes, so
-    this is the decoder ring:
+  - **Every design handoff that lived alongside `handoff.md` has now shipped
+    and been removed**, per this repo's convention that a drained handoff
+    becomes git history rather than a file nobody reads. Code comments still
+    cite their finding codes, so this is the decoder ring:
+    - `handoff-drafts.md` — the add sheet's autosave feature, two milestones.
+      M1 (client-side IndexedDB autosave, `add-sheet/drafts.ts` +
+      `DraftsOverlay.tsx`, debounced ~800 ms, lazily creating a draft on the
+      first real keystroke) built 2026-08-17, replacing the add-sheet
+      review's C12 confirm-before-discard dialog. M2 (backend sync,
+      `internal/drafts`) built 2026-09-17 — see that package's own entry
+      above for what shipped and the one place it deliberately departs from
+      the handoff doc's literal text. The doc's own M2 gate ("depends on
+      whether M1 shows drafts being resumed rather than abandoned") was
+      overridden deliberately rather than waited on: M1's client-only
+      storage had no way to ever produce that signal for anyone to observe,
+      so the gate could never resolve on its own. Removed 2026-09-17; see
+      ROADMAP.md's Phase 1.5 entry for the shipped summary and
+      `git log -- handoff-drafts.md` for the complete decision record.
     - `handoff-add-sheet.md` — a punch list against the shipped add sheet,
       13 findings written 2026-08-13, all fixed (A1-A3, B5-B9, C10, C12,
       C13 same-day; B4 on 2026-08-17; C11 last, on 2026-09-06, once open

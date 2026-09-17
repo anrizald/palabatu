@@ -116,6 +116,33 @@ contributions exist. Both schema/backend and frontend are now complete.
   detail page has no surface that renders a crag's own photo at full size
   (they appear only as card thumbnails on Directory/SpotList/SpotCard), so
   crag credits are recorded and returned but have nowhere to display yet.
+- **Add-sheet drafts (autosave) — M1 done 2026-08-17, M2 done 2026-09-17.**
+  Full design lived in `handoff-drafts.md`, removed now that both milestones
+  shipped; see `git log -- handoff-drafts.md` for the complete record.
+  Closes the failure mode `handoff.md` decision 20 named ("gone for months")
+  and the add-sheet review's B9 found separately (a staged photo lost to a
+  silent upload failure): closing the sheet no longer risks losing what was
+  typed. **M1** autosaves the whole sheet (not just the active tab) to
+  IndexedDB, debounced ~800ms, created lazily on the first real edit; a "N
+  drafts saved" overlay lists every abandoned session; closing replaced a
+  blocking confirm dialog with a "Saved as a draft" toast plus Undo. **M2**
+  (`internal/drafts`, `migrations/0022`) makes drafts survive a reinstall or
+  a second device — staged photos now upload eagerly instead of waiting for
+  final submit, and provisional uploads are swept on every edit or delete,
+  except the one case the design doc got wrong: a *submitted* draft's
+  cleanup must not destroy its photo, since that URL is by then the real
+  problem/boulder/crag's own (`keep_photos`, fixed the day it was found —
+  see `internal/drafts`'s Architecture entry above). M2 was gated in the
+  original doc on M1 proving drafts get resumed rather than abandoned —
+  built anyway, deliberately, once it was clear IndexedDB-only M1 had no way
+  to ever produce that signal for anyone to wait on. Both milestones
+  verified live against the local Docker DB. **Still open:** the spot/rock
+  tabs' own draft paths were never driven live at either milestone, only
+  covered by the same intent-agnostic upload/serialize code the verified
+  problem tab runs through; and M2's cross-device-conflict behavior
+  (last-write-wins on `updated_at`) was never designed further than that one
+  line, on the reasoning that nothing invites two devices editing the same
+  draft at once.
 
 ## Phase 2 — Post-launch, near-term
 

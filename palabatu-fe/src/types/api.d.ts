@@ -1872,6 +1872,265 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's own add-sheet drafts
+         * @description Newest-updated first. List items omit payload -- the drafts overlay only needs id/intent/label/updated_at to render its rows.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.DraftListItem"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a draft
+         * @description The first autosave of an add-sheet session (handoff-drafts.md decision 3) -- created lazily, on the first real edit, not on opening the sheet.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New draft */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_drafts.CreateDraftRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one draft's full payload
+         * @description Fetched when resuming a draft from the drafts overlay.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update a draft
+         * @description Every autosave after the first. Any photo URL the previous version carried that this one doesn't is a provisional upload this write orphaned, and is best-effort destroyed in Cloudinary (handoff-drafts.md decision 10).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Updated draft */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_drafts.UpdateDraftRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a draft
+         * @description Explicit removal from the drafts overlay, or the client's own best-effort cleanup after the draft was submitted for real (handoff-drafts.md decision 5). Destroys every photo the draft ever staged, unless keep_photos=true -- the post-submit case, where those URLs are now the real problem/boulder/crag's own photo.
+         */
+        delete: {
+            parameters: {
+                query?: {
+                    /** @description Skip Cloudinary cleanup -- pass true only when the draft's photos were just reused as a real entity's own photo */
+                    keep_photos?: boolean;
+                };
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -4677,6 +4936,33 @@ export interface components {
             lat?: number;
             lng?: number;
             name?: string;
+        };
+        "internal_drafts.CreateDraftRequest": {
+            intent?: string;
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
+        };
+        "internal_drafts.Draft": {
+            created_at?: string;
+            id?: string;
+            intent?: string;
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
+            updated_at?: string;
+        };
+        "internal_drafts.DraftListItem": {
+            id?: string;
+            intent?: string;
+            label?: string;
+            thumbnail_url?: string;
+            updated_at?: string;
+        };
+        "internal_drafts.UpdateDraftRequest": {
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
         };
         "internal_feedback.Feedback": {
             created_at?: string;

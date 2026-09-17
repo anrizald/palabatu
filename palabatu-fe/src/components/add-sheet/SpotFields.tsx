@@ -49,7 +49,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
                 {draft.photoPreview ? (
                     <div className="relative w-full aspect-video rounded-[10px] overflow-hidden border border-border">
                         <img src={draft.photoPreview} alt="Spot" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => set({ photoFile: null, photoPreview: null })} className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 flex items-center justify-center cursor-pointer">&times;</button>
+                        <button type="button" onClick={() => set({ photoFile: null, photoPreview: null, photoUrl: null })} className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 flex items-center justify-center cursor-pointer">&times;</button>
                     </div>
                 ) : (
                     <label className="block w-full min-h-11 border border-dashed border-border rounded-[10px] bg-surface text-text-secondary text-sm text-center py-5 cursor-pointer hover:border-accent">
@@ -57,7 +57,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
                         <input type="file" accept="image/*" className="hidden" onChange={e => {
                             const file = e.target.files?.[0]
                             if (!file) return
-                            set({ photoFile: file, photoPreview: URL.createObjectURL(file) })
+                            set({ photoFile: file, photoPreview: URL.createObjectURL(file), photoUrl: null })
                         }} />
                     </label>
                 )}

@@ -19,6 +19,10 @@ type ProblemFieldsProps = {
     existingTopoUrl: string | null
     lineDrawn: boolean
     onOpenAnnotator: (url: string) => void
+    /** Switches which photo the line targets (handoff.md open item 16) --
+     * also clears any in-progress shapes, since they were drawn against
+     * whichever photo was the target before the switch. */
+    onSwitchPhotoTarget: (choice: 'existing' | 'own') => void
     /** True once a rock exists to draw on (either an existing one, or the
      * photo just staged for a new one) -- the whole "draw the line" surface
      * only appears once a photo exists. */
@@ -34,7 +38,7 @@ type ProblemFieldsProps = {
 // exactly (decision 19's tier-2 fix: no "no grade yet" chip, an unselected
 // row already means that).
 export default function ProblemFields({
-    draft, onChange, boulderType, hasExistingTopo, existingTopoUrl, lineDrawn, onOpenAnnotator, noun, moreOpen, setMoreOpen,
+    draft, onChange, boulderType, hasExistingTopo, existingTopoUrl, lineDrawn, onOpenAnnotator, onSwitchPhotoTarget, noun, moreOpen, setMoreOpen,
 }: ProblemFieldsProps) {
     const gradeType: ProblemType = boulderTypeToGradeType(boulderType)
     const scaleNames = Object.keys(GRADE_SCALES[gradeType])
@@ -87,27 +91,68 @@ export default function ProblemFields({
                                 <img src={existingTopoUrl} alt="Rock" className="w-full h-full object-cover" />
                             </div>
                             <div className="flex items-center gap-2.5 px-3 py-2.5 bg-surface border-t border-border">
-                                <span className="flex-1 text-xs text-text-muted">{lineDrawn ? 'your line is on it' : `every ${noun} here draws on this`}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenAnnotator(existingTopoUrl)}
-                                    className={`min-h-11 px-3.5 rounded-lg text-[13px] font-medium border cursor-pointer whitespace-nowrap ${lineDrawn ? 'border-associate text-associate' : 'border-accent text-accent hover:bg-accent/10'}`}
-                                >
-                                    {lineDrawn ? 'Line drawn' : 'Draw your line'}
-                                </button>
+                                <span className="flex-1 text-xs text-text-muted">
+                                    {draft.photoChoice === 'own' ? "your line is on your own photo instead" : lineDrawn ? 'your line is on it' : `every ${noun} here draws on this`}
+                                </span>
+                                {draft.photoChoice === 'existing' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onOpenAnnotator(existingTopoUrl)}
+                                        className={`min-h-11 px-3.5 rounded-lg text-[13px] font-medium border cursor-pointer whitespace-nowrap ${lineDrawn ? 'border-associate text-associate' : 'border-accent text-accent hover:bg-accent/10'}`}
+                                    >
+                                        {lineDrawn ? 'Line drawn' : 'Draw your line'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                         {/* A photo staged before the rock resolved to one with an
-                            existing topo moves with it as a small afterthought --
-                            never dropped silently, never the line-drawing base
-                            (handoff-add-sheet.md B7/B8, decision 18/19). */}
+                            existing topo moves with it as a small afterthought by
+                            default -- never dropped silently (handoff-add-sheet.md
+                            B7/B8, decision 18/19) -- but can be promoted to the
+                            line-drawing base instead of the shared photo
+                            (handoff.md open item 16): reuse stays the default,
+                            bringing your own is opt-in. */}
                         {draft.photoPreview ? (
                             <div className="flex items-center gap-2.5 mt-2">
-                                <img src={draft.photoPreview} alt="Extra angle" className="w-[52px] h-[52px] rounded-lg object-cover border border-border shrink-0" />
-                                <p className="flex-1 text-xs text-text-muted">Your photo moves with it &mdash; goes up as another angle, not on the line.</p>
+                                <img src={draft.photoPreview} alt={draft.photoChoice === 'own' ? 'Your photo' : 'Extra angle'} className="w-[52px] h-[52px] rounded-lg object-cover border border-border shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-text-muted">
+                                        {draft.photoChoice === 'own'
+                                            ? (lineDrawn ? 'your line is on it' : 'your line draws on this instead of the shared photo')
+                                            : "Your photo moves with it, as another angle, not on the line."}
+                                    </p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        {draft.photoChoice === 'own' ? (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenAnnotator(draft.photoPreview!)}
+                                                    className={`text-[12.5px] font-medium underline bg-transparent border-0 p-0 cursor-pointer ${lineDrawn ? 'text-associate' : 'text-accent'}`}
+                                                >
+                                                    {lineDrawn ? 'Line drawn' : 'Draw your line'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onSwitchPhotoTarget('existing')}
+                                                    className="text-[12.5px] text-text-muted underline bg-transparent border-0 p-0 cursor-pointer"
+                                                >
+                                                    Use the shared photo instead
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => onSwitchPhotoTarget('own')}
+                                                className="text-[12.5px] font-medium text-accent underline bg-transparent border-0 p-0 cursor-pointer"
+                                            >
+                                                Draw my line on this instead
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                                 <button
                                     type="button"
-                                    onClick={() => set({ photoFile: null, photoPreview: null })}
+                                    onClick={() => { set({ photoFile: null, photoPreview: null, photoUrl: null }); onSwitchPhotoTarget('existing') }}
                                     className="shrink-0 text-xs text-text-muted underline bg-transparent border-0 cursor-pointer"
                                 >
                                     Remove
@@ -115,11 +160,11 @@ export default function ProblemFields({
                             </div>
                         ) : (
                             <label className="inline-flex items-center gap-1.5 mt-2 text-[13px] font-medium text-accent cursor-pointer hover:underline">
-                                + add another angle
+                                + add another angle, or your own photo to draw on
                                 <input type="file" accept="image/*" className="hidden" onChange={e => {
                                     const file = e.target.files?.[0]
                                     if (!file) return
-                                    set({ photoFile: file, photoPreview: URL.createObjectURL(file) })
+                                    set({ photoFile: file, photoPreview: URL.createObjectURL(file), photoUrl: null })
                                 }} />
                             </label>
                         )}
@@ -151,7 +196,7 @@ export default function ProblemFields({
                             <input type="file" accept="image/*" className="hidden" onChange={e => {
                                 const file = e.target.files?.[0]
                                 if (!file) return
-                                set({ photoFile: file, photoPreview: URL.createObjectURL(file) })
+                                set({ photoFile: file, photoPreview: URL.createObjectURL(file), photoUrl: null })
                             }} />
                         </label>
                         <p className="text-xs text-text-muted mt-1.5">The photo belongs to the rock. Every {noun} on it draws on the same picture.</p>

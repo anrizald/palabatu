@@ -23,6 +23,7 @@ import (
 	"palabatu-be/internal/crags"
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/devtools"
+	"palabatu-be/internal/drafts"
 	"palabatu-be/internal/feedback"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/middleware"
@@ -126,6 +127,7 @@ func main() {
 	boulders.Routes(apiGroup)
 	problems.Routes(apiGroup)
 	approaches.Routes(apiGroup)
+	drafts.Routes(apiGroup)
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)

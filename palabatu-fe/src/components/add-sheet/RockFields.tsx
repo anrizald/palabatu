@@ -63,6 +63,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                                     onClick={() => set({
                                         imageFiles: draft.imageFiles.filter((_, i) => i !== idx),
                                         imagePreviews: draft.imagePreviews.filter((_, i) => i !== idx),
+                                        imageUrls: draft.imageUrls.filter((_, i) => i !== idx),
                                     })}
                                     className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-5 h-5 cursor-pointer flex items-center justify-center"
                                     aria-label="Remove photo"
@@ -76,6 +77,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                                 set({
                                     imageFiles: [...draft.imageFiles, ...files],
                                     imagePreviews: [...draft.imagePreviews, ...files.map(f => URL.createObjectURL(f))],
+                                    imageUrls: [...draft.imageUrls, ...files.map(() => null)],
                                 })
                             }} />
                         </label>
@@ -88,6 +90,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                             set({
                                 imageFiles: [...draft.imageFiles, ...files],
                                 imagePreviews: [...draft.imagePreviews, ...files.map(f => URL.createObjectURL(f))],
+                                imageUrls: [...draft.imageUrls, ...files.map(() => null)],
                             })
                         }} />
                     </label>
