@@ -54,6 +54,19 @@ export const DETAIL_ZOOM = 15;
  */
 export const MAX_NAME_LEN = 250;
 
+/**
+ * The French overall (commitment) grades a multi-pitch route may carry, easy
+ * to hard, plain letters with no +/- modifiers (handoff.md open item 14).
+ * Mirrors problems_commitment_grade_check (migrations/0023) and the backend's
+ * commitmentGrades -- adding a modifier later needs a migration as well as a
+ * change here.
+ */
+export const COMMITMENT_GRADES = ['F', 'PD', 'AD', 'D', 'TD', 'ED'] as const;
+
+/** Upper bound on a route's pitch count and its documented pitch numbers,
+ * mirroring maxPitchCount in the backend's problems/validate.go. */
+export const MAX_PITCH_COUNT = 100;
+
 export const circleButtonStyle = {
     background: '#141210',
     border: '1px solid #c87a30',

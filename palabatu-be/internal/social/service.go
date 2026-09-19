@@ -39,8 +39,55 @@ func ToggleSend(ctx context.Context, problemID, userID string) (action string, e
 	if err := createSend(ctx, problemID, userID); err != nil {
 		return "", err
 	}
+	// Topping out clears a turned-back record: a route never holds both a send
+	// and a high point for one climber. Best-effort like the notification,
+	// because the send itself has already succeeded and the page treats a send
+	// as winning over a stale high point. The one-tick contract is untouched.
+	if err := deleteHighPoint(ctx, problemID, userID); err != nil {
+		log.Printf("failed to clear high point after send: %v", err)
+	}
 	notifySend(ctx, problemID, userID)
 	return "added", nil
+}
+
+// GetHighPoint is the caller's own high point on a route, or nil.
+func GetHighPoint(ctx context.Context, problemID, userID string) (*int, error) {
+	return getHighPoint(ctx, problemID, userID)
+}
+
+// SetHighPoint records how far up a multi-pitch route the caller got before
+// turning back (handoff.md open item 14). It is private to them, sends no
+// notification, and is never counted as a send. Only a multi-pitch route on a
+// wall has one, the pitch has to be within the route's own pitch count, and a
+// climber who has already topped the route out has no high point to record.
+func SetHighPoint(ctx context.Context, problemID, userID string, pitch int) error {
+	p, err := problems.GetProblem(ctx, problemID)
+	if errors.Is(err, problems.ErrNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if p.BoulderType != "wall" || p.PitchCount == nil {
+		return ErrNotMultiPitch
+	}
+	if pitch < 1 || pitch > *p.PitchCount {
+		return ErrInvalidHighPoint
+	}
+	sent, err := sendExists(ctx, problemID, userID)
+	if err != nil {
+		return err
+	}
+	if sent {
+		return ErrAlreadySent
+	}
+	return upsertHighPoint(ctx, problemID, userID, pitch)
+}
+
+// ClearHighPoint removes the caller's high point on a route. Deleting one that
+// is not there is not an error.
+func ClearHighPoint(ctx context.Context, problemID, userID string) error {
+	return deleteHighPoint(ctx, problemID, userID)
 }
 
 // notifySend is best-effort, mirroring cloudinary.DestroyByURL's precedent

@@ -17,9 +17,11 @@ type Props = {
 const COUNT_ROWS: { key: keyof PurgeCounts; label: string; theirs?: boolean }[] = [
     { key: 'boulders', label: 'rocks' },
     { key: 'problems', label: 'problems' },
+    { key: 'pitches', label: 'pitch by pitch details' },
     { key: 'approaches', label: 'ways in mapped' },
     { key: 'lines', label: 'drawn lines', theirs: true },
     { key: 'sends', label: 'logged sends', theirs: true },
+    { key: 'high_points', label: 'turned-back records', theirs: true },
     { key: 'comments', label: 'comments', theirs: true },
     { key: 'reports', label: 'pending reports' },
     { key: 'photos', label: 'photos (deleted from storage)' },

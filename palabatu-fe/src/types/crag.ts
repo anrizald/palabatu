@@ -70,6 +70,8 @@ export type DeleteCragImageRequest = { url: string }
 export type PurgeCounts = {
     boulders: number
     problems: number
+    pitches: number
+    high_points: number
     sends: number
     comments: number
     lines: number

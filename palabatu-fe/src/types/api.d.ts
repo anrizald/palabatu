@@ -2528,7 +2528,7 @@ export interface paths {
         put?: never;
         /**
          * Create a problem
-         * @description Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.
+         * @description Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly. pitch_count (2 or more; omit or null for a single pitch), commitment_grade (F, PD, AD, D, TD or ED) and pitches are the multi-pitch detail, accepted only when the boulder is a wall. pitches needs a pitch_count.
          */
         post: {
             parameters: {
@@ -2630,7 +2630,7 @@ export interface paths {
         };
         /**
          * Update a problem
-         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null.
+         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null. The multi-pitch fields work the same way: pitch_count is cleared (single pitch) by null, commitment_grade by an empty string, and pitches, when present, replaces the whole documented set (an empty array clears it). Sending pitch detail for a route on a boulder is a 400, and moving a route onto a boulder hides its stored pitch detail without deleting it.
          */
         put: {
             parameters: {
@@ -2974,6 +2974,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/problems/{id}/high-point": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record how far up a multi-pitch route the authenticated user got
+         * @description A private high point for a route the caller turned back from, one per climber per route (a new one replaces the old). Never counted as a send, notifies no one, and is cleared when the caller sends the route. Only a multi-pitch route on a wall has one, and pitch must be from 1 to the route's pitch count.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Pitch reached */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_social.SetHighPointRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description the caller has already sent this route */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Clear the authenticated user's high point on a route
+         * @description Idempotent: clearing one that is not there still succeeds.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems/{id}/images": {
         parameters: {
             query?: never;
@@ -3247,7 +3365,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether the authenticated user has sent this problem */
+        /** Whether the authenticated user has sent this problem, and their own high point on it */
         get: {
             parameters: {
                 query?: never;
@@ -4927,8 +5045,10 @@ export interface components {
             approaches?: number;
             boulders?: number;
             comments?: number;
+            high_points?: number;
             lines?: number;
             photos?: number;
+            pitches?: number;
             problems?: number;
             reports?: number;
             sends?: number;
@@ -5013,6 +5133,7 @@ export interface components {
         };
         "internal_problems.CreateProblemRequest": {
             boulder_id?: string;
+            commitment_grade?: string;
             descent?: string;
             discovered_by?: string;
             first_ascensionist?: string;
@@ -5022,14 +5143,23 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
         };
         "internal_problems.DeleteProblemImageRequest": {
             url?: string;
+        };
+        "internal_problems.Pitch": {
+            grade?: string;
+            length_m?: number;
+            notes?: string;
+            pitch_number?: number;
         };
         "internal_problems.ProblemDetail": {
             boulder_id?: string;
             boulder_name?: string;
             boulder_type?: string;
+            commitment_grade?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -5054,6 +5184,14 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            /**
+             * @description Pitches is the documented part of a multi-pitch route, in order -- empty
+             *     for a single-pitch one. It need not add up to PitchCount: how much of the
+             *     route somebody has written down is allowed to lag the claim about it.
+             *     Populated by GetProblem only, like ImageCredits.
+             */
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
             send_count?: number;
             topo_line?: number[];
             topo_url?: string;
@@ -5062,6 +5200,7 @@ export interface components {
             boulder_id?: string;
             boulder_name?: string;
             boulder_type?: string;
+            commitment_grade?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -5078,12 +5217,14 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
             send_count?: number;
             topo_line?: number[];
             topo_url?: string;
         };
         "internal_problems.ProblemRow": {
             boulder_id?: string;
+            commitment_grade?: string;
             crag_id?: string;
             created_at?: string;
             created_by?: string;
@@ -5097,6 +5238,7 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
         };
         "internal_problems.ProblemSummary": {
             boulder_id?: string;
@@ -5115,6 +5257,7 @@ export interface components {
         };
         "internal_problems.UpdateProblemRequest": {
             boulder_id?: string;
+            commitment_grade?: string;
             descent?: string;
             discovered_by?: string;
             first_ascensionist?: string;
@@ -5123,6 +5266,8 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
         };
         "internal_report.Report": {
             comment_content?: string;
@@ -5174,6 +5319,10 @@ export interface components {
         };
         "internal_social.SendStatusResponse": {
             hasSent?: boolean;
+            highPoint?: number;
+        };
+        "internal_social.SetHighPointRequest": {
+            pitch?: number;
         };
         "internal_waitlist.AlreadyJoinedResponse": {
             already_joined?: boolean;

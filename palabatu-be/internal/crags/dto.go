@@ -50,6 +50,8 @@ type DeleteCragImageRequest struct {
 type PurgeCounts struct {
 	Boulders   int `json:"boulders"`
 	Problems   int `json:"problems"`
+	Pitches    int `json:"pitches"`
+	HighPoints int `json:"high_points"`
 	Sends      int `json:"sends"`
 	Comments   int `json:"comments"`
 	Lines      int `json:"lines"`

@@ -982,10 +982,16 @@
                     "comments": {
                         "type": "integer"
                     },
+                    "high_points": {
+                        "type": "integer"
+                    },
                     "lines": {
                         "type": "integer"
                     },
                     "photos": {
+                        "type": "integer"
+                    },
+                    "pitches": {
                         "type": "integer"
                     },
                     "problems": {
@@ -1283,6 +1289,9 @@
                     "boulder_id": {
                         "type": "string"
                     },
+                    "commitment_grade": {
+                        "type": "string"
+                    },
                     "descent": {
                         "type": "string"
                     },
@@ -1313,6 +1322,16 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1321,6 +1340,23 @@
                 "properties": {
                     "url": {
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_problems.Pitch": {
+                "properties": {
+                    "grade": {
+                        "type": "string"
+                    },
+                    "length_m": {
+                        "type": "number"
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "pitch_number": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1334,6 +1370,9 @@
                         "type": "string"
                     },
                     "boulder_type": {
+                        "type": "string"
+                    },
+                    "commitment_grade": {
                         "type": "string"
                     },
                     "crag_id": {
@@ -1396,6 +1435,17 @@
                     "notes": {
                         "type": "string"
                     },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "description": "Pitches is the documented part of a multi-pitch route, in order -- empty\nfor a single-pitch one. It need not add up to PitchCount: how much of the\nroute somebody has written down is allowed to lag the claim about it.\nPopulated by GetProblem only, like ImageCredits.",
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "send_count": {
                         "type": "integer"
                     },
@@ -1421,6 +1471,9 @@
                         "type": "string"
                     },
                     "boulder_type": {
+                        "type": "string"
+                    },
+                    "commitment_grade": {
                         "type": "string"
                     },
                     "crag_id": {
@@ -1475,6 +1528,9 @@
                     "notes": {
                         "type": "string"
                     },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
                     "send_count": {
                         "type": "integer"
                     },
@@ -1494,6 +1550,9 @@
             "internal_problems.ProblemRow": {
                 "properties": {
                     "boulder_id": {
+                        "type": "string"
+                    },
+                    "commitment_grade": {
                         "type": "string"
                     },
                     "crag_id": {
@@ -1538,6 +1597,9 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1597,6 +1659,9 @@
                     "boulder_id": {
                         "type": "string"
                     },
+                    "commitment_grade": {
+                        "type": "string"
+                    },
                     "descent": {
                         "type": "string"
                     },
@@ -1620,6 +1685,16 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1763,6 +1838,17 @@
                 "properties": {
                     "hasSent": {
                         "type": "boolean"
+                    },
+                    "highPoint": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_social.SetHighPointRequest": {
+                "properties": {
+                    "pitch": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -4626,7 +4712,7 @@
                 ]
             },
             "post": {
-                "description": "Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.",
+                "description": "Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly. pitch_count (2 or more; omit or null for a single pitch), commitment_grade (F, PD, AD, D, TD or ED) and pitches are the multi-pitch detail, accepted only when the boulder is a wall. pitches needs a pitch_count.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -4806,7 +4892,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null.",
+                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null. The multi-pitch fields work the same way: pitch_count is cleared (single pitch) by null, commitment_grade by an empty string, and pitches, when present, replaces the whole documented set (an empty array clears it). Sending pitch detail for a route on a boulder is a 400, and moving a route onto a boulder hides its stored pitch detail without deleting it.",
                 "parameters": [
                     {
                         "description": "Problem ID",
@@ -5163,6 +5249,148 @@
                     }
                 ],
                 "summary": "Add a comment to a problem",
+                "tags": [
+                    "social"
+                ]
+            }
+        },
+        "/api/problems/{id}/high-point": {
+            "delete": {
+                "description": "Idempotent: clearing one that is not there still succeeds.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Clear the authenticated user's high point on a route",
+                "tags": [
+                    "social"
+                ]
+            },
+            "put": {
+                "description": "A private high point for a route the caller turned back from, one per climber per route (a new one replaces the old). Never counted as a send, notifies no one, and is cleared when the caller sends the route. Only a multi-pitch route on a wall has one, and pitch must be from 1 to the route's pitch count.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_social.SetHighPointRequest",
+                                        "summary": "body",
+                                        "description": "Pitch reached"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Pitch reached",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "the caller has already sent this route"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Record how far up a multi-pitch route the authenticated user got",
                 "tags": [
                     "social"
                 ]
@@ -5531,7 +5759,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Whether the authenticated user has sent this problem",
+                "summary": "Whether the authenticated user has sent this problem, and their own high point on it",
                 "tags": [
                     "social"
                 ]

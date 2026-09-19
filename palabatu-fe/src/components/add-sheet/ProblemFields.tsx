@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { GRADE_SCALES, boulderTypeToGradeType, type ProblemType, MAX_NAME_LEN } from '../../lib/constants.js'
+import PitchFields from '../PitchFields.js'
 import type { NewProblemDraft } from './types.js'
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
@@ -81,6 +82,12 @@ export default function ProblemFields({
                 </div>
                 {gradeType === 'rope' && <p className="text-xs text-text-muted mt-1.5">{scaleName}, because this one's a wall.</p>}
             </div>
+
+            {/* Only a wall has pitches: a boulder problem is one move sequence,
+                and a new rock is always filed as a boulder until it is edited. */}
+            {boulderType === 'wall' && (
+                <PitchFields value={draft.pitch} onChange={pitch => set({ pitch })} />
+            )}
 
             <div>
                 {hasExistingTopo && existingTopoUrl ? (

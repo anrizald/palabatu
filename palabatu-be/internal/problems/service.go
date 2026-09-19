@@ -2,7 +2,7 @@
 // problems hierarchy: one way up a rock. Photos, coordinates, and topo
 // annotation now live on internal/boulders (see handoff.md at the repo
 // root) -- this package only reaches into boulders' table with its own
-// direct SQL (getBoulderCragID, repository.go) to resolve a new problem's
+// direct SQL (getBoulderCragAndType, repository.go) to resolve a new problem's
 // crag, never by importing internal/boulders' Go package (see that
 // package's dependency-direction note). Admin-role policy itself lives in
 // internal/authz, not here.
@@ -45,26 +45,40 @@ func GetProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 	}
 	p.ImageCredits = credits
 
+	// Always sent, empty for a single-pitch route. Whether to show it is the
+	// frontend's call (a wall shows pitch detail, a boulder hides it), so this
+	// returns whatever is stored.
+	pitches, err := listPitches(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	p.Pitches = pitches
+
 	return p, nil
 }
 
 // CreateProblem intentionally has no role gate: any logged-in user may add a
 // problem for now. boulder_id is required; crag_id is derived from it
-// rather than trusted from the client (handoff.md decision 5).
-func CreateProblem(
-	ctx context.Context,
-	createdBy, name, grade, boulderID, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
-	heightM *float64,
-	imageURLs []string,
-) (*ProblemSummary, error) {
-	if err := validateName(name); err != nil {
+// rather than trusted from the client (handoff.md decision 5). Pitch detail is
+// accepted only on a wall, and pitch rows only alongside a pitch count.
+func CreateProblem(ctx context.Context, createdBy string, req CreateProblemRequest) (*ProblemSummary, error) {
+	if err := validateName(req.Name); err != nil {
 		return nil, err
 	}
-	if err := validateGrade(grade); err != nil {
+	if err := validateGrade(req.Grade); err != nil {
+		return nil, err
+	}
+	if err := validatePitchCount(req.PitchCount); err != nil {
+		return nil, err
+	}
+	if err := validateCommitmentGrade(req.CommitmentGrade); err != nil {
+		return nil, err
+	}
+	if err := validatePitches(req.Pitches); err != nil {
 		return nil, err
 	}
 
-	cragID, err := getBoulderCragID(ctx, boulderID)
+	cragID, boulderType, err := getBoulderCragAndType(ctx, req.BoulderID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrBoulderNotFound
 	}
@@ -72,7 +86,16 @@ func CreateProblem(
 		return nil, err
 	}
 
-	return createProblem(ctx, name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM, imageURLs, createdBy)
+	if req.PitchCount != nil || req.CommitmentGrade != "" || len(req.Pitches) > 0 {
+		if boulderType != "wall" {
+			return nil, ErrPitchesOnBoulder
+		}
+	}
+	if len(req.Pitches) > 0 && req.PitchCount == nil {
+		return nil, ErrPitchesNeedCount
+	}
+
+	return createProblem(ctx, req, cragID, createdBy)
 }
 
 // UpdateProblem also re-parents the problem to a different boulder when
@@ -99,8 +122,19 @@ func UpdateProblem(ctx context.Context, userID, problemID string, req UpdateProb
 			return nil, err
 		}
 	}
+	if err := validatePitchCount(req.PitchCount); err != nil {
+		return nil, err
+	}
+	if req.CommitmentGrade != nil {
+		if err := validateCommitmentGrade(*req.CommitmentGrade); err != nil {
+			return nil, err
+		}
+	}
+	if err := validatePitches(req.Pitches); err != nil {
+		return nil, err
+	}
 
-	createdBy, currentBoulderID, err := getProblemOwnerAndBoulder(ctx, problemID)
+	createdBy, currentBoulderID, currentPitchCount, err := getProblemForUpdate(ctx, problemID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -110,6 +144,36 @@ func UpdateProblem(ctx context.Context, userID, problemID string, req UpdateProb
 
 	if err := authorizeProblemEdit(ctx, userID, createdBy); err != nil {
 		return nil, err
+	}
+
+	// Refuse pitch detail on a boulder, checked against the rock the route
+	// will be on once this request is applied. Clearing is never refused, and
+	// nothing is deleted here: a route moved onto a boulder keeps its stored
+	// pitch detail hidden and gets it back if it moves to a wall again.
+	targetBoulderID := currentBoulderID
+	if req.BoulderID != "" {
+		targetBoulderID = req.BoulderID
+	}
+	if req.PitchCount != nil || (req.CommitmentGrade != nil && *req.CommitmentGrade != "") || len(req.Pitches) > 0 {
+		boulderType, err := getBoulderType(ctx, targetBoulderID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrBoulderNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if boulderType != "wall" {
+			return nil, ErrPitchesOnBoulder
+		}
+	}
+	if len(req.Pitches) > 0 {
+		effectivePitchCount := currentPitchCount
+		if req.HasPitchCount {
+			effectivePitchCount = req.PitchCount
+		}
+		if effectivePitchCount == nil {
+			return nil, ErrPitchesNeedCount
+		}
 	}
 
 	if req.BoulderID != "" && req.BoulderID != currentBoulderID {

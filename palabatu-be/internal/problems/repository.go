@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/photocredits"
 )
@@ -50,6 +52,8 @@ type ProblemListItem struct {
 	HeightM           *float64        `json:"height_m"`
 	Notes             *string         `json:"notes"`
 	ImageURLs         []string        `json:"image_urls"`
+	PitchCount        *int            `json:"pitch_count"`
+	CommitmentGrade   *string         `json:"commitment_grade"`
 	CreatedBy         *string         `json:"created_by"`
 	CreatorName       *string         `json:"creator_name"`
 	CreatorSlug       *string         `json:"creator_slug"`
@@ -81,6 +85,8 @@ type ProblemRow struct {
 	HeightM           *float64  `json:"height_m"`
 	Notes             *string   `json:"notes"`
 	ImageURLs         []string  `json:"image_urls"`
+	PitchCount        *int      `json:"pitch_count"`
+	CommitmentGrade   *string   `json:"commitment_grade"`
 	CreatedBy         *string   `json:"created_by"`
 	CreatedAt         time.Time `json:"created_at"`
 }
@@ -106,6 +112,8 @@ type ProblemDetail struct {
 	HeightM           *float64        `json:"height_m"`
 	Notes             *string         `json:"notes"`
 	ImageURLs         []string        `json:"image_urls"`
+	PitchCount        *int            `json:"pitch_count"`
+	CommitmentGrade   *string         `json:"commitment_grade"`
 	CreatedBy         *string         `json:"created_by"`
 	CreatorName       *string         `json:"creator_name"`
 	CreatorSlug       *string         `json:"creator_slug"`
@@ -118,6 +126,12 @@ type ProblemDetail struct {
 	// See internal/photocredits for why an absent entry means this problem's
 	// own creator rather than an unknown uploader.
 	ImageCredits []photocredits.Credit `json:"image_credits,omitempty"`
+
+	// Pitches is the documented part of a multi-pitch route, in order -- empty
+	// for a single-pitch one. It need not add up to PitchCount: how much of the
+	// route somebody has written down is allowed to lag the claim about it.
+	// Populated by GetProblem only, like ImageCredits.
+	Pitches []Pitch `json:"pitches"`
 }
 
 const problemListSelect = `
@@ -126,6 +140,7 @@ const problemListSelect = `
 		b.type AS boulder_type, b.image_urls->>0 AS topo_url,
 		(SELECT ta.data FROM topo_annotations ta WHERE ta.problem_id = p.id AND ta.image_url = b.image_urls->>0) AS topo_line,
 		p.first_ascensionist, p.discovered_by, p.landing_hazards, p.descent, p.height_m, p.notes, p.image_urls,
+		p.pitch_count, p.commitment_grade,
 		p.created_by, pr.username AS creator_name, u.slug AS creator_slug,
 		COALESCE((SELECT COUNT(*) FROM sends WHERE problem_id = p.id), 0)::int AS send_count,
 		p.created_at
@@ -168,6 +183,7 @@ func listProblems(ctx context.Context, cragID, boulderID string) ([]ProblemListI
 			&p.ID, &p.Name, &p.Grade, &p.CragID, &p.CragName, &p.BoulderID, &p.BoulderName,
 			&p.BoulderType, &p.TopoURL, &p.TopoLine,
 			&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs,
+			&p.PitchCount, &p.CommitmentGrade,
 			&p.CreatedBy, &p.CreatorName, &p.CreatorSlug, &p.SendCount, &p.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -183,6 +199,7 @@ func getProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.CragName, &p.BoulderID, &p.BoulderName,
 		&p.BoulderType, &p.TopoURL, &p.TopoLine,
 		&p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs,
+		&p.PitchCount, &p.CommitmentGrade,
 		&p.CreatedBy, &p.CreatorName, &p.CreatorSlug, &p.SendCount, &p.CreatedAt,
 	)
 	if err != nil {
@@ -191,24 +208,70 @@ func getProblem(ctx context.Context, id string) (*ProblemDetail, error) {
 	return &p, nil
 }
 
-// getBoulderCragID resolves a boulder to the crag it belongs to, so
+// getBoulderCragAndType resolves a boulder to the crag it belongs to, so
 // CreateProblem can denormalize crag_id onto the new problem without
-// trusting a client-supplied value. A direct SQL read against the
-// boulders table, not a Go import of internal/boulders -- see that
-// package's dependency-direction note.
-func getBoulderCragID(ctx context.Context, boulderID string) (string, error) {
-	var cragID string
-	err := db.Pool.QueryRow(ctx, `SELECT crag_id FROM boulders WHERE id = $1`, boulderID).Scan(&cragID)
-	return cragID, err
+// trusting a client-supplied value, and to its type, which decides whether
+// pitch detail may be written (only a wall takes it). A direct SQL read
+// against the boulders table, not a Go import of internal/boulders -- see
+// that package's dependency-direction note.
+func getBoulderCragAndType(ctx context.Context, boulderID string) (cragID, boulderType string, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT crag_id, type FROM boulders WHERE id = $1`, boulderID).Scan(&cragID, &boulderType)
+	return cragID, boulderType, err
 }
 
-func createProblem(
-	ctx context.Context,
-	name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
-	heightM *float64,
-	imageURLs []string,
-	createdBy string,
-) (*ProblemSummary, error) {
+// getBoulderType is getBoulderCragAndType's type alone, for UpdateProblem
+// when the route stays where it is.
+func getBoulderType(ctx context.Context, boulderID string) (string, error) {
+	var boulderType string
+	err := db.Pool.QueryRow(ctx, `SELECT type FROM boulders WHERE id = $1`, boulderID).Scan(&boulderType)
+	return boulderType, err
+}
+
+// listPitches reads a problem's documented pitches in order. Always a non-nil
+// slice, so the wire shape is [] rather than null for a route with none.
+func listPitches(ctx context.Context, problemID string) ([]Pitch, error) {
+	rows, err := db.Pool.Query(ctx,
+		`SELECT pitch_number, grade, length_m, notes FROM problem_pitches WHERE problem_id = $1 ORDER BY pitch_number`,
+		problemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pitches := []Pitch{}
+	for rows.Next() {
+		var p Pitch
+		if err := rows.Scan(&p.PitchNumber, &p.Grade, &p.LengthM, &p.Notes); err != nil {
+			return nil, err
+		}
+		pitches = append(pitches, p)
+	}
+	return pitches, rows.Err()
+}
+
+// replacePitches makes a problem's documented pitches exactly the given set,
+// inside the caller's transaction, in one round-trip. An empty set clears them.
+// An empty note is written as NULL, so "no note" has one stored form.
+func replacePitches(ctx context.Context, tx pgx.Tx, problemID string, pitches []Pitch) error {
+	batch := &pgx.Batch{}
+	batch.Queue(`DELETE FROM problem_pitches WHERE problem_id = $1`, problemID)
+	for _, p := range pitches {
+		batch.Queue(
+			`INSERT INTO problem_pitches (problem_id, pitch_number, grade, length_m, notes) VALUES ($1, $2, $3, $4, NULLIF($5::text, ''))`,
+			problemID, p.PitchNumber, p.Grade, p.LengthM, p.Notes)
+	}
+	results := tx.SendBatch(ctx, batch)
+	for i := 0; i < batch.Len(); i++ {
+		if _, err := results.Exec(); err != nil {
+			results.Close()
+			return err
+		}
+	}
+	return results.Close()
+}
+
+func createProblem(ctx context.Context, req CreateProblemRequest, cragID, createdBy string) (*ProblemSummary, error) {
+	imageURLs := req.ImageURLs
 	if imageURLs == nil {
 		imageURLs = []string{}
 	}
@@ -217,16 +280,32 @@ func createProblem(
 		return nil, err
 	}
 
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	var p ProblemSummary
-	err = db.Pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO problems (
 			name, grade, boulder_id, crag_id, first_ascensionist, discovered_by,
-			landing_hazards, descent, height_m, notes, image_urls, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
+			landing_hazards, descent, height_m, notes, image_urls, created_by,
+			pitch_count, commitment_grade
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, NULLIF($14::text, ''))
 		 RETURNING id, name, grade, crag_id, boulder_id, image_urls`,
-		name, grade, boulderID, cragID, firstAscensionist, discoveredBy, landingHazards, descent, heightM, notes, string(imageURLsJSON), createdBy,
+		req.Name, req.Grade, req.BoulderID, cragID, req.FirstAscensionist, req.DiscoveredBy, req.LandingHazards,
+		req.Descent, req.HeightM, req.Notes, string(imageURLsJSON), createdBy, req.PitchCount, req.CommitmentGrade,
 	).Scan(&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.ImageURLs)
 	if err != nil {
+		return nil, err
+	}
+	if len(req.Pitches) > 0 {
+		if err := replacePitches(ctx, tx, p.ID, req.Pitches); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -241,15 +320,18 @@ func getProblemCreator(ctx context.Context, id string) (*string, error) {
 	return createdBy, nil
 }
 
-// getProblemOwnerAndBoulder backs UpdateProblem's re-parent check -- the
-// problem's current boulder_id, so the service layer can tell whether a
-// non-empty BoulderID in the request is actually a change.
-func getProblemOwnerAndBoulder(ctx context.Context, id string) (createdBy *string, boulderID string, err error) {
-	err = db.Pool.QueryRow(ctx, `SELECT created_by, boulder_id FROM problems WHERE id = $1`, id).Scan(&createdBy, &boulderID)
+// getProblemForUpdate backs UpdateProblem's checks -- the problem's current
+// boulder_id, so the service layer can tell whether a non-empty BoulderID in
+// the request is actually a change, and its current pitch_count, which
+// decides whether pitch rows have a count to hang off when the request leaves
+// the count out.
+func getProblemForUpdate(ctx context.Context, id string) (createdBy *string, boulderID string, pitchCount *int, err error) {
+	err = db.Pool.QueryRow(ctx, `SELECT created_by, boulder_id, pitch_count FROM problems WHERE id = $1`, id).
+		Scan(&createdBy, &boulderID, &pitchCount)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
-	return createdBy, boulderID, nil
+	return createdBy, boulderID, pitchCount, nil
 }
 
 // getProblemOwnerAndImages backs AddProblemImages/DeleteProblemImage's
@@ -300,9 +382,21 @@ func reparentProblem(ctx context.Context, id, newBoulderID string) error {
 // key was sent (so an explicit null still clears it). Doing this in one
 // statement rather than reading the row first also leaves an untouched NULL
 // column NULL and leaves no window for a concurrent edit to be overwritten.
+//
+// The pitch count works like the height (written only when HasPitchCount, so
+// null clears it) and the commitment grade like the text fields, except that
+// an empty string is stored as NULL rather than kept, since its CHECK forbids it.
+// The documented pitches are replaced as a set, in the same transaction, only
+// when the request carried a Pitches array.
 func updateProblemRow(ctx context.Context, id string, req UpdateProblemRequest) (*ProblemRow, error) {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	var p ProblemRow
-	err := db.Pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`UPDATE problems SET
 			name = COALESCE($1, name),
 			grade = COALESCE($2, grade),
@@ -311,17 +405,28 @@ func updateProblemRow(ctx context.Context, id string, req UpdateProblemRequest) 
 			landing_hazards = COALESCE($5, landing_hazards),
 			descent = COALESCE($6, descent),
 			height_m = CASE WHEN $7 THEN $8 ELSE height_m END,
-			notes = COALESCE($9, notes)
-		 WHERE id = $10
+			notes = COALESCE($9, notes),
+			pitch_count = CASE WHEN $10 THEN $11 ELSE pitch_count END,
+			commitment_grade = CASE WHEN $12::text IS NULL THEN commitment_grade ELSE NULLIF($12, '') END
+		 WHERE id = $13
 		 RETURNING id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by,
-			landing_hazards, descent, height_m, notes, image_urls, created_by, created_at`,
+			landing_hazards, descent, height_m, notes, image_urls, pitch_count, commitment_grade, created_by, created_at`,
 		req.Name, req.Grade, req.FirstAscensionist, req.DiscoveredBy, req.LandingHazards, req.Descent,
-		req.HasHeight, req.HeightM, req.Notes, id,
+		req.HasHeight, req.HeightM, req.Notes, req.HasPitchCount, req.PitchCount, req.CommitmentGrade, id,
 	).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy,
-		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.CreatedBy, &p.CreatedAt,
+		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.PitchCount, &p.CommitmentGrade,
+		&p.CreatedBy, &p.CreatedAt,
 	)
 	if err != nil {
+		return nil, err
+	}
+	if req.Pitches != nil {
+		if err := replacePitches(ctx, tx, id, req.Pitches); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -339,11 +444,12 @@ func addProblemImages(ctx context.Context, id string, newURLs []string) (*Proble
 	err = db.Pool.QueryRow(ctx,
 		`UPDATE problems SET image_urls = image_urls || $2::jsonb WHERE id = $1
 		 RETURNING id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by,
-			landing_hazards, descent, height_m, notes, image_urls, created_by, created_at`,
+			landing_hazards, descent, height_m, notes, image_urls, pitch_count, commitment_grade, created_by, created_at`,
 		id, string(newURLsJSON),
 	).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy,
-		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.CreatedBy, &p.CreatedAt,
+		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.PitchCount, &p.CommitmentGrade,
+		&p.CreatedBy, &p.CreatedAt,
 	)
 	if err != nil {
 		return nil, err

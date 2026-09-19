@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { X, ChevronRight, MapPin } from 'lucide-react'
 import { api } from '../../lib/api.js'
+import { pitchFormError, pitchFormIsDirty, pitchFormToCreate } from '../../lib/pitches.js'
 import { getAllCrags, fetchBouldersForCrag, invalidateCragCache } from '../../lib/cragCache.js'
 import type { CragListItem, CreateCragRequest, Crag } from '../../types/crag.js'
 import type { BoulderListItem, CreateBoulderRequest, Boulder } from '../../types/boulder.js'
@@ -105,6 +106,9 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const [savedCount, setSavedCount] = useState(0)
     const [problemBanner, setProblemBanner] = useState<{
         name: string; problemId: string; spotName: string; rockName: string; photoUrl: string | null; lineDrawn: boolean
+        /** The route's pitch count, when it was saved as a multi-pitch one, so
+         * the post-save line editor can still tag lines by pitch. */
+        pitchCount: number | null
     } | null>(null)
     const [rockBanner, setRockBanner] = useState<{ name: string } | null>(null)
     const [spotBanner, setSpotBanner] = useState<{ id: string; name: string } | null>(null)
@@ -199,6 +203,12 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
     const isFar = cragDistKm != null && cragDistKm * 1000 > NEAR_M
     const boulderType = resolvedBoulder?.type ?? 'boulder'
     const noun = boulderType === 'wall' ? 'route' : 'problem'
+    // The pitch count the line editor can tag against: the just-saved route's
+    // (post-save banner), or the one being typed into the form, as long as it
+    // is valid and the route is going onto a wall.
+    const stagedPitchCount = boulderType === 'wall' && pitchFormError(problemDraft.pitch) === null && problemDraft.pitch.pitch_count.trim() !== ''
+        ? Number(problemDraft.pitch.pitch_count) : null
+    const annotatingPitchCount = annotatingProblemId ? problemBanner?.pitchCount ?? null : stagedPitchCount
 
     // The frame of reference the rock tab's pin map opens in -- the chosen
     // spot, or the one being created alongside it in the same session. Null
@@ -339,6 +349,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
 
     async function submitProblem() {
         if (!problemDraft.name.trim()) { showError('Give it a name first'); return }
+        // Checked before anything is uploaded or created, so a typo in a pitch
+        // never costs a half-saved rock. Off a wall the pitch form is not
+        // shown, so a leftover from a rock picked earlier is not judged.
+        const pitchError = boulderType === 'wall' ? pitchFormError(problemDraft.pitch) : null
+        if (pitchError) { showError(pitchError); return }
         setSubmitting(true)
         try {
             const resolved = await resolveCragId()
@@ -415,6 +430,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 first_ascensionist: problemDraft.first_ascensionist, discovered_by: problemDraft.discovered_by,
                 landing_hazards: problemDraft.landing_hazards, descent: problemDraft.descent,
                 height_m: heightM, notes: problemDraft.notes, image_urls: [],
+                ...pitchFormToCreate(problemDraft.pitch, boulderType === 'wall'),
             }
             const res = await api.post<ProblemSummary | ErrorResponse>('/api/problems', createBody)
             if ('error' in res) { showError(res.error); return }
@@ -438,6 +454,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 spotName: resolvedCrag?.name ?? resolved.name,
                 rockName: resolvedBoulder?.name ?? resolvedBoulder?.sample_problem_name ?? 'a new rock',
                 photoUrl: targetPhotoUrl, lineDrawn: savedLine,
+                pitchCount: createBody.pitch_count,
             })
             setSavedCount(c => c + 1)
 
@@ -475,6 +492,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             || problemDraft.first_ascensionist.trim() !== '' || problemDraft.discovered_by.trim() !== ''
             || problemDraft.landing_hazards.trim() !== '' || problemDraft.descent.trim() !== ''
             || problemDraft.height_m.trim() !== '' || problemDraft.notes.trim() !== ''
+            || pitchFormIsDirty(problemDraft.pitch)
             || !!problemDraft.photoFile || !!problemDraft.photoUrl
         return spotDirty || rockDirty || problemDirty
     }
@@ -924,6 +942,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 <TopoAnnotationEditor
                     url={annotatingUrl}
                     {...(annotatingProblemId ? { problemId: annotatingProblemId } : {})}
+                    {...(annotatingPitchCount != null ? { pitchCount: annotatingPitchCount } : {})}
                     initialShapes={annotatingProblemId ? [] : annotationShapes}
                     onCancel={() => setAnnotatingUrl(null)}
                     onSaved={shapes => {

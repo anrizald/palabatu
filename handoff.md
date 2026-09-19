@@ -1,10 +1,12 @@
 # Problem Add/Edit addendum — design handoff
 
 **Where this stands, 2026-09-19.** Everything in this document is built,
-with two exceptions: **open item 14** (multi-pitch detail) is deferred until
-its trigger fires, and **open item 19**'s one remaining half, a single
+with one exception: **open item 19**'s one remaining half, a single
 partial-update convention for the whole API, which is deliberately not being
-built. Both move buttons and the boulder, problem, crag and profile `PUT`s
+built. **Open item 14** (multi-pitch detail) was un-deferred and built
+2026-09-19; the one part of its design that was dropped rather than built is
+the boulder-page type-switch warning (item 14's "Built" record says why).
+Both move buttons and the boulder, problem, crag and profile `PUT`s
 all keep whatever a body leaves out as of 2026-09-19, with nothing blocked on
 what remains.
 Item 18 was resolved 2026-09-19 as an admin-only override. The status
@@ -744,8 +746,8 @@ current one. Everything below is now superseded by what shipped.*
     globally.)*
 
 23. **Multi-pitch is a property of the route, not the rock.** *(Proposed
-    2026-09-04, not yet built — no schema/backend/frontend work has
-    started.)* Prompted by realising `boulders.type` (`boulder | wall`,
+    2026-09-04. Un-deferred and built 2026-09-19: open item 14 records the
+    build decisions, all three follow-ons below, and what was built.)* Prompted by realising `boulders.type` (`boulder | wall`,
     decision 1) has nowhere to put "and this one takes three rope-lengths
     to finish".
 
@@ -774,7 +776,9 @@ current one. Everything below is now superseded by what shipped.*
 
     **Shape.** `boulders.type` stays exactly `boulder | wall`, untouched.
     `problems` gains an optional `pitch_count` (int; null or 1 means
-    single pitch, same as almost every row today). A new child table,
+    single pitch, same as almost every row today. *Amended 2026-09-19 in
+    open item 14: null alone means single pitch, and only 2 or more is
+    stored.*). A new child table,
     `problem_pitches` (`id`, `problem_id` FK, `pitch_number`, `grade`,
     `length_m` optional, `notes` optional), gets rows only when
     `pitch_count > 1`. `problems.grade` keeps its existing meaning — the
@@ -1860,6 +1864,227 @@ up from here.
     checkable in one query, which "once a real multi-pitch crag gets
     added in numbers" was not. Still open only in the sense that the
     trigger hasn't fired — the product call itself is made.
+
+    **Un-deferred 2026-09-19: build it whole. Designed here, and built the
+    same day (see "Built" at the end of this item).** The trigger above had not fired (all 15 wall problems are still
+    seed rows) and was overridden on purpose, the same way
+    `handoff-drafts.md`'s M2 gate was: the goal is to drain this file, not to
+    wait on a signal. Decision 23's shape stands. On top of it, two of its
+    three follow-ons are now decided and in scope. The decisions:
+
+    - **Data layout.**
+      - `problems.pitch_count` (int, nullable) and
+        `problems.commitment_grade` (text, nullable) are columns on
+        `problems`. Each is one value per route, the same kind of fact as
+        `height_m`, which is already a column. Columns also ride along for
+        free wherever a whole problem row is copied or moved: the purge
+        snapshot (`row_to_json(p)` in `purge_repository.go`), re-parenting
+        and boulder merges. Their cost is the five explicit column lists in
+        `problems/repository.go`, each gaining two fields. Not a one-to-one
+        side table, which would need its own join, write path, and purge
+        entries, add a "no row" state, and
+        save nothing (Postgres stores a null column almost for free, and
+        `problems` already carries several). Revisit a side table only if
+        rope-only fields grow past a handful, for example if the engagement
+        or equipment grades are ever added. Not a single JSON column, which
+        would lose the typed, validated field the API contract rules ask
+        for. Not a separate "route" entity either: five tables carry a
+        `problem_id` FK (`comments`, `sends`, `topo_annotations`, `reports`,
+        `notifications`), and a multi-pitch route is still one way up a
+        rock, which can share a wall with single-pitch lines.
+      - **One way to say "single pitch" (amends decision 23).** Decision 23
+        says "null or 1 means single pitch", which is two stored forms of
+        one fact, the drift decision 10 warns about. Instead: null means
+        single pitch, and the database allows only `pitch_count >= 2`
+        (`CHECK`). A route with a count is multi-pitch, and nothing ever
+        reconciles null with 1. The backend rejects 0 and 1 with a 400
+        rather than silently turning 1 into null, so a client finds out.
+      - **`commitment_grade` is enforced in the database too.** A `CHECK`
+        for the six values, following `boulders_type_check` (the existing
+        precedent for a fixed set of values), plus the usual Go validation
+        in `problems/validate.go` for a clean 400. Clearing it stores null,
+        never `''` (an empty string from the client is written as null,
+        e.g. `NULLIF`), since `''` would fail the `CHECK`. The cost is that
+        adding +/- modifiers later needs a migration, same as changing
+        `boulders.type` would.
+      - `problem_pitches` exactly as decision 23 shapes it (`id`,
+        `problem_id` FK, `pitch_number`, `grade`, `length_m`, `notes`), with
+        its two rules: `pitch_count` and the pitch rows are not required to
+        agree, and `length_m` never relates to `height_m`.
+      - The retreat record is its own table (see below), never a column on
+        `sends`.
+      - Migration number: `0023` is the next free one on every branch
+        (`git log --all -- migrations/`, checked 2026-09-19; `0022` is the
+        highest). Re-check before creating it, given the `0019` gap.
+    - **Commitment grade (decision 23's second follow-on): French overall,
+      optional.** F, PD, AD, D, TD, ED, the six plain letters with no +/-
+      modifiers. Offered only on multi-pitch routes. Optional because nobody
+      knows yet whether Indonesian topos use one, so it must never block a
+      save. The field explains itself. Draft copy (user-facing, so no
+      em-dashes): "Commitment grade: how serious the whole route is, not
+      just its hardest move. Length, how hard it is to retreat, and how
+      remote it is all count. Runs from F (easy) to ED (extremely hard).
+      Leave it blank if you're not sure." The backend validates against the
+      six values, with empty allowed (stored as null; see the data layout
+      above).
+    - **Retreats (decision 23's third follow-on): a separate, private
+      high-point record.** Its own table: user, problem, pitch reached,
+      timestamp, one row per climber per route. Not in `sends`, because a
+      `sends` row means "I climbed it" and six places read it as that: the
+      profile send count and recent activity, the list `send_count`, the
+      "X sent Y" notification, the developer export and analytics, and the
+      purge snapshot and counts. Each would count a retreat as a send unless
+      each learned to filter it out. `ToggleSend`'s one-tick contract stays
+      untouched. On a multi-pitch route the send control offers "Topped out"
+      or "Turned back at pitch N"; single-pitch routes and boulders stay one
+      tap. The record is private to the climber ("You reached pitch 4 of
+      10"), sends no notification, and is never counted as a send anywhere.
+      Topping out later clears it. Chosen with no user signal at all, on
+      decision 23's own words that it "lands the moment pitch-level detail
+      does".
+    - **Per-pitch topo lines (decision 23's first follow-on): the cheap
+      cure.** An optional `pitch?: number` on each shape in the existing
+      annotation `data` (`types/annotation.ts`), no migration, and the
+      every-line-on-this-rock view untouched. The topo editor needs a way to
+      say which pitch a line belongs to.
+    - **On a boulder: keep it, but hide it.** Pitch count, commitment grade,
+      pitch rows and high points display, and can be edited, only while the
+      problem's rock is a wall, per CLAUDE.md's rule that `boulders.type`
+      gates anything derived from a problem (the highball lesson). A route
+      with pitch data can end up on a boulder two ways: "Move to another
+      rock" onto a boulder, or its rock being switched from wall to boulder.
+      Either way nothing is deleted. The data stays hidden in the database,
+      and moving the route back or switching the rock back restores it.
+      Deleting would make one wrong click permanently lose typed-in pitch
+      detail.
+      - **With a user-facing alert at the moment of the action**, because
+        hidden data is otherwise a silent surprise:
+        - `ProblemDetailPage`'s `handleMoveToRock`: when the target rock is
+          a boulder and the route has pitch data, the confirm (which already
+          warns that topo lines are dropped) also says the pitch details
+          will be hidden while it sits on a boulder, not deleted, and come
+          back if it moves to a wall.
+        - *(Dropped 2026-09-19, see "Built" below.)* `BoulderDetailPage`'s
+          edit form: when the type is switched from
+          wall to boulder and any route on the rock has pitch data, warn
+          before saving, for example: "3 routes on this rock have pitch
+          details. They'll be hidden while it's a boulder, and come back if
+          you switch it back."
+        - Recommended, optional: a quiet note on the problem page, shown
+          only to people who can edit it, saying it has hidden pitch details
+          because its rock is a boulder, so they aren't forgotten.
+      - Open at build time: whether the backend refuses *new* pitch data on
+        a problem whose rock is a boulder. Recommended: yes, 400 on write
+        and never a delete, since the API is public and a UI gate alone is
+        not enforcement. The keep-on-omit problem `PUT` (item 19) already
+        means an edit that leaves the pitch fields out never touches them.
+    - **The purge must learn about both new tables (a gap the first draft of
+      this plan missed).** Decision 24's purge saves a snapshot of every row
+      it destroys and makes the admin echo back the exact counts. The two
+      new columns are covered automatically, since the snapshot copies whole
+      `problems` rows. `problem_pitches` and the high-point table are not.
+      Both must be added to the snapshot and to the counts in
+      `purge_repository.go`, which means `PurgeCounts`, the count echo, and
+      `PurgeSpotModal`'s preview change too. Without that, purging a crag
+      would still delete the pitch rows (both tables cascade from
+      `problems`) but leave them out of the saved copy, which is the only
+      copy there is. Deletion order needs no change, since purge already
+      deletes problems explicitly and the cascade follows.
+    - **The developer export does not pick up anything automatically, and
+      its problems export is already broken.** `devtools.Export` is a fixed
+      allowlist (`devtools/service.go`) with a typed struct and an explicit
+      `SELECT` per table, so new columns and new tables only appear there if
+      added by hand. Found while checking this, and separate from item 14:
+      `listProblemsForExport` still selects `location`, `lat` and `lng`,
+      which migration 0015 dropped from `problems`, so
+      `GET /api/dev/export/problems` fails with `column "location" does not
+      exist` today (the query was run by hand against the local database on
+      2026-09-19 and fails the same way). Fix that first, as its own change,
+      since it has nothing to do with multi-pitch: select the columns
+      `problems` actually has now. Then decide whether the two new columns
+      and two new tables belong in the export at all; it is an owner-only
+      data dump, so leaving them out is acceptable if said on purpose.
+    - **Build order**, live-checking each step against the local database
+      as item 19 was: migration and backend (including the purge changes
+      above), then the add sheet, edit form and problem page, then
+      per-pitch topo lines, then the high-point record, which extends the
+      purge snapshot and counts again when its table lands.
+
+    **Built 2026-09-19, in that order, each step live-checked against the
+    local database.** Migrations `0023_multi_pitch` and
+    `0025_problem_high_points`. The high-point table was first numbered `0024`
+    and was renumbered when an unrelated `0024_fk_indexes` appeared in the
+    working tree mid-build (see the `git log --all` warning in CLAUDE.md).
+    What shipped, and where it differs from or settles the design above:
+
+    - **The dev export fix came first, as its own change.**
+      `listProblemsForExport` now selects the columns `problems` has today,
+      and it returns 200 as JSON and CSV. It also carries `pitch_count` and
+      `commitment_grade`. `problem_pitches` and `problem_high_points` are left
+      out on purpose (the export is a fixed allowlist of five flat tables),
+      which the type's comment says.
+    - **Backend, as designed, plus these choices.** Create and update both
+      take pitches as an array and replace the whole set (omitted or null
+      keeps, `[]` clears), so the add sheet creates a route and its pitches
+      in one request. `CreateProblem` now takes the request struct instead of
+      twelve positional arguments. The open question is settled as
+      recommended: a write of pitch data is refused with a 400 when the rock
+      the route will be on is not a wall, checked against the rock after the
+      request is applied. A move-only request is still allowed, and a request
+      that moves a route onto a boulder and sends pitch data is refused.
+      Pitch rows also need a pitch count to hang off (400 otherwise), and
+      clearing the count leaves the grade and rows stored, hidden. Two
+      choices the design left open: each pitch row requires a grade, and the
+      sanity bounds are a count and pitch number of 1 to 100 (the count 2 to
+      100), a pitch length over 0 and at most 1000 m, and a note of at most
+      1000 characters.
+    - **The purge** snapshots and counts both new tables (`pitches`,
+      `high_points`), and `PurgeSpotModal` shows them. Checked by purging a
+      real test spot through the modal.
+    - **Add sheet, edit form, problem page.** One shared `PitchFields`
+      (with `lib/pitches.ts` for the form state and request building) is used
+      by both forms. The display gates on the loaded rock's type, not
+      `problem.boulder_type`, which goes stale after a move. The move confirm
+      carries the hidden-not-deleted warning, and editors see the quiet note
+      when a route's pitch data is hidden. One consequence to know: the add
+      sheet files an implicit new rock as a boulder, so pitch fields appear
+      only once a wall is resolved. A first multi-pitch route at a spot with
+      no wall yet means adding the wall first, through "a rock".
+    - **Per-pitch topo lines**: optional `pitch` on a shape, no backend or
+      migration change. The editor gets a "Line for" picker on a multi-pitch
+      route, and the single-problem views label lines "P2" and so on. The
+      every-line-on-this-rock view does not label them, since several routes'
+      own "P1" would clash there. Not built: changing the pitch of a line
+      already drawn (draw it again).
+    - **High points**: `problem_high_points`, one row per climber per route,
+      indexed on `user_id` for the account-delete cascade. `PUT` and `DELETE`
+      `/api/problems/:id/high-point`, returned on `send-status` as
+      `highPoint`. The pitch has to be from 1 to the route's pitch count, only
+      a multi-pitch route on a wall has one, and setting one on a route the
+      caller already sent is a 409. `ToggleSend` clears it when a send is
+      added (best-effort), so a route never holds both. Verified: another
+      account sees null, the send count is unaffected, and it shows in the
+      purge preview and snapshot. On the page a multi-pitch route reads
+      "Topped out" instead of "Log Send", with "Turned back? Log the pitch you
+      reached" beneath it.
+    - **Dropped, by decision: the boulder-page warning.** The design says
+      `BoulderDetailPage`'s edit form warns when a rock's type is switched
+      from wall to boulder while routes on it have pitch data. That form has
+      no wall/boulder switch: it sends `type: boulder.type` unchanged, and a
+      rock's type can only be chosen when it is created (the add sheet's "a
+      rock" intent). Rather than add a type editor for the sake of a warning
+      (which would also have to answer what happens to the grade scale of the
+      routes already on the rock), the warning is dropped and rock type stays
+      fixed in the UI. `PUT /api/boulders/:id` still accepts a type change, so
+      an API caller can hide pitch data without a warning. That is harmless:
+      nothing is deleted, and the data comes back when the rock is a wall
+      again. If a type switch is ever added to the boulder edit form, this
+      warning comes with it.
+    - **Checks run**: `tsc`, `eslint` and `npm run build` clean; the
+      no-horizontal-overflow spec passes at all four widths, logged out and as
+      admin; the add sheet, edit form, per-pitch lines, high-point control and
+      purge modal were each driven in a browser against the local API.
+
 15. ~~**Self-delete for a contributor's own photo, gated against other
     founders' annotations.**~~ **Resolved 2026-09-06, same day as raised.**
     Item 11 let any signed-in user add a photo, but removing one was still
@@ -2263,7 +2488,10 @@ were resolved before implementation and remain resolved; 10 was resolved and
 9 was resolved 2026-09-06 by the needs-attention queue, which also closed
 `handoff-add-sheet.md`'s C11. **14** was deferred 2026-09-06 against a
 checkable trigger (the first non-seed problem on a wall rock that mentions
-pitches; build at roughly ten). **11** was scoped 2026-09-06 into a policy
+pitches; build at roughly ten), then un-deferred 2026-09-19 with the trigger
+still unfired: it is fully designed (commitment grade, a private high-point
+record for retreats, per-pitch topo lines, and keep-but-hide with alerts on a
+boulder) and not built yet. **11** was scoped 2026-09-06 into a policy
 half and a build half, and both shipped the same day: the `photo_credits`
 sidecar exists (`migrations/0021`, `internal/photocredits`), wired into every
 add/remove/whole-entity-delete/purge path across crags, boulders and

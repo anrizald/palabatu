@@ -11,6 +11,7 @@ import ReportModal, { type ReportTarget } from '../components/ReportModal.js';
 import TopoImage from '../components/topo-annotations/TopoImage.js';
 import RockPicker from '../components/add-sheet/RockPicker.js';
 import { invalidateCragCache } from '../lib/cragCache.js';
+import { blankPitchForm, documentedGap, pitchFormError, pitchFormFromProblem, pitchFormToUpdate, showsPitchDetail } from '../lib/pitches.js';
 import type { AnnotationRecord, Shape } from '../types/annotation.js';
 import type { ProblemDetail, ProblemRow, UpdateProblemRequest, TopoUploadResponse } from '../types/problem.js';
 import type { BoulderListItem, BoulderType } from '../types/boulder.js';
@@ -81,12 +82,19 @@ export default function ProblemDetailPage() {
     const [editForm, setEditForm] = useState({
         name: '', grade: '', first_ascensionist: '', discovered_by: '',
         landing_hazards: '', descent: '', height_m: '', notes: '',
+        pitch: blankPitchForm,
     });
     const [isProcessing, setIsProcessing] = useState(false);
 
     const [sendCount, setSendCount] = useState(0);
     const [hasSent, setHasSent] = useState(false);
     const [isTogglingSend, setIsTogglingSend] = useState(false);
+    // A private "turned back at pitch N" record on a multi-pitch route (handoff.md
+    // open item 14). Never counted as a send.
+    const [highPoint, setHighPoint] = useState<number | null>(null);
+    const [pickingHighPoint, setPickingHighPoint] = useState(false);
+    const [highPointDraft, setHighPointDraft] = useState('1');
+    const [isSavingHighPoint, setIsSavingHighPoint] = useState(false);
 
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -110,6 +118,10 @@ export default function ProblemDetailPage() {
 
     const isCreator = !!user && !!problem && user.id === problem.created_by;
     const canEdit = isCreator || isAdmin;
+    // Pitch detail lives on a wall only. The rock's type comes from the
+    // boulder this page loads, not problem.boulder_type, which goes stale
+    // when the route is moved to another rock.
+    const onWall = boulder?.type === 'wall';
     // Adding a beta/action photo is widened to any signed-in user
     // (handoff.md open item 11, resolved 2026-09-06, authz.CanContribute).
     const canAddPhoto = !!user && !!problem;
@@ -142,6 +154,7 @@ export default function ProblemDetailPage() {
                 descent: data.descent || '',
                 height_m: data.height_m != null ? String(data.height_m) : '',
                 notes: data.notes || '',
+                pitch: pitchFormFromProblem(data),
             });
 
             const [boulderRes, cragRes] = await Promise.all([
@@ -168,7 +181,10 @@ export default function ProblemDetailPage() {
     useEffect(() => {
         if (!id || !user) return;
         api.get<SendStatusResponse | ErrorResponse>(`/api/problems/${id}/send-status`).then(data => {
-            if (!('error' in data)) setHasSent(data.hasSent);
+            if (!('error' in data)) {
+                setHasSent(data.hasSent);
+                setHighPoint(data.highPoint ?? null);
+            }
         });
     }, [id, user]);
 
@@ -190,6 +206,7 @@ export default function ProblemDetailPage() {
             const res = await api.post<ActionResponse | ErrorResponse>(`api/problems/${id}/send`, {});
             if ('action' in res && res.action === 'added') {
                 setHasSent(true);
+                setHighPoint(null); // topping out clears a turned-back record server-side
                 setSendCount(prev => prev + 1);
             } else if ('action' in res && res.action === 'removed') {
                 setHasSent(false);
@@ -203,8 +220,45 @@ export default function ProblemDetailPage() {
         }
     };
 
+    const handleSaveHighPoint = async () => {
+        if (!id) return;
+        const pitch = Number(highPointDraft);
+        setIsSavingHighPoint(true);
+        try {
+            const res = await api.put<Partial<ErrorResponse>>(`/api/problems/${id}/high-point`, { pitch });
+            if (res.error) {
+                showError(res.error);
+            } else {
+                setHighPoint(pitch);
+                setPickingHighPoint(false);
+            }
+        } catch (e) {
+            console.error('Failed to save high point', e);
+            showError('Could not save that. Check your connection.');
+        } finally {
+            setIsSavingHighPoint(false);
+        }
+    };
+
+    const handleClearHighPoint = async () => {
+        if (!id) return;
+        setIsSavingHighPoint(true);
+        try {
+            const res = await api.delete<Partial<ErrorResponse>>(`/api/problems/${id}/high-point`);
+            if (res.error) showError(res.error);
+            else setHighPoint(null);
+        } catch (e) {
+            console.error('Failed to clear high point', e);
+            showError('Could not clear that. Check your connection.');
+        } finally {
+            setIsSavingHighPoint(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!id) return;
+        const pitchError = onWall ? pitchFormError(editForm.pitch) : null;
+        if (pitchError) { showError(pitchError); return; }
         setIsProcessing(true);
         try {
             const body: UpdateProblemRequest = {
@@ -213,12 +267,20 @@ export default function ProblemDetailPage() {
                 landing_hazards: editForm.landing_hazards, descent: editForm.descent,
                 height_m: editForm.height_m.trim() ? Number(editForm.height_m) : null,
                 notes: editForm.notes,
+                // Off a wall this is empty, so stored pitch detail is left alone.
+                ...pitchFormToUpdate(editForm.pitch, onWall),
             };
             const data = await api.put<Partial<ErrorResponse>>(`/api/problems/${id}`, body);
             if (data.error) {
                 showError(`Error updating: ${data.error}`);
             } else {
-                setProblem(prev => prev ? { ...prev, ...body } : prev);
+                const { pitch_count, commitment_grade, pitches, ...fields } = body;
+                setProblem(prev => prev ? {
+                    ...prev, ...fields,
+                    ...(pitch_count !== undefined && { pitch_count }),
+                    ...(commitment_grade !== undefined && { commitment_grade: commitment_grade || null }),
+                    ...(pitches !== undefined && { pitches }),
+                } : prev);
                 setIsEditing(false);
                 showOk('Problem updated!');
             }
@@ -239,7 +301,12 @@ export default function ProblemDetailPage() {
     // "move to another spot" on BoulderDetailPage).
     const handleMoveToRock = async (target: BoulderListItem) => {
         if (!id || !problem) return;
-        if (!window.confirm(`Move "${problem.name}" to ${target.name ?? 'this rock'}? Any line drawn on the old rock's photo will be dropped -- it wouldn't mean anything on the new one.`)) return;
+        // A boulder hides pitch detail, so say so at the moment it would
+        // happen rather than let it be a silent surprise. Nothing is deleted.
+        const pitchNote = problem.pitch_count != null && target.type !== 'wall'
+            ? ' Its pitch details will be hidden while it sits on a boulder, not deleted, and come back if it moves to a wall.'
+            : '';
+        if (!window.confirm(`Move "${problem.name}" to ${target.name ?? 'this rock'}? Any line drawn on the old rock's photo will be dropped -- it wouldn't mean anything on the new one.${pitchNote}`)) return;
         setIsMoving(true);
         try {
             const body: UpdateProblemRequest = { boulder_id: target.id };
@@ -407,6 +474,8 @@ export default function ProblemDetailPage() {
     );
 
     const photos = boulder?.image_urls ?? [];
+    const showPitches = showsPitchDetail(boulder?.type, problem.pitch_count);
+    const pitchGap = documentedGap(problem.pitch_count, problem.pitches.length);
 
     return (
         <>
@@ -459,6 +528,7 @@ export default function ProblemDetailPage() {
                                             url={url}
                                             shapes={annotationsByUrl[url] ?? []}
                                             canEdit={canEdit}
+                                            {...(showPitches ? { pitchCount: problem.pitch_count } : {})}
                                             canReport={!!user}
                                             onReport={() => setReportTarget({ type: 'image', url })}
                                             onSaved={(shapes) => setAnnotationsByUrl(prev => ({ ...prev, [url]: shapes }))}
@@ -482,6 +552,19 @@ export default function ProblemDetailPage() {
                                         <span className="bg-accent/15 text-accent px-3.5 py-1.5 rounded-full text-[13px] font-bold">
                                             {problem.grade || 'Ungraded'}
                                         </span>
+                                        {showPitches && (
+                                            <span className="bg-surface border border-border text-text-secondary px-3 py-1.5 rounded-full text-[13px] font-medium">
+                                                {problem.pitch_count} pitches
+                                            </span>
+                                        )}
+                                        {showPitches && problem.commitment_grade && (
+                                            <span
+                                                title="Commitment grade: how serious the whole route is"
+                                                className="bg-surface border border-border text-text-secondary px-3 py-1.5 rounded-full text-[13px] font-medium"
+                                            >
+                                                {problem.commitment_grade}
+                                            </span>
+                                        )}
                                         {problem.crag_name && (
                                             <Link to={`/crags/${problem.crag_id}`} className="flex items-center gap-1 text-xs text-text-muted no-underline hover:text-accent">
                                                 <Compass size={12} className="shrink-0" /> {problem.crag_name}
@@ -528,6 +611,34 @@ export default function ProblemDetailPage() {
                                         </div>
                                     ))}
                                 </div>
+                            )}
+                            {showPitches && (
+                                <div className="flex flex-col gap-2 bg-ink/50 rounded-xl border border-border p-3.5">
+                                    <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                                        <span className="text-[11px] text-text-muted tracking-[0.1em] uppercase">Pitches</span>
+                                        {pitchGap && <span className="text-xs text-text-muted">{pitchGap}</span>}
+                                    </div>
+                                    {problem.pitches.length > 0 ? (
+                                        problem.pitches.map(pitch => (
+                                            <div key={pitch.pitch_number} className="flex items-baseline gap-2 text-xs min-w-0">
+                                                <span className="text-text-muted w-8 shrink-0">P{pitch.pitch_number}</span>
+                                                <span className="text-accent font-bold shrink-0">{pitch.grade}</span>
+                                                {pitch.length_m != null && <span className="text-text-muted shrink-0">{pitch.length_m} m</span>}
+                                                {pitch.notes && <span className="text-text-secondary min-w-0 break-words">{pitch.notes}</span>}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-text-muted">No pitch by pitch detail yet.</p>
+                                    )}
+                                </div>
+                            )}
+                            {/* Stored pitch detail on a rock that is not a wall is
+                                hidden, never deleted. Say so to the people who can
+                                do something about it, so it is not forgotten. */}
+                            {canEdit && boulder && !onWall && problem.pitch_count != null && (
+                                <p className="text-xs text-text-muted">
+                                    This route has pitch details that are hidden because its rock is a boulder. They come back if the route moves to a wall.
+                                </p>
                             )}
                             {problem.notes && (
                                 <p className="text-sm text-text-secondary leading-relaxed">{problem.notes}</p>
@@ -586,10 +697,70 @@ export default function ProblemDetailPage() {
                                         ${hasSent ? 'bg-associate/15 border border-associate text-associate' : 'bg-accent text-on-accent border border-transparent'}
                                         ${isTogglingSend || !user ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                    <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : 'Log Send'}
+                                    <Flame size={14} className="shrink-0" /> {hasSent ? 'Sent!' : showPitches ? 'Topped out' : 'Log Send'}
                                 </button>
                                 <span className="text-xs text-text-muted">{sendCount} {sendCount === 1 ? 'send' : 'sends'}</span>
                             </div>
+
+                            {/* On a multi-pitch route "how far did you get" is a real
+                                outcome, and it is not a send: it is kept apart from
+                                sends, private to the climber, and cleared by topping
+                                out. Single-pitch routes and boulders stay one tap. */}
+                            {showPitches && user && !hasSent && (
+                                pickingHighPoint ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <label htmlFor="high-point-pitch" className="text-xs text-text-muted">Turned back at pitch</label>
+                                        <select
+                                            id="high-point-pitch"
+                                            value={highPointDraft}
+                                            onChange={e => setHighPointDraft(e.target.value)}
+                                            className="bg-surface border border-border rounded-lg px-2.5 py-2 text-xs text-text-secondary min-h-9 max-w-full min-w-0"
+                                        >
+                                            {Array.from({ length: problem.pitch_count ?? 0 }, (_, i) => i + 1).map(n => (
+                                                <option key={n} value={n}>{n}</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={handleSaveHighPoint}
+                                            disabled={isSavingHighPoint}
+                                            className="px-3 py-2 min-h-9 bg-accent/10 border border-accent/25 text-accent rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                                        >
+                                            {isSavingHighPoint ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button
+                                            onClick={() => setPickingHighPoint(false)}
+                                            className="px-3 py-2 min-h-9 bg-transparent border border-border text-text-muted rounded-lg text-xs cursor-pointer"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                ) : highPoint != null ? (
+                                    <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs">
+                                        <span className="text-text-secondary">You reached pitch {highPoint} of {problem.pitch_count}.</span>
+                                        <span className="text-text-muted">Only you can see this.</span>
+                                        <button
+                                            onClick={() => { setHighPointDraft(String(highPoint)); setPickingHighPoint(true); }}
+                                            className="bg-transparent border-0 p-0 text-accent underline cursor-pointer text-xs"
+                                        >
+                                            Change
+                                        </button>
+                                        <button
+                                            onClick={handleClearHighPoint}
+                                            disabled={isSavingHighPoint}
+                                            className="bg-transparent border-0 p-0 text-text-muted underline cursor-pointer text-xs disabled:opacity-50"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => { setHighPointDraft('1'); setPickingHighPoint(true); }}
+                                        className="w-fit bg-transparent border-0 p-0 text-accent underline cursor-pointer text-xs"
+                                    >
+                                        Turned back? Log the pitch you reached
+                                    </button>
+                                )
+                            )}
 
                             {canEdit && !isEditing && (
                                 <div className="flex gap-3 pt-1 border-t border-border flex-wrap">
@@ -608,6 +779,7 @@ export default function ProblemDetailPage() {
                                     onSave={handleSave}
                                     onCancel={() => setIsEditing(false)}
                                     isProcessing={isProcessing}
+                                    onWall={onWall}
                                 />
                             )}
                         </div>

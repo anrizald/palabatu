@@ -13,7 +13,11 @@ export type Comment = {
 // Mirrors social.SendStatusResponse / social.ActionResponse (see
 // palabatu-be/internal/social/handler.go) — the "has this user sent this
 // problem" check and the shared toggle-send/toggle-reaction result body.
-export type SendStatusResponse = { hasSent: boolean }
+//
+// highPoint is the caller's own turned-back pitch on a multi-pitch route (a
+// route with none, or one they have topped out, is null). It is private to
+// them: this response is the only place it is ever returned.
+export type SendStatusResponse = { hasSent: boolean; highPoint: number | null }
 export type ActionResponse = { action: string }
 
 // Mirrors social.ReactionCounts / social.ReactionStatus (see

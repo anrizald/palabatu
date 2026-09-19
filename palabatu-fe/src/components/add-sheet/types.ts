@@ -3,6 +3,7 @@
 // problem}.ts. This file only holds in-progress form state shared between
 // AddSheet and its picker/field sub-components.
 import type { BoulderType } from '../../types/boulder.js'
+import { blankPitchForm, type PitchFormState } from '../../lib/pitches.js'
 
 export type AddIntent = 'problem' | 'spot' | 'rock'
 
@@ -98,10 +99,15 @@ export type NewProblemDraft = {
      * whenever a new file is staged, reused instead of re-uploading at
      * submit. */
     photoUrl: string | null
+    /** Multi-pitch detail (handoff.md open item 14). Only shown, and only
+     * sent, when the resolved rock is a wall; a draft saved before this
+     * existed hydrates with the blank default (see drafts.ts). */
+    pitch: PitchFormState
 }
 
 export const blankProblem: NewProblemDraft = {
     name: '', grade: '', first_ascensionist: '', discovered_by: '',
     landing_hazards: '', descent: '', height_m: '', notes: '',
     photoFile: null, photoPreview: null, photoChoice: 'existing', photoUrl: null,
+    pitch: blankPitchForm,
 }

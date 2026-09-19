@@ -34,6 +34,10 @@ SELECT json_build_object(
 	'crag',             (SELECT row_to_json(c) FROM crags c WHERE c.id = $1),
 	'boulders',         COALESCE((SELECT json_agg(row_to_json(b)) FROM boulders b WHERE b.crag_id = $1), '[]'::json),
 	'problems',         COALESCE((SELECT json_agg(row_to_json(p)) FROM problems p WHERE p.crag_id = $1), '[]'::json),
+	'problem_pitches',  COALESCE((SELECT json_agg(row_to_json(pp)) FROM problem_pitches pp
+	                              WHERE pp.problem_id IN (SELECT id FROM problems WHERE crag_id = $1)), '[]'::json),
+	'problem_high_points', COALESCE((SELECT json_agg(row_to_json(hp)) FROM problem_high_points hp
+	                              WHERE hp.problem_id IN (SELECT id FROM problems WHERE crag_id = $1)), '[]'::json),
 	'approaches',       COALESCE((SELECT json_agg(row_to_json(a)) FROM approaches a WHERE a.crag_id = $1), '[]'::json),
 	'approach_steps',   COALESCE((SELECT json_agg(row_to_json(s)) FROM approach_steps s
 	                              WHERE s.approach_id IN (SELECT id FROM approaches WHERE crag_id = $1)), '[]'::json),
@@ -67,6 +71,8 @@ func getPurgeCounts(ctx context.Context, cragID string) (*PurgeCounts, error) {
 		SELECT
 			(SELECT COUNT(*) FROM boulders WHERE crag_id = $1),
 			(SELECT COUNT(*) FROM problems WHERE crag_id = $1),
+			(SELECT COUNT(*) FROM problem_pitches WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
+			(SELECT COUNT(*) FROM problem_high_points WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
 			(SELECT COUNT(*) FROM sends WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
 			(SELECT COUNT(*) FROM comments WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
 			(SELECT COUNT(*) FROM topo_annotations WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
@@ -74,7 +80,7 @@ func getPurgeCounts(ctx context.Context, cragID string) (*PurgeCounts, error) {
 			(SELECT COUNT(*) FROM reports WHERE problem_id IN (SELECT id FROM problems WHERE crag_id = $1)),
 			(SELECT COUNT(*) FROM (`+purgePhotoSQL+`) ph)`,
 		cragID,
-	).Scan(&c.Boulders, &c.Problems, &c.Sends, &c.Comments, &c.Lines, &c.Approaches, &c.Reports, &c.Photos)
+	).Scan(&c.Boulders, &c.Problems, &c.Pitches, &c.HighPoints, &c.Sends, &c.Comments, &c.Lines, &c.Approaches, &c.Reports, &c.Photos)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +154,7 @@ func getPurgeVictims(ctx context.Context, cragID string) ([]purgeVictim, error) 
 // problems.crag_id and problems.boulder_id are both NO ACTION, so a bare
 // DELETE FROM crags fails on problems_crag_id_fkey while the crag still has
 // any. Deleting the problems takes comments/sends/reports/topo_annotations
-// with them (all CASCADE); deleting the crag then takes boulders (and their
+// with them (all CASCADE, problem_pitches included); deleting the crag then takes boulders (and their
 // merge requests and objections) and approaches (and their steps).
 func purgeCragRows(ctx context.Context, cragID string) error {
 	tx, err := db.Pool.Begin(ctx)
