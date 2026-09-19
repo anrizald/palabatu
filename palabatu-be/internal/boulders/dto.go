@@ -30,15 +30,20 @@ type CreateBoulderRequest struct {
 // decision 13) -- empty string means "leave as is", mirroring every other
 // plain-string field's already-established convention in this codebase.
 //
+// Every other field is optional, and one the body leaves out keeps the rock's
+// current value. Name and RockType are pointers so that an omitted key (nil,
+// keep) stays distinct from an empty string (write an empty name, which is how
+// a rock is un-named). Type has no empty state, so "" also means keep, unlike
+// creation, where it defaults to a boulder.
+//
 // Lat and Lng are the rock's pin, and move as a pair: a body with neither key
 // leaves the pin alone, while a body with either one replaces both with what
-// was sent, where null clears. Name, Type and RockType have no such
-// protection: they are written as sent.
+// was sent, where null clears.
 type UpdateBoulderRequest struct {
 	CragID   string   `json:"crag_id"`
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	RockType string   `json:"rock_type"`
+	Name     *string  `json:"name"`
+	Type     *string  `json:"type"`
+	RockType *string  `json:"rock_type"`
 	Lat      *float64 `json:"lat"`
 	Lng      *float64 `json:"lng"`
 

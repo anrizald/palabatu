@@ -91,16 +91,28 @@ func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, ro
 // the missing inverse of "not sure which rock", now real. Re-parenting
 // cascades the denormalized crag_id onto every problem already on this
 // boulder (reparentBoulder, repository.go).
-func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulderType, rockType string, lat, lng *float64, hasCoords bool) (*Boulder, error) {
-	if err := validateName(name); err != nil {
+//
+// A field the request leaves out keeps the rock's current value, so a client
+// that only knows some of them cannot wipe the rest. updateBoulderRow writes
+// every column, which is why the keeping is done here, once, by reading the
+// current row back in.
+func UpdateBoulder(ctx context.Context, userID, boulderID string, req UpdateBoulderRequest) (*Boulder, error) {
+	if req.Name != nil {
+		if err := validateName(*req.Name); err != nil {
+			return nil, err
+		}
+	}
+	if err := validateLatLng(req.Lat, req.Lng); err != nil {
 		return nil, err
 	}
-	if err := validateLatLng(lat, lng); err != nil {
-		return nil, err
-	}
-	normalizedType, err := normalizeBoulderType(boulderType)
-	if err != nil {
-		return nil, err
+	// An empty type means "leave as is" here, unlike creation, where it
+	// defaults to a boulder: a blank field must not demote a wall.
+	newType := ""
+	if req.Type != nil && *req.Type != "" {
+		var err error
+		if newType, err = normalizeBoulderType(*req.Type); err != nil {
+			return nil, err
+		}
 	}
 
 	current, err := getBoulder(ctx, boulderID)
@@ -115,8 +127,8 @@ func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulder
 		return nil, err
 	}
 
-	if cragID != "" && cragID != current.CragID {
-		if err := reparentBoulder(ctx, boulderID, cragID); err != nil {
+	if req.CragID != "" && req.CragID != current.CragID {
+		if err := reparentBoulder(ctx, boulderID, req.CragID); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.ConstraintName == "boulders_crag_id_fkey" {
 				return nil, ErrCragNotFound
@@ -125,13 +137,22 @@ func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulder
 		}
 	}
 
-	// updateBoulderRow writes the pin unconditionally, so "the request said
-	// nothing about it" has to be turned into "write back what is there".
-	if !hasCoords {
-		lat, lng = current.Lat, current.Lng
+	name, rockType, boulderType := current.Name, current.RockType, current.Type
+	lat, lng := current.Lat, current.Lng
+	if req.Name != nil {
+		name = req.Name
+	}
+	if req.RockType != nil {
+		rockType = req.RockType
+	}
+	if newType != "" {
+		boulderType = newType
+	}
+	if req.HasCoords {
+		lat, lng = req.Lat, req.Lng
 	}
 
-	return updateBoulderRow(ctx, boulderID, name, normalizedType, rockType, lat, lng)
+	return updateBoulderRow(ctx, boulderID, name, boulderType, rockType, lat, lng)
 }
 
 // AddBoulderImages authorizes and appends already-uploaded image URLs (from

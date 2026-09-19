@@ -144,7 +144,10 @@ func getBoulderOwnerAndImages(ctx context.Context, id string) (createdBy *string
 	return createdBy, imageURLs, nil
 }
 
-func updateBoulderRow(ctx context.Context, id, name, boulderType, rockType string, lat, lng *float64) (*Boulder, error) {
+// updateBoulderRow writes every column it is given, nil meaning NULL. Callers
+// that mean "leave as is" pass the current values back (see UpdateBoulder),
+// which is also what keeps a NULL name a NULL rather than an empty string.
+func updateBoulderRow(ctx context.Context, id string, name *string, boulderType string, rockType *string, lat, lng *float64) (*Boulder, error) {
 	var b Boulder
 	err := db.Pool.QueryRow(ctx,
 		`UPDATE boulders SET name = $1, type = $2, rock_type = $3, lat = $4, lng = $5 WHERE id = $6

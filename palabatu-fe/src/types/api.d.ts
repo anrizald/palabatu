@@ -590,7 +590,7 @@ export interface paths {
         };
         /**
          * Update a boulder
-         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin).
+         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. Any field left out keeps its current value. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin). An empty type also leaves the type alone.
          */
         put: {
             parameters: {
