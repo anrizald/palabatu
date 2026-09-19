@@ -19,8 +19,10 @@ Everything on the original deployability punch list (validation, rate limiting, 
 
 ## Phase 1.5 — Crags/boulders/problems restructure (done 2026-08-08)
 
-Full design in `handoff.md` at the repo root — read that file for the
-complete decision record, not this summary. Restructured `problems` (was
+The full design record was `handoff.md`, removed once everything in it was
+built; it is the complete decision record, not this summary, and CLAUDE.md's
+handoffs bullet gives the one command that reads it back out of git.
+Restructured `problems` (was
 flat: name/grade/free-text location/lat-lng/image_urls) into a
 `crags -> boulders -> problems` hierarchy: a crag is the place you park and
 walk in from, a boulder is one rock, a problem is one way up that rock. This
