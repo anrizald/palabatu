@@ -356,14 +356,35 @@ func getRecentlyAddedProblems(ctx context.Context, userID string) ([]RecentProbl
 	return problems, rows.Err()
 }
 
-func upsertProfileRow(ctx context.Context, id, username string, title, tags json.RawMessage, avatarURL, bio, location string) (*Profile, error) {
+// upsertProfileRow writes only what req carries: on an existing row COALESCE
+// keeps a column whose value is nil, in one statement, so there is no
+// read-then-write window and an untouched NULL stays NULL. An explicit JSON
+// null for title or tags is the text "null", which casts to a real jsonb
+// null rather than SQL NULL, so it still clears.
+func upsertProfileRow(ctx context.Context, id string, req UpsertProfileRequest) (*Profile, error) {
+	var title, tags *string
+	if req.Title != nil {
+		s := string(req.Title)
+		title = &s
+	}
+	if req.Tags != nil {
+		s := string(req.Tags)
+		tags = &s
+	}
+
 	var p Profile
 	err := db.Pool.QueryRow(ctx,
 		`INSERT INTO profiles (id, username, title, tags, avatar_url, bio, location)
 		 VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7)
-		 ON CONFLICT (id) DO UPDATE SET username = $2, title = $3::jsonb, tags = $4::jsonb, avatar_url = $5, bio = $6, location = $7
+		 ON CONFLICT (id) DO UPDATE SET
+			username = COALESCE($2, profiles.username),
+			title = COALESCE($3::jsonb, profiles.title),
+			tags = COALESCE($4::jsonb, profiles.tags),
+			avatar_url = COALESCE($5, profiles.avatar_url),
+			bio = COALESCE($6, profiles.bio),
+			location = COALESCE($7, profiles.location)
 		 RETURNING id, username, title, tags, avatar_url, bio, location`,
-		id, username, string(title), string(tags), avatarURL, bio, location,
+		id, req.Username, title, tags, req.AvatarURL, req.Bio, req.Location,
 	).Scan(&p.ID, &p.Username, &p.Title, &p.Tags, &p.AvatarURL, &p.Bio, &p.Location)
 	if err != nil {
 		return nil, err

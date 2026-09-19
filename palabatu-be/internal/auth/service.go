@@ -286,10 +286,16 @@ func GetRecentActivity(ctx context.Context, idOrSlug string) (RecentActivity, er
 // changing title (the Council/Associate admin flag authz.IsAdmin checks) is
 // only permitted if the caller already holds an admin title; otherwise a
 // non-admin could grant themselves admin by just PUTing their own profile.
-// If avatarURL replaces a previously stored one, the old Cloudinary asset is
-// best-effort destroyed afterward, mirroring problems.DeleteProblem's
-// cleanup of its image_urls.
-func UpsertProfile(ctx context.Context, callerID, idOrSlug, username string, title, tags json.RawMessage, avatarURL, bio, location string) (*Profile, error) {
+// If req.AvatarURL replaces a previously stored one, the old Cloudinary asset
+// is best-effort destroyed afterward.
+//
+// A field the request leaves out keeps the profile's current value, so a
+// client that only knows some of them cannot wipe the rest. That matters more
+// here than on the problem/boulder PUTs: an omitted title would have been
+// written as null, which for an admin is losing the role, and an omitted
+// avatar_url counted as a replacement and destroyed the stored photo. An
+// omitted title is also never gated, since nothing about it changes.
+func UpsertProfile(ctx context.Context, callerID, idOrSlug string, req UpsertProfileRequest) (*Profile, error) {
 	id, err := ResolveUserID(ctx, idOrSlug)
 	if err != nil {
 		return nil, ErrForbidden
@@ -297,26 +303,28 @@ func UpsertProfile(ctx context.Context, callerID, idOrSlug, username string, tit
 	if callerID != id {
 		return nil, ErrForbidden
 	}
-	if len(bio) > maxBioLength {
+	if req.Bio != nil && len(*req.Bio) > maxBioLength {
 		return nil, ErrBioTooLong
 	}
-	if len(location) > maxLocationLength {
+	if req.Location != nil && len(*req.Location) > maxLocationLength {
 		return nil, ErrLocationTooLong
 	}
 
-	currentTitles, err := GetUserTitles(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if !authz.IsAdmin(currentTitles) {
-		var requested []string
-		if len(title) > 0 && string(title) != "null" {
-			if err := json.Unmarshal(title, &requested); err != nil {
+	if req.Title != nil {
+		currentTitles, err := GetUserTitles(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !authz.IsAdmin(currentTitles) {
+			var requested []string
+			if len(req.Title) > 0 && string(req.Title) != "null" {
+				if err := json.Unmarshal(req.Title, &requested); err != nil {
+					return nil, ErrForbidden
+				}
+			}
+			if !sameTitles(requested, currentTitles) {
 				return nil, ErrForbidden
 			}
-		}
-		if !sameTitles(requested, currentTitles) {
-			return nil, ErrForbidden
 		}
 	}
 
@@ -325,18 +333,12 @@ func UpsertProfile(ctx context.Context, callerID, idOrSlug, username string, tit
 		return nil, err
 	}
 
-	if title == nil {
-		title = json.RawMessage("null")
-	}
-	if tags == nil {
-		tags = json.RawMessage("null")
-	}
-	profile, err := upsertProfileRow(ctx, id, username, title, tags, avatarURL, bio, location)
+	profile, err := upsertProfileRow(ctx, id, req)
 	if err != nil {
 		return nil, err
 	}
 
-	if current != nil && current.AvatarURL != nil && *current.AvatarURL != "" && *current.AvatarURL != avatarURL {
+	if req.AvatarURL != nil && current != nil && current.AvatarURL != nil && *current.AvatarURL != "" && *current.AvatarURL != *req.AvatarURL {
 		if err := cloudinary.DestroyByURL(ctx, *current.AvatarURL); err != nil {
 			log.Printf("failed to delete old avatar from Cloudinary: %v", err)
 		}

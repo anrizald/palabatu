@@ -141,12 +141,21 @@ func getCragOwnerAndImages(ctx context.Context, id string) (createdBy *string, i
 	return createdBy, imageURLs, nil
 }
 
-func updateCragRow(ctx context.Context, id, name string, lat, lng float64, directions, accessNotes string) (*Crag, error) {
+// updateCragRow writes only what req carries: COALESCE keeps a column whose
+// value is nil, in one statement, so an untouched NULL stays NULL and a
+// concurrent edit is never put back to what it was.
+func updateCragRow(ctx context.Context, id string, req UpdateCragRequest) (*Crag, error) {
 	var c Crag
 	err := db.Pool.QueryRow(ctx,
-		`UPDATE crags SET name = $1, lat = $2, lng = $3, directions = $4, access_notes = $5 WHERE id = $6
+		`UPDATE crags SET
+			name = COALESCE($1, name),
+			lat = COALESCE($2, lat),
+			lng = COALESCE($3, lng),
+			directions = COALESCE($4, directions),
+			access_notes = COALESCE($5, access_notes)
+		 WHERE id = $6
 		 RETURNING id, name, lat, lng, directions, access_notes, image_urls, created_by, created_at`,
-		name, lat, lng, directions, accessNotes, id,
+		req.Name, req.Lat, req.Lng, req.Directions, req.AccessNotes, id,
 	).Scan(&c.ID, &c.Name, &c.Lat, &c.Lng, &c.Directions, &c.AccessNotes, &c.ImageURLs, &c.CreatedBy, &c.CreatedAt)
 	if err != nil {
 		return nil, err

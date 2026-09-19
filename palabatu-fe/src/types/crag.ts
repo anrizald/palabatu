@@ -37,11 +37,10 @@ export type CragListItem = Crag & {
     image_credits?: PhotoCredit[]
 }
 
-// Mirrors crags.UpdateCragRequest (see palabatu-be/internal/crags/dto.go) --
-// plain (non-pointer) strings/numbers throughout since the whole form is
-// always submitted at once, never partially. No image_urls -- images mutate
-// only via the dedicated add/delete endpoints below, same split as
-// boulders.
+// The body shape crag creation shares (see CreateCragRequest below): plain
+// strings/numbers, since creating a spot always supplies all of them. No
+// image_urls here -- images mutate only via the dedicated add/delete
+// endpoints below, same split as boulders.
 export type CragRequest = {
     name: string
     lat: number
@@ -49,6 +48,12 @@ export type CragRequest = {
     directions: string
     access_notes: string
 }
+
+// Mirrors crags.UpdateCragRequest (see palabatu-be/internal/crags/dto.go).
+// Every field is optional and a key left out keeps the crag's current value;
+// "" clears directions or access_notes, and lat/lng are each kept or replaced
+// on their own (a crag's coordinates are required, so there is no clearing).
+export type UpdateCragRequest = Partial<CragRequest>
 
 // Mirrors crags.CreateCragRequest -- CragRequest plus the approach shot,
 // uploadable at spot-creation time since the person is often standing right

@@ -6,7 +6,7 @@ import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
 import { useAddSheet } from '../lib/useAddSheet.js'
 import { invalidateCragCache } from '../lib/cragCache.js'
-import type { CragListItem, CragRequest } from '../types/crag.js'
+import type { CragListItem, UpdateCragRequest } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
 import type { TopoUploadResponse } from '../types/problem.js'
 import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
@@ -90,9 +90,8 @@ export default function CragDetailPage() {
     const handleSave = async () => {
         if (!crag || !editName.trim()) { showError('Please give the spot a name'); return }
         setIsSaving(true)
-        const body: CragRequest = {
-            name: editName, lat: crag.lat, lng: crag.lng,
-            directions: editDirections, access_notes: editAccessNotes,
+        const body: UpdateCragRequest = {
+            name: editName, directions: editDirections, access_notes: editAccessNotes,
         }
         const res = await api.put<CragListItem | ErrorResponse>(`/api/crags/${crag.id}`, body)
         setIsSaving(false)

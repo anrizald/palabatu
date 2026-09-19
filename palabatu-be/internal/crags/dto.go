@@ -16,12 +16,20 @@ type CreateCragRequest struct {
 // UpdateCragRequest is handleUpdateCrag's request body. No image_urls --
 // images mutate only via the dedicated add/delete endpoints below, same
 // split as boulders.UpdateBoulderRequest.
+//
+// Every field is optional, and one the body leaves out keeps the crag's
+// current value. Pointers keep an omitted key (nil, keep) distinct from an
+// empty string (write an empty value, which is how directions or access notes
+// are cleared) and from a zero coordinate, which would otherwise arrive for a
+// missing lat/lng and be rejected as outside Indonesia. A crag's coordinates
+// are required, so unlike a rock's pin there is nothing to clear and each of
+// lat and lng is kept or replaced on its own.
 type UpdateCragRequest struct {
-	Name        string  `json:"name"`
-	Lat         float64 `json:"lat"`
-	Lng         float64 `json:"lng"`
-	Directions  string  `json:"directions"`
-	AccessNotes string  `json:"access_notes"`
+	Name        *string  `json:"name"`
+	Lat         *float64 `json:"lat"`
+	Lng         *float64 `json:"lng"`
+	Directions  *string  `json:"directions"`
+	AccessNotes *string  `json:"access_notes"`
 }
 
 // AddCragImagesRequest is handleAddCragImages's request body: URLs already

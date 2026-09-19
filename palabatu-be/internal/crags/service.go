@@ -52,12 +52,21 @@ func CreateCrag(ctx context.Context, createdBy, name string, lat, lng float64, d
 	return createCrag(ctx, name, lat, lng, directions, accessNotes, imageURLs, createdBy)
 }
 
-func UpdateCrag(ctx context.Context, userID, cragID, name string, lat, lng float64, directions, accessNotes string) (*Crag, error) {
-	if err := validateName(name); err != nil {
-		return nil, err
+// UpdateCrag keeps any field the request leaves out (updateCragRow does it in
+// the UPDATE itself, so there is no read-then-write window), which is why the
+// coordinate check below looks at each supplied value alone rather than at a
+// pair.
+func UpdateCrag(ctx context.Context, userID, cragID string, req UpdateCragRequest) (*Crag, error) {
+	if req.Name != nil {
+		if err := validateName(*req.Name); err != nil {
+			return nil, err
+		}
 	}
-	if err := validateLatLng(lat, lng); err != nil {
-		return nil, err
+	if req.Lat != nil && (*req.Lat < minLat || *req.Lat > maxLat) {
+		return nil, ErrInvalidLocation
+	}
+	if req.Lng != nil && (*req.Lng < minLng || *req.Lng > maxLng) {
+		return nil, ErrInvalidLocation
 	}
 
 	createdBy, err := getCragCreator(ctx, cragID)
@@ -72,7 +81,7 @@ func UpdateCrag(ctx context.Context, userID, cragID, name string, lat, lng float
 		return nil, err
 	}
 
-	return updateCragRow(ctx, cragID, name, lat, lng, directions, accessNotes)
+	return updateCragRow(ctx, cragID, req)
 }
 
 // AddCragImages authorizes and appends already-uploaded image URLs (from

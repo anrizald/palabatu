@@ -2,10 +2,11 @@
 
 **Where this stands, 2026-09-19.** Everything in this document is built,
 with two exceptions: **open item 14** (multi-pitch detail) is deferred until
-its trigger fires, and **open item 19** has two optional halves left (a crag
-`PUT` with the same keep-on-omit treatment, and a whole-API convention that is
-not recommended). The rock's move button and the problem's were both fixed
-2026-09-19, with nothing blocked on what remains.
+its trigger fires, and **open item 19**'s one remaining half, a single
+partial-update convention for the whole API, which is deliberately not being
+built. Both move buttons and the boulder, problem, crag and profile `PUT`s
+all keep whatever a body leaves out as of 2026-09-19, with nothing blocked on
+what remains.
 Item 18 was resolved 2026-09-19 as an admin-only override. The status
 paragraph below is
 the 2026-08-08 (d) snapshot. The add wizard it describes was replaced by the
@@ -2071,8 +2072,9 @@ up from here.
     (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
     already correct, it is just not being asked on this branch.
 19. **The "move" buttons rebuilt and re-sent the whole record to change one
-    field. (Both were fixed 2026-09-19; the crag `PUT` and a whole-API
-    convention, below, are what is left.)**
+    field. (Both were fixed 2026-09-19, and so were the crag and profile
+    `PUT`s the audit turned up; only a whole-API convention, below, is left,
+    and it is not recommended.)**
     *(2026-09-19, found while making the boulder `PUT` keep whatever a body
     leaves out. Nothing here is broken in a way a user can see today, and
     nothing is blocked on it: this is tidy-up, filed so it is not
@@ -2176,31 +2178,82 @@ up from here.
     limiter (10 req/s, burst 20) answers a fast probe with 429, which reads
     like a failure and is not.
 
-    *Medium, optional and low value: the same for `PUT /api/crags/:id`.*
-    Nothing is at risk today. `CragDetailPage.handleSave` is a genuine
-    whole-form edit, and crags have no move-style caller because a crag is
-    never re-parented. The hazard is for a future client that sends a partial
-    body: `name`, `directions` and `access_notes` omitted would be written
-    as empty, whereas an omitted `lat`/`lng` arrives as 0 (they are plain
-    `float64`), falls outside the longitude range 94.5 to 141.5 that
-    `validateLatLng` allows, and is rejected with a 400. That is a loud
-    failure rather than a silent one, so only the text half is a real gap.
-    Worth doing when a second client (the Phase 4 app in ROADMAP.md) is
-    actually being built, not before.
+    *The audit this item asked for, and what it found, done 2026-09-19:
+    `PUT /api/profiles/:id` was the worst of the four, and is fixed.* It
+    wrote every column as sent, and an omitted field arrived as its zero
+    value. For a body without `title`, an admin skipped the title gate (it
+    only guards non-admins) and `title` was written as `null`, so the
+    Council and Associate badges, which is the whole of `authz.IsAdmin`,
+    were gone. A body without `avatar_url` arrived as `""`, which differs
+    from the stored one, so `UpsertProfile` also destroyed the stored
+    Cloudinary avatar, which cannot be undone. Username, tags, bio and
+    location were blanked as well. Nothing broke in the shipped frontend,
+    because `profile.tsx` always sent the whole form; the hazard was for any
+    other client, the Phase 4 app first. What changed: `UpsertProfileRequest`
+    has `*string` for username, avatar, bio and location; `title` and `tags`
+    stay `json.RawMessage`, where an omitted key is a nil slice and an
+    explicit `null` is the bytes `"null"`, so the two are already
+    distinguishable and neither needs a `Has` flag; `upsertProfileRow` is one
+    `INSERT ... ON CONFLICT DO UPDATE` with `COALESCE` per column; the title
+    gate now runs only when a `title` was sent, since an omitted one changes
+    nothing; and the avatar is destroyed only when a new `avatar_url` was
+    sent and differs. `profile.tsx`'s avatar upload now sends just
+    `{ avatar_url }`. It used to send `...profile`, which also saved any
+    unsaved edit sitting in the form as a side effect, and now does not (the
+    Save button still lights up for it, since the dirty check ignores the
+    avatar).
+
+    *Medium, done 2026-09-19 (it was filed as optional and low value, and the
+    audit changed that): `PUT /api/crags/:id` keeps whatever a body leaves
+    out.* The earlier note here said an omitted `lat`/`lng` arrives as 0, falls
+    outside the longitude range and is rejected, "a loud failure rather than a
+    silent one, so only the text half is a real gap". That was wrong for a
+    body with one coordinate. Checked live against the old code, `{ lng: 107.5 }`
+    alone returned 200 and wrote `lat: 0` (inside Indonesia's bounding box
+    when paired with a valid longitude, since the equator crosses the country)
+    together with an empty name, directions and access notes. Now every field
+    on `UpdateCragRequest` is a pointer and `updateCragRow` is one `UPDATE`
+    with `COALESCE`. A crag's coordinates are required, so unlike a rock's pin
+    there is nothing to clear and no pair rule: `lat` and `lng` are each kept
+    or replaced on their own, and `UpdateCrag` range-checks only what was
+    sent. `CragDetailPage.handleSave` stopped writing `crag.lat`/`crag.lng`
+    back from its loaded copy (the edit form does not change them), and the
+    frontend has a separate optional-field `UpdateCragRequest`, since
+    `CragRequest` is shared with creation.
+
+    *Verified live 2026-09-19* the same way as the problem `PUT`: the code at
+    `HEAD` against the change, each as its own binary, rows snapshotted and
+    restored (the `profiles` row and the whole `crags` table compared before
+    and after). Profiles, against the old code: `{ bio }` alone returned 200
+    and left username `""`, title `null`, tags `null` and avatar `""`; an
+    empty body did the same; a non-admin's escalation to `["Council"]` was
+    still refused. Against the new code: `{ bio }` changed only the bio, `{}`
+    changed nothing (the title survived), `{ avatar_url }` changed only the
+    avatar, `{ bio: "" }` cleared the bio, `{ tags: null }` cleared the tags,
+    `{ title: null }` cleared the title for an admin on purpose, a 301-character
+    bio was still 400, and for an account demoted to non-admin an omitted title
+    was kept, `["Council"]` was refused with 403 and an unchanged `[]` was
+    allowed. Crags, against the new code: `{ name }` on a crag with NULL
+    directions left them NULL, `{ directions }`, `{ lat }` and `{ lng }` each
+    changed only themselves, `{}` changed nothing, `{ access_notes: "" }`
+    cleared it, `{ lat: 40 }` and `{ lng: 200 }` were 400. The avatar cases
+    used a made-up Cloudinary URL swapped in by SQL, so no real asset could be
+    reached. Driven through the API, not the browser.
 
     *Hard, and not recommended as its own project: one partial-update
     convention across the whole API.* Either PATCH verbs or "every field
-    optional" on every `PUT`, applied to boulders, problems, crags and
-    profiles, with the contract and every hand-written mirror type moving
-    together. The per-endpoint route above gets the same protection where a
-    partial body actually occurs, at a fraction of the change to the
-    generated contract. Revisit only if the mobile client makes the
-    current behavior a recurring problem. **What was and was not audited:**
-    there are seven `PUT` routes. Boulders and problems (both fixed
-    2026-09-19) and crags (above) were read. `PUT /api/problems/:id/annotations` and
-    `PUT /api/drafts/:id` replace a whole payload by design and are not the
-    same hazard. `PUT /api/profiles/:id` and `PUT /auth/password` were **not**
-    looked at.
+    optional" on every `PUT`, with the contract and every hand-written mirror
+    type moving together. The per-endpoint route above got the same
+    protection where a partial body actually occurs, at a fraction of the
+    change to the generated contract, and it is now done everywhere it
+    applies. Revisit only if the mobile client makes the current behavior a
+    recurring problem. **What was audited:** all seven `PUT` routes.
+    Boulders, problems, crags and profiles are fixed (2026-09-19).
+    `PUT /api/problems/:id/annotations` and `PUT /api/drafts/:id` replace a
+    whole payload by design and are not the same hazard. `PUT /auth/password`
+    takes `current_password` and `new_password`, both required by nature: a
+    missing current password fails the bcrypt check and a missing new one
+    fails the length check, so there is nothing to keep.
 
 **Status of the open items** (updated 2026-09-19). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
@@ -2239,9 +2292,12 @@ Fixing the boulder `PUT` to keep whatever a body leaves out (2026-09-19)
 filed **19** in turn: the two "move" buttons rebuilt a whole record to change
 one field. The rock's was fixed and checked live the same day, and so was the
 problem's (a `COALESCE` in the `UPDATE` itself, which also closes the
-lost-update window that `UpdateBoulder`'s read-then-write only narrows). What
-remains is a low-value optional half (the crag `PUT`) and a hard one that is
-not recommended (one convention for the whole API). It blocks nothing.
+lost-update window that `UpdateBoulder`'s read-then-write only narrows). The
+audit item 19 called for then found the same hazard in the profile and crag
+`PUT`s, worst in the profile one (an admin's body without `title` wiped the
+role, and one without `avatar_url` destroyed the stored avatar), and both are
+fixed and checked live the same day. What remains is the one half that is not
+recommended (a single convention for the whole API). It blocks nothing.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

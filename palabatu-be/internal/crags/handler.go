@@ -98,7 +98,7 @@ func handleCreateCrag(c *gin.Context) {
 
 // handleUpdateCrag godoc
 // @Summary      Update a crag
-// @Description  Allowed for admins (Council/Associate title) on any crag, or the crag's own creator.
+// @Description  Allowed for admins (Council/Associate title) on any crag, or the crag's own creator. Any field left out keeps its current value, and an empty string clears directions or access_notes.
 // @Tags         crags
 // @Accept       json
 // @Produce      json
@@ -121,7 +121,7 @@ func handleUpdateCrag(c *gin.Context) {
 		return
 	}
 
-	crag, err := UpdateCrag(c.Request.Context(), userID, id, body.Name, body.Lat, body.Lng, body.Directions, body.AccessNotes)
+	crag, err := UpdateCrag(c.Request.Context(), userID, id, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, crag)

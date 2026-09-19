@@ -212,7 +212,6 @@ export default function Profile() {
             if (uploadRes.avatar_url) {
                 setProfile(prev => ({ ...prev, avatar_url: uploadRes.avatar_url! }));
                 await api.put<Partial<ErrorResponse>>(`/api/profiles/${user.id}`, {
-                    ...profile,
                     avatar_url: uploadRes.avatar_url
                 });
 

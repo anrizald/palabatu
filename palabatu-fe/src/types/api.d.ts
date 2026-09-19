@@ -1339,7 +1339,7 @@ export interface paths {
         };
         /**
          * Update a crag
-         * @description Allowed for admins (Council/Associate title) on any crag, or the crag's own creator.
+         * @description Allowed for admins (Council/Associate title) on any crag, or the crag's own creator. Any field left out keeps its current value, and an empty string clears directions or access_notes.
          */
         put: {
             parameters: {
@@ -3337,7 +3337,10 @@ export interface paths {
                 };
             };
         };
-        /** Update a profile */
+        /**
+         * Update a profile
+         * @description Only the profile's own user may call this. Any field left out keeps its current value. An empty string clears a text field, and title and tags are cleared by sending null. Changing title is refused unless the caller already holds an admin title.
+         */
         put: {
             parameters: {
                 query?: never;

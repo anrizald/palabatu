@@ -296,6 +296,7 @@ func handleGetRecentActivity(c *gin.Context) {
 
 // handleUpsertProfile godoc
 // @Summary      Update a profile
+// @Description  Only the profile's own user may call this. Any field left out keeps its current value. An empty string clears a text field, and title and tags are cleared by sending null. Changing title is refused unless the caller already holds an admin title.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
@@ -317,7 +318,7 @@ func handleUpsertProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := UpsertProfile(c.Request.Context(), callerID, id, body.Username, body.Title, body.Tags, body.AvatarURL, body.Bio, body.Location)
+	profile, err := UpsertProfile(c.Request.Context(), callerID, id, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, profile)
