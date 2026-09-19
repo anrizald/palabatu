@@ -1,10 +1,9 @@
 # Problem Add/Edit addendum — design handoff
 
-**Where this stands, 2026-09-17.** Everything in this document is built,
-with two exceptions. **Open item 18** is open: a rock's creator or an admin
-can delete a shared rock photo without checking whose lines are drawn on
-it, and the fix shape needs a product call. **Open item 14** (multi-pitch
-detail) is deferred until its trigger fires. The status paragraph below is
+**Where this stands, 2026-09-19.** Everything in this document is built,
+with one exception: **open item 14** (multi-pitch detail) is deferred until
+its trigger fires. Item 18, the last open one, was resolved 2026-09-19 as an
+admin-only override. The status paragraph below is
 the 2026-08-08 (d) snapshot. The add wizard it describes was replaced by the
 single add sheet in revision (h).
 
@@ -2020,8 +2019,19 @@ up from here.
     item's resolution, since fixing it is a product call on shape (hard
     block vs. confirm-with-count vs. admin-only override), not settled by
     deciding request/approve is the wrong tool.
-18. **The creator-or-admin boulder-photo-delete path can silently destroy
-    other founders' lines, with no check and no warning.** *(2026-09-17,
+18. ~~**The creator-or-admin boulder-photo-delete path can silently destroy
+    other founders' lines, with no check and no warning.**~~ **Resolved
+    2026-09-19: admin-only override.** `authorizeBoulderImageDelete` now
+    lets an admin through unconditionally and runs `hasForeignAnnotation`
+    for everyone else, the rock's creator included, so the creator is
+    blocked exactly as a self-deleting uploader is. `BoulderDetailPage`'s
+    `canDeletePhoto` mirrors it, and the admin's confirm names how many
+    lines on other people's problems go with the photo. The creator's
+    "permanently unable to remove their own photo" cost named below is
+    accepted: an admin is the way out, as with the merge hold. Verified
+    against the local API (creator 403 on a photo carrying an admin's line,
+    creator 200 on a photo with none, admin 200 with the line removed).
+    Original text follows. *(2026-09-17,
     found while resolving item 17 above — see that item for the full
     trace.)* `authorizeBoulderImageDelete` only runs item 15's
     `hasForeignAnnotation` check on the self-delete fallback branch; a
@@ -2057,7 +2067,7 @@ up from here.
     (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
     already correct, it is just not being asked on this branch.
 
-**Status of the open items** (updated 2026-09-17). Items 1-6
+**Status of the open items** (updated 2026-09-19). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
 8 narrowed, and 12 and 13 resolved, in (g); 7 and 8 were both closed
 2026-09-06 — 7 by amending merge design note 6 to match the shipped default,
@@ -2086,8 +2096,9 @@ approval gate on it would be fixing a problem that doesn't exist there.
 Resolving it surfaced a real one adjacent to it, filed as **18**: the
 creator-or-admin delete path bypasses item 15's own foreign-annotation
 guard, so a boulder's photo can be deleted out from under other founders'
-lines with no check and no warning. 18 is open on fix shape, not on
-whether it's a real gap.
+lines with no check and no warning. 18 was resolved 2026-09-19 as an
+admin-only override: the creator is now blocked like an uploader, and only
+an admin can force the delete through.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

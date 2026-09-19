@@ -77,7 +77,12 @@ func Signup(ctx context.Context, email, password, username string, termsAccepted
 	}
 
 	if err := mailer.SendVerificationEmail(email, verificationToken); err != nil {
-		_ = deleteUser(ctx, id)
+		// A slow SMTP failure can outlast the request's deadline
+		// (middleware.Timeout), and a rollback that fails leaves an
+		// unverified account squatting on this email and username.
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = deleteUser(cleanupCtx, id)
 		return ErrEmailSendFailed
 	}
 

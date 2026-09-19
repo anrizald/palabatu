@@ -121,6 +121,12 @@ func PurgeCrag(ctx context.Context, userID, cragID string, expected PurgeCounts)
 		destroyed++
 	}
 
+	// The destroy loop above can run past the request's deadline
+	// (middleware.Timeout) on a big purge. The rows are already gone, so the
+	// bookkeeping below has to run regardless: detach, with its own bound.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+
 	// The crag, its rocks and their problems are all gone, so every credit
 	// recorded against any of them describes a photo that no longer exists.
 	// Best-effort, matching the destroy loop above.

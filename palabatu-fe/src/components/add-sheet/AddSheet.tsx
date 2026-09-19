@@ -713,7 +713,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
             return (
                 <button type="button" onClick={() => setOverlayOpen(true)} className="flex items-center gap-2.5 w-full min-h-11 px-3 py-2 bg-surface border border-border rounded-[10px] cursor-pointer text-left hover:border-accent">
                     <MapPin size={18} className="shrink-0 text-text-muted" />
-                    <span className="flex-1 text-sm text-text-muted">Where is it? &mdash; tap to choose</span>
+                    <span className="flex-1 text-sm text-text-muted">Where is it? Tap to choose</span>
                     <ChevronRight size={16} className="shrink-0 text-text-muted" />
                 </button>
             )
@@ -747,7 +747,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 {spotBanner && (
                     <div className="border border-associate/35 bg-associate/[0.06] rounded-[10px] px-3.5 py-3 mb-4">
                         <p className="text-sm text-text"><b>{spotBanner.name}</b> is on the map.</p>
-                        <p className="text-xs text-text-muted mt-1.5">No problems yet &mdash; the next one's ready below, whenever you like.</p>
+                        <p className="text-xs text-text-muted mt-1.5">No problems yet. The next one's ready below, whenever you like.</p>
                         <button
                             type="button"
                             onClick={() => { onClose(); navigate(`/crags/${spotBanner.id}/approaches/new`) }}
@@ -773,7 +773,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                         >
                             Add the first {noun} on it
                         </button>
-                        <p className="text-xs text-text-muted mt-2">Or another rock &mdash; the form below's ready whenever you like.</p>
+                        <p className="text-xs text-text-muted mt-2">Or another rock. The form below's ready whenever you like.</p>
                     </div>
                 )}
                 <Breadcrumb />
@@ -804,11 +804,11 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                                 >
                                     Draw the line on the photo
                                 </button>
-                                <p className="text-xs text-text-muted mt-2">Do it now &mdash; you're standing at the rock. It's the one thing you can't add from home.</p>
+                                <p className="text-xs text-text-muted mt-2">Do it now while you're standing at the rock. It's the one thing you can't add from home.</p>
                             </>
                         ) : (
                             <p className="text-xs text-text-muted mt-1.5">
-                                {savedCount > 1 ? `${problemBanner.spotName} · ${problemBanner.rockName} — ${savedCount} added this session.` : `Still on ${problemBanner.rockName}.`} The next one's ready below.
+                                {savedCount > 1 ? `${problemBanner.spotName} · ${problemBanner.rockName}: ${savedCount} added this session.` : `Still on ${problemBanner.rockName}.`} The next one's ready below.
                             </p>
                         )}
                     </div>
@@ -816,7 +816,7 @@ export default function AddSheet({ onClose, onAdded, initialIntent, initialCragI
                 <Breadcrumb />
                 {!isNewSpot && resolvedCrag && isFar && (
                     <p className="text-xs text-text-muted mt-2">
-                        Nothing of yours is nearby &mdash; the closest is {cragDistKm != null ? formatDistanceM(cragDistKm) : ''} away. If you're standing somewhere new, tap above and add it.
+                        Nothing of yours is nearby. The closest is {cragDistKm != null ? formatDistanceM(cragDistKm) : ''} away. If you're standing somewhere new, tap above and add it.
                     </p>
                 )}
                 <div className="h-px bg-border my-4" />

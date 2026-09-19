@@ -218,7 +218,7 @@ export default function ApproachReadingPage() {
         <div className="fixed inset-0 z-[200] bg-ink flex flex-col">
             <div className="shrink-0 flex items-center gap-2 px-3.5 py-3 border-b border-border bg-panel">
                 <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-medium text-text truncate">Jalan masuk &mdash; {label}</div>
+                    <div className="text-[15px] font-medium text-text truncate">Jalan masuk: {label}</div>
                     <div className="text-xs text-text-muted mt-0.5">
                         {approach.duration_minutes ? `${approach.duration_minutes} menit · ` : ''}{approach.steps.length} langkah
                     </div>
@@ -235,7 +235,7 @@ export default function ApproachReadingPage() {
 
             <div className={`shrink-0 flex items-center gap-2 px-3.5 py-2 text-xs border-b ${saved ? 'bg-associate/[0.08] border-associate/25' : 'bg-accent/[0.09] border-accent/25'}`}>
                 {saved ? <Check size={15} className="shrink-0 text-associate" /> : <Wifi size={15} className="shrink-0 text-accent" />}
-                <span className="flex-1 text-text-secondary">{saved ? 'Saved on your phone — works with no signal.' : 'Not saved yet. Do it before you lose signal.'}</span>
+                <span className="flex-1 text-text-secondary">{saved ? 'Saved on your phone. Works with no signal.' : 'Not saved yet. Do it before you lose signal.'}</span>
                 {!saved && (
                     <button type="button" onClick={handleSaveOffline} disabled={saving} className="shrink-0 min-h-8 px-2.5 py-1 border border-accent rounded-lg text-accent text-xs font-medium cursor-pointer bg-transparent disabled:opacity-50">
                         {saving ? 'Saving…' : 'Save'}

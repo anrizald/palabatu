@@ -113,18 +113,25 @@ export default function BoulderDetailPage() {
     // Adding a photo is widened to any signed-in user (handoff.md open item
     // 11, resolved 2026-09-06, authz.CanContribute).
     const canAddPhoto = !!boulder && !!user
-    // Removing one is creator-or-admin (canEdit), or -- handoff.md item 15 --
+    // Lines on this photo that belong to problems the viewer didn't create --
+    // what deleting it would take down besides their own work.
+    const foreignLineCount = (url: string) =>
+        annotations.filter(a => a.image_url === url && problems.find(p => p.id === a.problem_id)?.created_by !== user?.id).length
+    // Removing one is open to the rock's creator or -- handoff.md item 15 --
     // the contributor who uploaded this exact photo, UNLESS some problem the
     // deleter doesn't own has a topo line drawn on it: a rock's photo is the
     // shared canvas every problem on it draws against, so deleting it could
-    // take someone else's line down too. `annotations` and `problems` are
-    // both already loaded on this page for the topo overlay, so this mirrors
-    // the backend's authorizeBoulderImageDelete/hasForeignAnnotation exactly
-    // rather than optimistically showing a button the backend would reject.
+    // take someone else's line down too. Only an admin can override that
+    // (item 18). `annotations` and `problems` are both already loaded on this
+    // page for the topo overlay, so this mirrors the backend's
+    // authorizeBoulderImageDelete/hasForeignAnnotation exactly rather than
+    // optimistically showing a button the backend would reject.
     const canDeletePhoto = (url: string) => {
-        if (canEdit) return true
-        if (!user || !boulder || boulder.image_credits?.find(c => c.image_url === url)?.uploaded_by !== user.id) return false
-        return !annotations.some(a => a.image_url === url && problems.find(p => p.id === a.problem_id)?.created_by !== user.id)
+        if (isAdmin) return true
+        if (!user || !boulder) return false
+        const isUploader = boulder.image_credits?.find(c => c.image_url === url)?.uploaded_by === user.id
+        if (user.id !== boulder.created_by && !isUploader) return false
+        return foreignLineCount(url) === 0
     }
 
     const nearbyRocks: NearbyRock[] = siblingRocks
@@ -235,7 +242,13 @@ export default function BoulderDetailPage() {
     }
 
     const handleRemovePhoto = async (url: string) => {
-        if (!boulder || !window.confirm('Remove this photo? Every line drawn on it goes too.')) return
+        // Only an admin can reach this with foreign lines on the photo (see
+        // canDeletePhoto), so the count is theirs to see before overriding.
+        const foreign = foreignLineCount(url)
+        const message = foreign === 0
+            ? 'Remove this photo? Every line drawn on it goes too.'
+            : `Remove this photo? ${foreign === 1 ? "1 line on someone else's problem goes" : `${foreign} lines on other people's problems go`} with it.`
+        if (!boulder || !window.confirm(message)) return
         setRemovingUrl(url)
         const res = await api.delete<Partial<ErrorResponse>>(`/api/boulders/${boulder.id}/images`, { url })
         setRemovingUrl(null)

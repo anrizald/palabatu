@@ -77,7 +77,7 @@ export default function SpotMiniMap({ lat, lng, accuracyM, onPick, allCrags }: S
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: '172px' }}>
                 <MapContainer center={center} zoom={lat != null ? 15 : 5} zoomControl={false} attributionControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri &mdash; Source: Esri" maxNativeZoom={18} maxZoom={20} />
+                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri. Source: Esri" maxNativeZoom={18} maxZoom={20} />
                     {/* Bottom-left, not Leaflet's bottomright default -- the
                         "use my location" crosshair button below sits at
                         bottom-2 right-2, and the two would otherwise overlap. */}

@@ -70,7 +70,7 @@ export function RockList({ boulders, onPick, onNewRock, onNotSure }: RockListPro
             {boulders.map(b => <RockRow key={b.id} boulder={b} onPick={() => onPick(b)} />)}
             <AltRow title="It's a new rock" subtitle="your photo becomes its topo" onPick={onNewRock} />
             {onNotSure && (
-                <AltRow title="Not sure which one" subtitle="file it now — a photo lets someone match it up later" onPick={onNotSure} />
+                <AltRow title="Not sure which one" subtitle="file it now, and a photo lets someone match it up later" onPick={onNotSure} />
             )}
         </div>
     )

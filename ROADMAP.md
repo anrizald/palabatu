@@ -131,11 +131,11 @@ contributions exist. Both schema/backend and frontend are now complete.
   - **No approval step (item 17), decided 2026-09-17.** Drawing a line on
     someone's shared photo touches nothing they made, and `internal/report`
     already covers abuse.
-  - **Still open (item 18).** A rock's creator, or any admin, can delete a
-    shared rock photo without the item 15 check, which silently deletes
-    every other founder's line on it: `authorizeBoulderImageDelete` returns
-    before `hasForeignAnnotation` runs. The fix shape (hard block,
-    confirm-with-count, or admin-only override) needs a product call.
+  - **Admin-only override on shared rock photos (item 18), done 2026-09-19.**
+    A rock's creator is now held to the same item 15 check as an uploader:
+    a photo carrying another founder's line can't be deleted by them. Only
+    an admin can force it through, and their confirm names how many other
+    people's lines go with it.
 - **Add-sheet drafts (autosave) — M1 done 2026-08-17, M2 done 2026-09-17.**
   Full design lived in `handoff-drafts.md`, removed now that both milestones
   shipped; see `git log -- handoff-drafts.md` for the complete record.

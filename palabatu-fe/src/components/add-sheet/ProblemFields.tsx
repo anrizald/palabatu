@@ -56,7 +56,7 @@ export default function ProblemFields({
             </div>
 
             <div>
-                <label className={labelClass}>Grade <span className="font-normal opacity-85">&mdash; skip it if it's still a project</span></label>
+                <label className={labelClass}>Grade <span className="font-normal opacity-85">(skip it if it's still a project)</span></label>
                 <div className="flex flex-wrap gap-1.5">
                     {grades.map(g => (
                         <button
@@ -85,7 +85,7 @@ export default function ProblemFields({
             <div>
                 {hasExistingTopo && existingTopoUrl ? (
                     <>
-                        <label className={labelClass}>Photo <span className="font-normal opacity-85">&mdash; this rock already has one</span></label>
+                        <label className={labelClass}>Photo <span className="font-normal opacity-85">(this rock already has one)</span></label>
                         <div className="border border-border rounded-[10px] overflow-hidden">
                             <div className="aspect-video bg-panel">
                                 <img src={existingTopoUrl} alt="Rock" className="w-full h-full object-cover" />
@@ -190,7 +190,7 @@ export default function ProblemFields({
                     </>
                 ) : (
                     <>
-                        <label className={labelClass}>Photo <span className="font-normal opacity-85">&mdash; a wide shot of the rock</span></label>
+                        <label className={labelClass}>Photo <span className="font-normal opacity-85">(a wide shot of the rock)</span></label>
                         <label className="block w-full min-h-11 border border-dashed border-border rounded-[10px] bg-surface text-text-secondary text-sm text-center py-5 cursor-pointer hover:border-accent">
                             + add a photo of the rock
                             <input type="file" accept="image/*" className="hidden" onChange={e => {

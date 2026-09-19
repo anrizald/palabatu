@@ -254,7 +254,7 @@ export default function LegalModal({ initialDoc, onClose }: LegalModalProps) {
                     <p style={{
                         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
                         color: '#c87a30', fontWeight: 500, marginBottom: '10px'
-                    }}>Draft — not yet reviewed or final</p>
+                    }}>Draft: not yet reviewed or final</p>
                     <p style={{ fontSize: '13px', color: '#967b6a', marginBottom: '4px' }}>
                         Palabatu is still in development and this text has not been reviewed by
                         a lawyer. Treat every section below as a stub to be replaced before the

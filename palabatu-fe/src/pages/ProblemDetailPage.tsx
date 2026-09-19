@@ -638,7 +638,7 @@ export default function ProblemDetailPage() {
                                     touchZoom={true}
                                 >
                                     <TileLayer
-                                        attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                                        attribution="Tiles &copy; Esri. Source: Esri"
                                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                                     />
                                     <PinpointMarker position={markerPosition} />

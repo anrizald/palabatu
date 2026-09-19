@@ -61,9 +61,9 @@ func NotifySend(ctx context.Context, ownerID *string, actorID, actorUsername, pr
 func NotifyReportResolved(ctx context.Context, reporterID, problemID, problemName string, removed bool) error {
 	var message string
 	if removed {
-		message = fmt.Sprintf("Your report on \"%s\" was resolved — the content was removed.", problemName)
+		message = fmt.Sprintf("Your report on \"%s\" was resolved. The content was removed.", problemName)
 	} else {
-		message = fmt.Sprintf("Your report on \"%s\" was reviewed — no action was needed.", problemName)
+		message = fmt.Sprintf("Your report on \"%s\" was reviewed. No action was needed.", problemName)
 	}
 	return create(ctx, reporterID, TypeReportResolved, &problemID, &problemName, nil, message)
 }

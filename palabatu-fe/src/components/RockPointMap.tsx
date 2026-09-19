@@ -119,7 +119,7 @@ export default function RockPointMap({
         <div className="flex flex-col gap-2">
             <div className="relative rounded-[10px] overflow-hidden border border-border" style={{ height: `${heightPx}px` }}>
                 <MapContainer center={center} zoom={hasPin ? 18 : 17} maxZoom={20} zoomControl={false} attributionControl={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri &mdash; Source: Esri" maxNativeZoom={18} maxZoom={20} />
+                    <TileLayer url={TILE_URL} attribution="Tiles &copy; Esri. Source: Esri" maxNativeZoom={18} maxZoom={20} />
                     {/* Bottom-left, not Leaflet's bottomright default -- the
                         "use my location" crosshair button below sits at
                         bottom-2 right-2, and the two would otherwise overlap. */}

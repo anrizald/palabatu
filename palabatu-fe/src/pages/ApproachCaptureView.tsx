@@ -125,12 +125,12 @@ export default function ApproachCaptureView() {
                 </div>
 
                 <div>
-                    <label className={labelClass}>What do you call this way in? <span className="font-normal opacity-85">&mdash; optional</span></label>
+                    <label className={labelClass}>What do you call this way in? <span className="font-normal opacity-85">(optional)</span></label>
                     <input value={name} onChange={e => setName(e.target.value)} placeholder={`dari ${START_TYPE_LABELS[startType].toLowerCase()}`} className={inputClass} />
                 </div>
 
                 <div>
-                    <label className={labelClass}>How long does it take? <span className="font-normal opacity-85">&mdash; roughly, in minutes</span></label>
+                    <label className={labelClass}>How long does it take? <span className="font-normal opacity-85">(roughly, in minutes)</span></label>
                     <input type="number" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} placeholder="15" className={inputClass} />
                 </div>
 
@@ -210,7 +210,7 @@ export default function ApproachCaptureView() {
                         >
                             {submitting ? 'Saving...' : 'Save the way in'}
                         </button>
-                        <p className="text-xs text-text-muted text-center mt-2">Do this at home on wifi &mdash; it's a lot of photos.</p>
+                        <p className="text-xs text-text-muted text-center mt-2">Do this at home on wifi. It's a lot of photos.</p>
                     </div>
                 </div>
             ), document.body)}

@@ -6,7 +6,7 @@ import { Info } from 'lucide-react';
 // PinpointMarker's map popup — both show a problem/crag's creator and both
 // want the same caveat next to it.
 export const ADDED_BY_DISCLAIMER =
-    "Being added on Palabatu doesn't mean first ascent or first discovery — outdoor climbing culture existed long before us.";
+    "Being added on Palabatu doesn't mean first ascent or first discovery. Outdoor climbing culture existed long before us.";
 
 type Props = {
     text: string;
