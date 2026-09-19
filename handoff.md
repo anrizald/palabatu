@@ -1834,7 +1834,9 @@ up from here.
       invent positions for the rest, and do not make the field required
       just to fill the layer.
 
-14. **Whether to build multi-pitch pitch-level detail at all yet.**
+14. ~~**Whether to build multi-pitch pitch-level detail at all yet.**~~
+    **Resolved 2026-09-19: built** (one part of its design was dropped, see
+    "Built" at the end of this item).
     *(2026-09-04. Counts corrected and a trigger added 2026-09-06.)*
     Decision 23 settles *where* it would live if built; it does not
     decide *when*.
@@ -2489,9 +2491,11 @@ were resolved before implementation and remain resolved; 10 was resolved and
 `handoff-add-sheet.md`'s C11. **14** was deferred 2026-09-06 against a
 checkable trigger (the first non-seed problem on a wall rock that mentions
 pitches; build at roughly ten), then un-deferred 2026-09-19 with the trigger
-still unfired: it is fully designed (commitment grade, a private high-point
-record for retreats, per-pitch topo lines, and keep-but-hide with alerts on a
-boulder) and not built yet. **11** was scoped 2026-09-06 into a policy
+still unfired, and built the same day: commitment grade, a private high-point
+record for retreats, per-pitch topo lines, and keep-but-hide on a boulder.
+The one alert not built is the boulder-page type-switch warning, dropped
+because that form has no type switch (see item 14's "Built" record).
+**11** was scoped 2026-09-06 into a policy
 half and a build half, and both shipped the same day: the `photo_credits`
 sidecar exists (`migrations/0021`, `internal/photocredits`), wired into every
 add/remove/whole-entity-delete/purge path across crags, boulders and
