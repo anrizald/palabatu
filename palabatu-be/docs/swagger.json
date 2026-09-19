@@ -4806,7 +4806,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).",
+                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null.",
                 "parameters": [
                     {
                         "description": "Problem ID",

@@ -295,20 +295,28 @@ func reparentProblem(ctx context.Context, id, newBoulderID string) error {
 	return tx.Commit(ctx)
 }
 
-func updateProblemRow(
-	ctx context.Context,
-	id, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
-	heightM *float64,
-) (*ProblemRow, error) {
+// updateProblemRow writes only what req carries: COALESCE keeps a column when
+// its value is nil, and the height is written only when req.HasHeight says the
+// key was sent (so an explicit null still clears it). Doing this in one
+// statement rather than reading the row first also leaves an untouched NULL
+// column NULL and leaves no window for a concurrent edit to be overwritten.
+func updateProblemRow(ctx context.Context, id string, req UpdateProblemRequest) (*ProblemRow, error) {
 	var p ProblemRow
 	err := db.Pool.QueryRow(ctx,
 		`UPDATE problems SET
-			name = $1, grade = $2, first_ascensionist = $3, discovered_by = $4,
-			landing_hazards = $5, descent = $6, height_m = $7, notes = $8
-		 WHERE id = $9
+			name = COALESCE($1, name),
+			grade = COALESCE($2, grade),
+			first_ascensionist = COALESCE($3, first_ascensionist),
+			discovered_by = COALESCE($4, discovered_by),
+			landing_hazards = COALESCE($5, landing_hazards),
+			descent = COALESCE($6, descent),
+			height_m = CASE WHEN $7 THEN $8 ELSE height_m END,
+			notes = COALESCE($9, notes)
+		 WHERE id = $10
 		 RETURNING id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by,
 			landing_hazards, descent, height_m, notes, image_urls, created_by, created_at`,
-		name, grade, firstAscensionist, discoveredBy, landingHazards, descent, heightM, notes, id,
+		req.Name, req.Grade, req.FirstAscensionist, req.DiscoveredBy, req.LandingHazards, req.Descent,
+		req.HasHeight, req.HeightM, req.Notes, id,
 	).Scan(
 		&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy,
 		&p.LandingHazards, &p.Descent, &p.HeightM, &p.Notes, &p.ImageURLs, &p.CreatedBy, &p.CreatedAt,

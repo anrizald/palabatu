@@ -1,6 +1,9 @@
 package problems
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // CreateProblemRequest is handleCreateProblem's request body. BoulderID is
 // required -- crag_id is derived from the boulder, not supplied directly
@@ -27,16 +30,49 @@ type CreateProblemRequest struct {
 // annotation this problem had (a line drawn on the old rock's photo means
 // nothing on the new one) -- see UpdateProblem's doc comment. No
 // image_urls here -- images mutate only via the dedicated endpoints below.
+//
+// Every other field is optional, and one the body leaves out keeps the
+// problem's current value. The text fields are pointers so that an omitted key
+// (nil, keep) stays distinct from an empty string (write an empty value, which
+// is how a field is cleared). HeightM already means "clear the height" when
+// null, so HasHeight is what tells that from an omitted key.
 type UpdateProblemRequest struct {
 	BoulderID         string   `json:"boulder_id"`
-	Name              string   `json:"name"`
-	Grade             string   `json:"grade"`
-	FirstAscensionist string   `json:"first_ascensionist"`
-	DiscoveredBy      string   `json:"discovered_by"`
-	LandingHazards    string   `json:"landing_hazards"`
-	Descent           string   `json:"descent"`
+	Name              *string  `json:"name"`
+	Grade             *string  `json:"grade"`
+	FirstAscensionist *string  `json:"first_ascensionist"`
+	DiscoveredBy      *string  `json:"discovered_by"`
+	LandingHazards    *string  `json:"landing_hazards"`
+	Descent           *string  `json:"descent"`
 	HeightM           *float64 `json:"height_m"`
-	Notes             string   `json:"notes"`
+	Notes             *string  `json:"notes"`
+
+	// HasHeight is whether the body carried a "height_m" key at all. It is
+	// filled by UnmarshalJSON because a *float64 cannot tell an omitted key
+	// from an explicit null, and null is how a client clears a height on
+	// purpose.
+	HasHeight bool `json:"-"`
+}
+
+// UnmarshalJSON decodes as usual, then records whether height_m was present.
+// Keys are matched case-insensitively, as encoding/json itself does, so a
+// spelling that fills HeightM is also seen as present.
+func (r *UpdateProblemRequest) UnmarshalJSON(data []byte) error {
+	type plain UpdateProblemRequest // no methods, so no recursion
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return err
+	}
+	r.HasHeight = false
+	for k := range keys {
+		if strings.EqualFold(k, "height_m") {
+			r.HasHeight = true
+		}
+	}
+	return nil
 }
 
 // AddProblemImagesRequest is handleAddProblemImages's request body: URLs

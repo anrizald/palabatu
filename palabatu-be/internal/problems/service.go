@@ -76,21 +76,28 @@ func CreateProblem(
 }
 
 // UpdateProblem also re-parents the problem to a different boulder when
-// boulderID is non-empty and differs from its current one (handoff.md
+// req.BoulderID is non-empty and differs from its current one (handoff.md
 // decision 13) -- the missing inverse of "not sure which rock". Doing so
 // drops every annotation this problem had (reparentProblem, repository.go):
 // a line drawn on the old rock's photo means nothing on the new one, and
 // silently keeping it pointed at the wrong photo is worse than losing it.
-func UpdateProblem(
-	ctx context.Context,
-	userID, problemID, boulderID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes string,
-	heightM *float64,
-) (*ProblemRow, error) {
-	if err := validateName(name); err != nil {
-		return nil, err
+//
+// A field the request leaves out keeps the problem's current value, so a
+// client that only knows some of them (the move button sends just a
+// boulder_id) cannot wipe the rest. Unlike UpdateBoulder this is done in SQL
+// (updateProblemRow) rather than by reading the row back in and writing it out
+// again: a read-then-write would put back, as the "kept" value, whatever was
+// current when it read, which is the lost update this exists to avoid.
+func UpdateProblem(ctx context.Context, userID, problemID string, req UpdateProblemRequest) (*ProblemRow, error) {
+	if req.Name != nil {
+		if err := validateName(*req.Name); err != nil {
+			return nil, err
+		}
 	}
-	if err := validateGrade(grade); err != nil {
-		return nil, err
+	if req.Grade != nil {
+		if err := validateGrade(*req.Grade); err != nil {
+			return nil, err
+		}
 	}
 
 	createdBy, currentBoulderID, err := getProblemOwnerAndBoulder(ctx, problemID)
@@ -105,8 +112,8 @@ func UpdateProblem(
 		return nil, err
 	}
 
-	if boulderID != "" && boulderID != currentBoulderID {
-		if err := reparentProblem(ctx, problemID, boulderID); err != nil {
+	if req.BoulderID != "" && req.BoulderID != currentBoulderID {
+		if err := reparentProblem(ctx, problemID, req.BoulderID); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.ConstraintName == "problems_boulder_id_fkey" {
 				return nil, ErrBoulderNotFound
@@ -118,7 +125,7 @@ func UpdateProblem(
 		}
 	}
 
-	row, err := updateProblemRow(ctx, problemID, name, grade, firstAscensionist, discoveredBy, landingHazards, descent, notes, heightM)
+	row, err := updateProblemRow(ctx, problemID, req)
 	if err != nil {
 		return nil, err
 	}

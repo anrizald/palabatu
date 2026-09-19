@@ -123,7 +123,7 @@ func handleCreateProblem(c *gin.Context) {
 
 // handleUpdateProblem godoc
 // @Summary      Update a problem
-// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).
+// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null.
 // @Tags         problems
 // @Accept       json
 // @Produce      json
@@ -146,10 +146,7 @@ func handleUpdateProblem(c *gin.Context) {
 		return
 	}
 
-	problem, err := UpdateProblem(
-		c.Request.Context(), userID, id, body.BoulderID, body.Name, body.Grade,
-		body.FirstAscensionist, body.DiscoveredBy, body.LandingHazards, body.Descent, body.Notes, body.HeightM,
-	)
+	problem, err := UpdateProblem(c.Request.Context(), userID, id, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)

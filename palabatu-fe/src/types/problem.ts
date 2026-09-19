@@ -25,17 +25,19 @@ export type CreateProblemRequest = {
 // Mirrors problems.UpdateProblemRequest -- boulder_id re-parents the
 // problem to a different rock when non-empty (handoff.md decision 13);
 // empty string means "leave as is". No image_urls -- images mutate only
-// via the dedicated add/delete endpoints below.
+// via the dedicated add/delete endpoints below. Every field is optional and
+// a key left out keeps the problem's current value: the text fields take ""
+// to clear, and height_m takes null to clear (omitting it keeps it).
 export type UpdateProblemRequest = {
-    boulder_id: string
-    name: string
-    grade: string
-    first_ascensionist: string
-    discovered_by: string
-    landing_hazards: string
-    descent: string
-    height_m: number | null
-    notes: string
+    boulder_id?: string
+    name?: string
+    grade?: string
+    first_ascensionist?: string
+    discovered_by?: string
+    landing_hazards?: string
+    descent?: string
+    height_m?: number | null
+    notes?: string
 }
 
 // Mirrors problems.AddProblemImagesRequest / DeleteProblemImageRequest.

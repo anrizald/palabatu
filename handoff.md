@@ -2,9 +2,10 @@
 
 **Where this stands, 2026-09-19.** Everything in this document is built,
 with two exceptions: **open item 14** (multi-pitch detail) is deferred until
-its trigger fires, and **open item 19** is a tidy-up (the problem move
-button re-sends a whole record to change one field; the rock's was fixed
-2026-09-19), with nothing blocked on it.
+its trigger fires, and **open item 19** has two optional halves left (a crag
+`PUT` with the same keep-on-omit treatment, and a whole-API convention that is
+not recommended). The rock's move button and the problem's were both fixed
+2026-09-19, with nothing blocked on what remains.
 Item 18 was resolved 2026-09-19 as an admin-only override. The status
 paragraph below is
 the 2026-08-08 (d) snapshot. The add wizard it describes was replaced by the
@@ -2069,8 +2070,9 @@ up from here.
     (`authorizeBoulderImageDelete`) plus its frontend mirror
     (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
     already correct, it is just not being asked on this branch.
-19. **The problem "move" button rebuilds and re-sends the whole record to
-    change one field. (The rock's did too, and was fixed 2026-09-19.)**
+19. **The "move" buttons rebuilt and re-sent the whole record to change one
+    field. (Both were fixed 2026-09-19; the crag `PUT` and a whole-API
+    convention, below, are what is left.)**
     *(2026-09-19, found while making the boulder `PUT` keep whatever a body
     leaves out. Nothing here is broken in a way a user can see today, and
     nothing is blocked on it: this is tidy-up, filed so it is not
@@ -2084,10 +2086,12 @@ up from here.
     being necessary on 2026-09-19, when `UpdateBoulder` began keeping any
     field a body omits (CLAUDE.md's "A rock's own `lat`/`lng`" bullet has the
     mechanism), and `handleMoveToSpot` now sends only `{ crag_id }`. For
-    problems it is still necessary, which is the medium item below.
+    problems it stopped being necessary the same day, once `UpdateProblem`
+    did the same (the medium item below), and `handleMoveToRock` now sends
+    only `{ boulder_id }`.
 
-    **What the write-back costs**, at its real size (the rock side no longer
-    pays it; the problem button still does):
+    **What the write-back cost**, at its real size (neither button pays it
+    any more; this is the record of what it was):
     - *NULL becomes an empty string.* An unnamed rock is sent back as
       `boulder.name ?? ''`, so its NULL name (and rock type) is stored as
       `''`. Harmless for the name: `ListNeedsAttention` tests
@@ -2103,7 +2107,13 @@ up from here.
       on a problem it is the name, grade, height, hazards, descent or notes,
       which is more text to lose. Two people editing one record at once is
       rare before launch and rarer against an empty production database,
-      which is why this is filed rather than fixed.
+      which is why it was filed rather than fixed at once. It is closed for
+      problems outright, since that `UPDATE` never reads the old value. For
+      rocks the window is smaller but not gone: `UpdateBoulder` reads the row
+      back in and writes it out, so an edit landing between its read and its
+      write is still put back. That gap is milliseconds rather than however
+      long a page stayed open, and it is the only piece of this item left on
+      the rock side.
     - Neither cost touches the move itself, which works.
 
     **The work, by difficulty:**
@@ -2117,33 +2127,54 @@ up from here.
     its problems matched the pre-test snapshot exactly. Driven through the
     API, not the browser UI, so the button itself was not clicked.
 
-    *Medium: give `PUT /api/problems/:id` the same keep-on-omit treatment,
-    then shrink `handleMoveToRock` to `{ boulder_id: target.id }`.* This
-    cannot be done from the frontend alone: `UpdateProblem` and
-    `updateProblemRow` write every column as sent, and an empty grade passes
+    *Medium, done 2026-09-19: `PUT /api/problems/:id` keeps whatever a body
+    leaves out, and `handleMoveToRock` sends only `{ boulder_id: target.id }`.*
+    It could not be done from the frontend alone: `UpdateProblem` and
+    `updateProblemRow` wrote every column as sent, and an empty grade passes
     `validateGrade` (it returns nil for `""`) while `validateName` only caps
-    length, so a `{ boulder_id }`-only body would go through validation and
-    blank the name, grade, hazards, descent and notes. Do not rely on
-    validation as a guard here. The shape is the boulder fix again:
-    - the text fields become `*string` (nil means keep; an empty string is
-      still a real value, so a field can be cleared);
-    - `height_m` is already a `*float64` where null means "clear the height",
-      so it needs presence detection exactly as `lat`/`lng` did
-      (`UpdateBoulderRequest.HasCoords`, filled by an `UnmarshalJSON`);
-    - `UpdateProblem` takes 11 positional arguments and should take the
-      request struct, as `UpdateBoulder` now does;
-    - then `.\scripts\gen-api-docs.ps1`, `npm run gen:types`, the
-      hand-written mirror in `src/types/problem.ts`, and the CLAUDE.md
-      sentence that describes the boulder behavior, extended to cover this.
-    `UpdateProblem` also calls `notifyProblemEdited` on every update, so a
-    move currently sends the creator an "edited" notification. Keep or
-    change that on purpose rather than by accident. Verify as the boulder
-    fix was: run one probe against the old code and again against the new,
-    snapshot the rows and restore them afterwards, and include the
-    null-versus-omitted case for `height_m` and a NULL-versus-empty check on
-    each text column. Pace any script at about 350 ms per call: the blanket
-    `/api` limiter (10 req/s, burst 20) answers a fast probe with 429, which
-    reads like a failure and is not.
+    length, so a `{ boulder_id }`-only body went through validation and
+    blanked the name, grade, hazards, descent and notes. What changed:
+    - the text fields on `UpdateProblemRequest` are `*string` (nil means keep;
+      an empty string is still a real value, so a field can be cleared);
+    - `height_m` needed presence detection exactly as `lat`/`lng` did, so
+      `UpdateProblemRequest.HasHeight` is filled by an `UnmarshalJSON`;
+    - `UpdateProblem` takes the request struct instead of 11 positional
+      arguments, as `UpdateBoulder` does;
+    - **the keeping is done differently from the boulder fix, on purpose.**
+      `updateProblemRow` is one `UPDATE` with `COALESCE($n, column)` per text
+      column and `CASE WHEN $has_height THEN $height ELSE height_m END`,
+      where `UpdateBoulder` reads the row back in and writes it out again.
+      That read-then-write leaves a window in which a concurrent edit is put
+      back to what was current when it read, which is the lost update this
+      item is about, and the one-statement form has no such window. It also
+      leaves an untouched NULL as NULL without any extra code;
+    - `notifyProblemEdited` still runs on every update, so a move sends the
+      creator an "edited" notification. Kept on purpose: a move changes where
+      their problem is, which they would want to know.
+    Also fixed in passing: the edit form's `handleSave` sent `boulder_id: ''`
+    and then spread its whole body into local state, so after any save the
+    page believed the problem's `boulder_id` was `''` (breadcrumb link,
+    delete redirect and the move picker's `excludeBoulderId` all read it)
+    until a reload. The key is optional now and the form omits it.
+
+    *Verified live 2026-09-19* against the local database: the same probe,
+    run against the code at `HEAD` and against the change (each built as its
+    own binary, on ports 3002 and 3003), with both test rows snapshotted and
+    restored afterwards and the notifications it caused deleted. Against the
+    old code a body of `{ boulder_id }`, `{ name }`, `{ notes }`, `{}` and the
+    rest each returned 200 and blanked every other field, and turned a NULL
+    into `''` (an untouched-NULL row came back with every text column `''`).
+    Against the new code: a move with only `{ boulder_id }` left name, grade,
+    height and the NULL text columns alone and kept a note that had been
+    edited elsewhere between load and move, then moved back; `{ notes }`
+    changed only notes; `{ name }` changed only the name; `{}` changed
+    nothing; `{ height_m: null }` cleared the height while `{ height_m: 7.5 }`
+    set it and omitting it kept it; `{ grade: "" }` and `{ notes: "" }`
+    wrote `''`; `{ grade: "not-a-grade" }` was still rejected with 400. Driven
+    through the API, not the browser, so the move button itself was not
+    clicked. Pace any script at about 350 ms per call: the blanket `/api`
+    limiter (10 req/s, burst 20) answers a fast probe with 429, which reads
+    like a failure and is not.
 
     *Medium, optional and low value: the same for `PUT /api/crags/:id`.*
     Nothing is at risk today. `CragDetailPage.handleSave` is a genuine
@@ -2165,8 +2196,8 @@ up from here.
     partial body actually occurs, at a fraction of the change to the
     generated contract. Revisit only if the mobile client makes the
     current behavior a recurring problem. **What was and was not audited:**
-    there are seven `PUT` routes. Boulders (fixed 2026-09-19), problems and
-    crags (above) were read. `PUT /api/problems/:id/annotations` and
+    there are seven `PUT` routes. Boulders and problems (both fixed
+    2026-09-19) and crags (above) were read. `PUT /api/problems/:id/annotations` and
     `PUT /api/drafts/:id` replace a whole payload by design and are not the
     same hazard. `PUT /api/profiles/:id` and `PUT /auth/password` were **not**
     looked at.
@@ -2206,10 +2237,11 @@ an admin can force the delete through.
 
 Fixing the boulder `PUT` to keep whatever a body leaves out (2026-09-19)
 filed **19** in turn: the two "move" buttons rebuilt a whole record to change
-one field. The rock's was fixed and checked live the same day. What remains
-is a medium half (the problem `PUT` needs the same backend treatment first),
-a low-value optional one (crags) and a hard one that is not recommended (one
-convention for the whole API). It blocks nothing.
+one field. The rock's was fixed and checked live the same day, and so was the
+problem's (a `COALESCE` in the `UPDATE` itself, which also closes the
+lost-update window that `UpdateBoulder`'s read-then-write only narrows). What
+remains is a low-value optional half (the crag `PUT`) and a hard one that is
+not recommended (one convention for the whole API). It blocks nothing.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

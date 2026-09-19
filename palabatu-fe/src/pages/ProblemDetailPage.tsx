@@ -208,7 +208,6 @@ export default function ProblemDetailPage() {
         setIsProcessing(true);
         try {
             const body: UpdateProblemRequest = {
-                boulder_id: '',
                 name: editForm.name, grade: editForm.grade,
                 first_ascensionist: editForm.first_ascensionist, discovered_by: editForm.discovered_by,
                 landing_hazards: editForm.landing_hazards, descent: editForm.descent,
@@ -243,13 +242,7 @@ export default function ProblemDetailPage() {
         if (!window.confirm(`Move "${problem.name}" to ${target.name ?? 'this rock'}? Any line drawn on the old rock's photo will be dropped -- it wouldn't mean anything on the new one.`)) return;
         setIsMoving(true);
         try {
-            const body: UpdateProblemRequest = {
-                boulder_id: target.id,
-                name: problem.name, grade: problem.grade ?? '',
-                first_ascensionist: problem.first_ascensionist ?? '', discovered_by: problem.discovered_by ?? '',
-                landing_hazards: problem.landing_hazards ?? '', descent: problem.descent ?? '',
-                height_m: problem.height_m, notes: problem.notes ?? '',
-            };
+            const body: UpdateProblemRequest = { boulder_id: target.id };
             const res = await api.put<ProblemDetail | Partial<ErrorResponse>>(`/api/problems/${id}`, body);
             if ('error' in res && res.error) {
                 showError(res.error);
