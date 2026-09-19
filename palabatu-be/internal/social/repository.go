@@ -44,6 +44,38 @@ func deleteSend(ctx context.Context, problemID, userID string) error {
 	return err
 }
 
+// getHighPoint is the caller's own turned-back pitch on a route, nil when they
+// have none. Only ever read for the caller: a high point is private.
+func getHighPoint(ctx context.Context, problemID, userID string) (*int, error) {
+	var pitch int
+	err := db.Pool.QueryRow(ctx,
+		`SELECT pitch FROM problem_high_points WHERE problem_id = $1 AND user_id = $2`,
+		problemID, userID,
+	).Scan(&pitch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pitch, nil
+}
+
+// upsertHighPoint keeps one row per climber per route, so a new high point
+// replaces the old one.
+func upsertHighPoint(ctx context.Context, problemID, userID string, pitch int) error {
+	_, err := db.Pool.Exec(ctx,
+		`INSERT INTO problem_high_points (problem_id, user_id, pitch) VALUES ($1, $2, $3)
+		 ON CONFLICT (problem_id, user_id) DO UPDATE SET pitch = EXCLUDED.pitch, updated_at = now()`,
+		problemID, userID, pitch)
+	return err
+}
+
+func deleteHighPoint(ctx context.Context, problemID, userID string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM problem_high_points WHERE problem_id = $1 AND user_id = $2`, problemID, userID)
+	return err
+}
+
 func listSentProblemIDs(ctx context.Context, userID string) ([]string, error) {
 	rows, err := db.Pool.Query(ctx, `SELECT problem_id FROM sends WHERE user_id = $1`, userID)
 	if err != nil {

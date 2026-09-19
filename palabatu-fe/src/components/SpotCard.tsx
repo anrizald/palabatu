@@ -4,8 +4,8 @@ import FallbackImg from './FallbackImg.js';
 import { formatDistance } from '../lib/geo.js';
 import type { CragListItem } from '../types/crag.js';
 
-// "Is there a way in mapped" -- handoff-directory.md decision 7 names it as
-// one of the four things a spot card must answer, alongside distance, line
+// "Is there a way in mapped" -- one of the four things a spot card must
+// answer, alongside distance, line
 // count and a photo. It reads as an approach guide's presence, not a count:
 // two mapped walk-ins are not twice as reassuring as one, and the number
 // would just be noise on a card. Sized down rather than dimmed down, per
@@ -22,8 +22,8 @@ export function WayInLine({ approachCount, className = '' }: { approachCount: nu
 }
 
 // A spot, as a photo card. Near You on both Directory.tsx and Landing.tsx
-// asks its question at the spot level (handoff-directory.md decision 2 --
-// eight lines on one rock must never crowd out the second-nearest place),
+// asks its question at the spot level (eight lines on one rock must never
+// crowd out the second-nearest place),
 // so both need this same card; it lives here rather than in either page for
 // the same reason ProblemCard does (finding 12: three copies of a card is
 // three places to fix every bug).

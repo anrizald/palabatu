@@ -3,10 +3,12 @@ import type { NavigateFunction } from 'react-router-dom';
 import FallbackImg from './FallbackImg.js';
 import { rockLabel, type RecentRock } from '../lib/recentRocks.js';
 
-// Recently documented's card -- a rock, not a problem (handoff-directory.md
-// decision 2), linking to the rock rather than any one problem on it, which
-// is where someone actually wants to land after seeing "3 new lines".
-// Shared by Directory.tsx and Landing.tsx, same reasoning as SpotCard.
+// Recently documented's card -- a rock, not a problem, linking to the rock
+// rather than any one problem on it, which is where someone actually wants
+// to land after seeing "3 new lines". Landing.tsx-only: Directory's own
+// Recent row moved up to a crag-level activity rollup
+// (components/SpotActivityCard.tsx) while Landing's shopfront Recent tab
+// keeps this one rock, one photo, one card.
 export function RockCard({ rock, navigate, className = '' }: {
     rock: RecentRock;
     navigate: NavigateFunction;

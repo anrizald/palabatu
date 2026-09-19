@@ -83,7 +83,7 @@ func handleGetProblem(c *gin.Context) {
 
 // handleCreateProblem godoc
 // @Summary      Create a problem
-// @Description  Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.
+// @Description  Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly. pitch_count (2 or more; omit or null for a single pitch), commitment_grade (F, PD, AD, D, TD or ED) and pitches are the multi-pitch detail, accepted only when the boulder is a wall. pitches needs a pitch_count.
 // @Tags         problems
 // @Accept       json
 // @Produce      json
@@ -102,18 +102,26 @@ func handleCreateProblem(c *gin.Context) {
 		return
 	}
 
-	problem, err := CreateProblem(
-		c.Request.Context(), userID, body.Name, body.Grade, body.BoulderID,
-		body.FirstAscensionist, body.DiscoveredBy, body.LandingHazards, body.Descent, body.Notes, body.HeightM,
-		body.ImageURLs,
-	)
+	problem, err := CreateProblem(c.Request.Context(), userID, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidGrade):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrBoulderNotFound):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Boulder not found"})
+	case errors.Is(err, ErrInvalidPitchCount):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Pitch count must be between 2 and 100"})
+	case errors.Is(err, ErrInvalidCommitmentGrade):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid commitment grade"})
+	case errors.Is(err, ErrInvalidPitches):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid pitch details"})
+	case errors.Is(err, ErrPitchesNeedCount):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Set the pitch count before adding pitch details"})
+	case errors.Is(err, ErrPitchesOnBoulder):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Pitch details are only for walls"})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}
@@ -121,7 +129,7 @@ func handleCreateProblem(c *gin.Context) {
 
 // handleUpdateProblem godoc
 // @Summary      Update a problem
-// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).
+// @Description  Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null. The multi-pitch fields work the same way: pitch_count is cleared (single pitch) by null, commitment_grade by an empty string, and pitches, when present, replaces the whole documented set (an empty array clears it). Sending pitch detail for a route on a boulder is a 400, and moving a route onto a boulder hides its stored pitch detail without deleting it.
 // @Tags         problems
 // @Accept       json
 // @Produce      json
@@ -144,17 +152,26 @@ func handleUpdateProblem(c *gin.Context) {
 		return
 	}
 
-	problem, err := UpdateProblem(
-		c.Request.Context(), userID, id, body.BoulderID, body.Name, body.Grade,
-		body.FirstAscensionist, body.DiscoveredBy, body.LandingHazards, body.Descent, body.Notes, body.HeightM,
-	)
+	problem, err := UpdateProblem(c.Request.Context(), userID, id, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, problem)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidGrade):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid grade"})
 	case errors.Is(err, ErrBoulderNotFound):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Boulder not found"})
+	case errors.Is(err, ErrInvalidPitchCount):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Pitch count must be between 2 and 100"})
+	case errors.Is(err, ErrInvalidCommitmentGrade):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid commitment grade"})
+	case errors.Is(err, ErrInvalidPitches):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid pitch details"})
+	case errors.Is(err, ErrPitchesNeedCount):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Set the pitch count before adding pitch details"})
+	case errors.Is(err, ErrPitchesOnBoulder):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Pitch details are only for walls"})
 	case errors.Is(err, ErrNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
 	case errors.Is(err, ErrForbidden):

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"palabatu-be/internal/db"
+	"palabatu-be/internal/photocredits"
 )
 
 // Crag is the place you drive to and park at -- the top level of the
@@ -28,9 +29,9 @@ type Crag struct {
 // CragListItem is the shape returned by GET /crags and GET /crags/:id.
 // BoulderCount/ProblemCount let a future frontend render the dimmed
 // empty-crag state (handoff.md open item 1) without a second round-trip.
-// ApproachCount is the same idea for "is there a way in mapped", which
-// handoff-directory.md decision 7 names as one of the four things a spot
-// card must answer -- without it every spot surface would need a per-crag
+// ApproachCount is the same idea for "is there a way in mapped", one of the
+// four things a spot card must answer -- without it every spot surface
+// would need a per-crag
 // GET /crags/:id/approaches just to render one word.
 type CragListItem struct {
 	ID            string    `json:"id"`
@@ -46,6 +47,12 @@ type CragListItem struct {
 	ProblemCount  int       `json:"problem_count"`
 	ApproachCount int       `json:"approach_count"`
 	CreatedAt     time.Time `json:"created_at"`
+
+	// ImageCredits is populated by GetCrag only, never by listCrags -- hence
+	// omitempty, so list responses stay byte-identical. See
+	// internal/photocredits for why an absent entry means this crag's own
+	// creator rather than an unknown uploader.
+	ImageCredits []photocredits.Credit `json:"image_credits,omitempty"`
 }
 
 const cragListSelect = `
@@ -134,12 +141,21 @@ func getCragOwnerAndImages(ctx context.Context, id string) (createdBy *string, i
 	return createdBy, imageURLs, nil
 }
 
-func updateCragRow(ctx context.Context, id, name string, lat, lng float64, directions, accessNotes string) (*Crag, error) {
+// updateCragRow writes only what req carries: COALESCE keeps a column whose
+// value is nil, in one statement, so an untouched NULL stays NULL and a
+// concurrent edit is never put back to what it was.
+func updateCragRow(ctx context.Context, id string, req UpdateCragRequest) (*Crag, error) {
 	var c Crag
 	err := db.Pool.QueryRow(ctx,
-		`UPDATE crags SET name = $1, lat = $2, lng = $3, directions = $4, access_notes = $5 WHERE id = $6
+		`UPDATE crags SET
+			name = COALESCE($1, name),
+			lat = COALESCE($2, lat),
+			lng = COALESCE($3, lng),
+			directions = COALESCE($4, directions),
+			access_notes = COALESCE($5, access_notes)
+		 WHERE id = $6
 		 RETURNING id, name, lat, lng, directions, access_notes, image_urls, created_by, created_at`,
-		name, lat, lng, directions, accessNotes, id,
+		req.Name, req.Lat, req.Lng, req.Directions, req.AccessNotes, id,
 	).Scan(&c.ID, &c.Name, &c.Lat, &c.Lng, &c.Directions, &c.AccessNotes, &c.ImageURLs, &c.CreatedBy, &c.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -172,5 +188,48 @@ func addCragImages(ctx context.Context, id string, newURLs []string) (*Crag, err
 // boulders.removeBoulderImage.
 func removeCragImage(ctx context.Context, id, url string) error {
 	_, err := db.Pool.Exec(ctx, `UPDATE crags SET image_urls = image_urls - $2::text WHERE id = $1`, id, url)
+	return err
+}
+
+// cragDeleteCheck is everything DeleteCrag needs in one round-trip: the
+// photos to clean up out of Cloudinary, and the three counts that decide
+// whether the crag is empty enough to remove at all.
+//
+// All three counts matter, and for different reasons. boulders and
+// approaches both cascade from crags (migrations 0014/0017), so deleting a
+// crag that still has either destroys real contributed work silently --
+// including an approach's step photos, which are the "actual deliverable"
+// of handoff.md decision 21. problems.crag_id has no ON DELETE clause at
+// all, so a crag with problems would fail on the raw FK constraint; it is
+// checked here so the caller gets ErrCragNotEmpty instead of a 500.
+// Problems should be unreachable while boulder_count is 0 (every problem
+// has a NOT NULL boulder_id), but crag_id is denormalized onto problems
+// independently, so this does not assume the two agree.
+type cragDeleteCheck struct {
+	imageURLs     []string
+	boulderCount  int
+	problemCount  int
+	approachCount int
+}
+
+func getCragDeleteCheck(ctx context.Context, id string) (*cragDeleteCheck, error) {
+	var d cragDeleteCheck
+	err := db.Pool.QueryRow(ctx,
+		`SELECT
+			c.image_urls,
+			COALESCE((SELECT COUNT(*) FROM boulders WHERE crag_id = c.id), 0)::int,
+			COALESCE((SELECT COUNT(*) FROM problems WHERE crag_id = c.id), 0)::int,
+			COALESCE((SELECT COUNT(*) FROM approaches WHERE crag_id = c.id), 0)::int
+		 FROM crags c WHERE c.id = $1`,
+		id,
+	).Scan(&d.imageURLs, &d.boulderCount, &d.problemCount, &d.approachCount)
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func deleteCragRow(ctx context.Context, id string) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM crags WHERE id = $1`, id)
 	return err
 }

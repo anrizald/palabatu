@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { CragListItem } from '../../types/crag.js'
 import type { NewSpotDraft } from './types.js'
 import SpotMiniMap from './SpotMiniMap.js'
+import { MAX_NAME_LEN } from '../../lib/constants.js';
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
 const labelClass = "block text-[12.5px] font-medium text-text-muted mb-1.5"
@@ -29,7 +30,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
         <div className="flex flex-col gap-4">
             <div>
                 <label className={labelClass}>What's it called?</label>
-                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Batu Kalong" className={inputClass} />
+                <input value={draft.name} onChange={e => set({ name: e.target.value })} placeholder="Batu Kalong" maxLength={MAX_NAME_LEN} className={inputClass} />
             </div>
 
             <div>
@@ -48,7 +49,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
                 {draft.photoPreview ? (
                     <div className="relative w-full aspect-video rounded-[10px] overflow-hidden border border-border">
                         <img src={draft.photoPreview} alt="Spot" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => set({ photoFile: null, photoPreview: null })} className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 flex items-center justify-center cursor-pointer">&times;</button>
+                        <button type="button" onClick={() => set({ photoFile: null, photoPreview: null, photoUrl: null })} className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 flex items-center justify-center cursor-pointer">&times;</button>
                     </div>
                 ) : (
                     <label className="block w-full min-h-11 border border-dashed border-border rounded-[10px] bg-surface text-text-secondary text-sm text-center py-5 cursor-pointer hover:border-accent">
@@ -56,7 +57,7 @@ export default function SpotFields({ draft, onChange, allCrags, collapsedDetails
                         <input type="file" accept="image/*" className="hidden" onChange={e => {
                             const file = e.target.files?.[0]
                             if (!file) return
-                            set({ photoFile: file, photoPreview: URL.createObjectURL(file) })
+                            set({ photoFile: file, photoPreview: URL.createObjectURL(file), photoUrl: null })
                         }} />
                     </label>
                 )}

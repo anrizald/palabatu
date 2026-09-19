@@ -15,6 +15,7 @@ export { default as ApproachReadingPage } from './ApproachReadingPage.js';
 export { default as ApproachCaptureView } from './ApproachCaptureView.js';
 export { default as AdminReports } from './AdminReports.js';
 export { default as AdminMergeRequests } from './AdminMergeRequests.js';
+export { default as AdminNeedsAttention } from './AdminNeedsAttention.js';
 export { default as Notifications } from './Notifications.js';
 export { default as ComingSoon } from './ComingSoon.js';
 export { default as Developer } from './Developer.js';

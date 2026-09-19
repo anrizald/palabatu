@@ -7,7 +7,7 @@ import FooterSection from './components/Footer.js'
 import { ProblemList } from './pages/ProblemList.js'
 import { SpotList } from './pages/SpotList.js'
 import { AddSheetProvider } from './lib/AddSheetContext.js'
-import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, Notifications, ComingSoon, Developer } from './pages/index.js'
+import { MapPage, Landing, Directory, Profile, Login, Signup, ForgotPassword, ResetPassword, NotFound, ProblemDetailPage, CragDetailPage, BoulderDetailPage, ApproachReadingPage, ApproachCaptureView, AdminReports, AdminMergeRequests, AdminNeedsAttention, Notifications, ComingSoon, Developer } from './pages/index.js'
 
 // Site isn't public yet -- flip to true to bring the real app back online.
 const SITE_LIVE = true
@@ -53,6 +53,7 @@ export default function App() {
               <Route path="/boulders/:id" element={<BoulderDetailPage />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/merge-requests" element={<AdminMergeRequests />} />
+              <Route path="/admin/needs-attention" element={<AdminNeedsAttention />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/developer" element={<Developer />} />
               <Route path="*" element={<NotFound />} />

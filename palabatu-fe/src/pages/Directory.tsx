@@ -5,8 +5,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Mountain, Compass, Plus, ArrowRight, Navigation, Footprints, Layers } from 'lucide-react';
 import { ProblemCard } from '../components/ProblemCard.js';
 import { SpotCard } from '../components/SpotCard.js';
-import { RockCard } from '../components/RockCard.js';
-import { groupRecentRocks, type RecentRock } from '../lib/recentRocks.js';
+import { SpotActivityCard } from '../components/SpotActivityCard.js';
+import { DirectorySegmentedControl } from '../components/DirectorySegmentedControl.js';
+import { groupRecentActivity, type RecentActivity } from '../lib/recentActivity.js';
 import FallbackImg from '../components/FallbackImg.js';
 import { haversineKm, type Geo } from '../lib/geo.js';
 import { useAddSheet } from '../lib/useAddSheet.js';
@@ -56,8 +57,7 @@ type NearSpot = { crag: CragListItem; distanceKm: number };
 // location" prompt for Near You). Renders nothing at all when there's
 // neither, so an empty row never leaves a dangling heading. Generic over the
 // item type since each row is now a different entity (spots, rocks,
-// problems — handoff-directory.md decision 2), not just ProblemCard reused
-// three ways.
+// problems), not just ProblemCard reused three ways.
 function RowSection<T>({ title, items, renderItem, seeAll, emptyState }: {
     title: string;
     items: T[];
@@ -172,9 +172,9 @@ type Gap =
 
 const GAP_SCAN_LIMIT = 8;
 
-// Nearest-first when geo is on, list order otherwise (open item 4: resolved
-// as nearest-first only, no personalisation -- cross-referencing the
-// viewer's own sends is a real idea, deferred rather than built here). The
+// Nearest-first when geo is on, list order otherwise -- resolved as
+// nearest-first only, no personalisation. Cross-referencing the viewer's
+// own sends is a real idea, deferred rather than built here. The
 // first candidate crag that qualifies for any gap wins, so "nearest" always
 // beats "which gap type"; within one crag the free checks (no lines, no
 // approach) run before the one that costs a request.
@@ -346,9 +346,13 @@ export default function Directory() {
             .slice(0, ROW_LIMIT);
     }, [crags, geo]);
 
-    // Recently documented, at the rock level (decision 2) — see
-    // groupRecentRocks in components/RockCard.tsx, shared with Landing.
-    const recentRocks = useMemo<RecentRock[]>(() => groupRecentRocks(problems, ROW_LIMIT), [problems]);
+    // Recently documented, at the crag level (superseding the original
+    // rock-level grouping on this page only) — see groupRecentActivity in
+    // lib/recentActivity.ts. A returning
+    // contributor's question here is "what happened where, and who did it",
+    // which spans several rocks and people; Landing keeps the rock-level
+    // groupRecentRocks for its own shopfront Recent tab.
+    const recentActivity = useMemo<RecentActivity[]>(() => groupRecentActivity(problems, ROW_LIMIT), [problems]);
 
     // "9 with a way in mapped" — the stat bar's third figure is the one the
     // Proposed Surfaces sketch asks for, and the one decision 7 cares about:
@@ -359,6 +363,8 @@ export default function Directory() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
             <div className="max-w-[1100px] mx-auto px-6 pt-6">
+                <DirectorySegmentedControl />
+
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-2">
                     <div>
                         <h1 className="font-serif text-[32px] font-black text-text mb-1">Directory</h1>
@@ -471,9 +477,10 @@ export default function Directory() {
 
                         <RowSection
                             title="Recently documented"
-                            items={recentRocks}
-                            renderItem={(rock) => (
-                                <RockCard key={rock.boulderId} rock={rock} navigate={navigate} className="shrink-0 w-60 snap-start" />
+                            items={recentActivity}
+                            seeAll="/directory/spots"
+                            renderItem={(activity) => (
+                                <SpotActivityCard key={activity.cragId} activity={activity} navigate={navigate} className="shrink-0 w-60 snap-start" />
                             )}
                         />
 
@@ -485,21 +492,6 @@ export default function Directory() {
                                 <ProblemCard key={problem.id} problem={problem} navigate={navigate} className="shrink-0 w-60 snap-start" />
                             )}
                         />
-
-                        <div className="flex flex-wrap justify-center gap-3 pt-2">
-                            <Link
-                                to="/directory/all"
-                                className="inline-flex items-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium bg-transparent border border-border text-text-muted hover:border-accent hover:text-text-secondary transition-colors"
-                            >
-                                See all lines <ArrowRight size={16} className="shrink-0" />
-                            </Link>
-                            <Link
-                                to="/directory/spots"
-                                className="inline-flex items-center gap-1.5 px-6 py-[11px] rounded-[10px] text-sm font-medium bg-transparent border border-border text-text-muted hover:border-accent hover:text-text-secondary transition-colors"
-                            >
-                                Browse spots <ArrowRight size={16} className="shrink-0" />
-                            </Link>
-                        </div>
                     </>
                 )}
             </div>

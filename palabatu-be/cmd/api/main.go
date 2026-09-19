@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"palabatu-be/internal/apitypes"
 	"palabatu-be/internal/approaches"
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/boulders"
@@ -23,6 +24,7 @@ import (
 	"palabatu-be/internal/crags"
 	"palabatu-be/internal/db"
 	"palabatu-be/internal/devtools"
+	"palabatu-be/internal/drafts"
 	"palabatu-be/internal/feedback"
 	"palabatu-be/internal/metrics"
 	"palabatu-be/internal/middleware"
@@ -58,6 +60,20 @@ func stripTrailingSlash(next http.Handler) http.Handler {
 // @in                          header
 // @name                        Authorization
 // @description                 Type "Bearer" followed by a space and the JWT, e.g. "Bearer eyJhbGc...".
+// handleHealthz answers 200 only when the database is reachable, so the
+// container healthcheck and any external pinger notice a lost DB connection
+// rather than just a live process. The short timeout keeps a hung pool from
+// tying the request up; Neon waking from idle is the slow case it allows for.
+func handleHealthz(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	if err := db.Pool.Ping(ctx); err != nil {
+		c.JSON(http.StatusServiceUnavailable, apitypes.ErrorResponse{Error: "database unavailable"})
+		return
+	}
+	c.Status(http.StatusOK)
+}
+
 func main() {
 	_ = godotenv.Load()
 
@@ -88,6 +104,12 @@ func main() {
 	// so it covers /auth as well as /api, ahead of both route groups.
 	r.Use(middleware.BodyLimit(2<<20, 10<<20))
 
+	// Deadlines every request's context, and through it every pgx call --
+	// see middleware.Timeout. 10s is far past any real query here; 30s for
+	// uploads matches the server's own ReadTimeout/WriteTimeout below, past
+	// which the response couldn't be written anyway.
+	r.Use(middleware.Timeout(10*time.Second, 30*time.Second))
+
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
 			"https://palabatu.id",
@@ -103,7 +125,10 @@ func main() {
 	}))
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
+	// Per-IP limited because each hit now costs a database round trip and
+	// the route is public. The container healthcheck (30s) and an external
+	// uptime pinger both sit far below 1 req/s.
+	r.GET("/healthz", middleware.RateLimit(time.Second, 5), handleHealthz)
 
 	apiGroup := r.Group("/api")
 
@@ -126,6 +151,7 @@ func main() {
 	boulders.Routes(apiGroup)
 	problems.Routes(apiGroup)
 	approaches.Routes(apiGroup)
+	drafts.Routes(apiGroup)
 	social.Routes(apiGroup)
 	report.Routes(apiGroup)
 	notification.Routes(apiGroup)

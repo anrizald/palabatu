@@ -21,8 +21,18 @@ type CreateCommentRequest struct {
 // the app's usual snake_case, because that's the literal key palabatu-fe
 // already reads (ProblemDetailPage.tsx: data.hasSent). Documented as-is,
 // not normalized -- this is a documentation pass, not a wire-format change.
+//
+// HighPoint is the caller's own turned-back pitch on this route (handoff.md
+// open item 14), null when they have none. It is private to them: this is the
+// only place it is ever returned, and only to the person it belongs to.
 type SendStatusResponse struct {
-	HasSent bool `json:"hasSent"`
+	HasSent   bool `json:"hasSent"`
+	HighPoint *int `json:"highPoint"`
+}
+
+// SetHighPointRequest is handleSetHighPoint's request body.
+type SetHighPointRequest struct {
+	Pitch int `json:"pitch"`
 }
 
 // ActionResponse is shared by handleToggleSend ("sent"/"unsent") and
@@ -39,6 +49,8 @@ func Routes(rg *gin.RouterGroup) {
 
 	rg.GET("/problems/:id/send-status", middleware.RequireAuth, handleSendStatus)
 	rg.POST("/problems/:id/send", middleware.RequireAuth, handleToggleSend)
+	rg.PUT("/problems/:id/high-point", middleware.RequireAuth, handleSetHighPoint)
+	rg.DELETE("/problems/:id/high-point", middleware.RequireAuth, handleClearHighPoint)
 	rg.GET("/sends/mine", middleware.RequireAuth, handleListMySends)
 
 	rg.GET("/problems/:id/comments", handleListComments)
@@ -51,7 +63,7 @@ func Routes(rg *gin.RouterGroup) {
 }
 
 // handleSendStatus godoc
-// @Summary      Whether the authenticated user has sent this problem
+// @Summary      Whether the authenticated user has sent this problem, and their own high point on it
 // @Tags         social
 // @Produce      json
 // @Security     BearerAuth
@@ -68,7 +80,75 @@ func handleSendStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 		return
 	}
-	c.JSON(http.StatusOK, SendStatusResponse{HasSent: hasSent})
+	highPoint, err := GetHighPoint(c.Request.Context(), id, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, SendStatusResponse{HasSent: hasSent, HighPoint: highPoint})
+}
+
+// handleSetHighPoint godoc
+// @Summary      Record how far up a multi-pitch route the authenticated user got
+// @Description  A private high point for a route the caller turned back from, one per climber per route (a new one replaces the old). Never counted as a send, notifies no one, and is cleared when the caller sends the route. Only a multi-pitch route on a wall has one, and pitch must be from 1 to the route's pitch count.
+// @Tags         social
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                      true  "Problem ID"
+// @Param        body  body      social.SetHighPointRequest  true  "Pitch reached"
+// @Success      200   {object}  apitypes.SuccessResponse
+// @Failure      400   {object}  apitypes.ErrorResponse
+// @Failure      404   {object}  apitypes.ErrorResponse
+// @Failure      409   {object}  apitypes.ErrorResponse  "the caller has already sent this route"
+// @Failure      500   {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/high-point [put]
+func handleSetHighPoint(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	var body SetHighPointRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	err := SetHighPoint(c.Request.Context(), id, userID, body.Pitch)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrNotMultiPitch):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "This route is not multi-pitch"})
+	case errors.Is(err, ErrInvalidHighPoint):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Pitch must be from 1 to the route's pitch count"})
+	case errors.Is(err, ErrAlreadySent):
+		c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: "You already topped this route out"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleClearHighPoint godoc
+// @Summary      Clear the authenticated user's high point on a route
+// @Description  Idempotent: clearing one that is not there still succeeds.
+// @Tags         social
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Problem ID"
+// @Success      200  {object}  apitypes.SuccessResponse
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/problems/{id}/high-point [delete]
+func handleClearHighPoint(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	if err := ClearHighPoint(c.Request.Context(), id, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+		return
+	}
+	c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
 }
 
 // handleToggleSend godoc

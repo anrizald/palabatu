@@ -154,7 +154,7 @@ export default function ComingSoon() {
                     <p className="cs-eyebrow">Coming soon</p>
                     <h1 className="cs-title">kuat, pinter, boleh</h1>
                     <p className="cs-sub">
-                        Palabatu — Indonesia's bouldering map — is under construction.
+                        Palabatu, Indonesia's bouldering map, is under construction.
                         Leave your email and we'll let you know the moment it opens.
                     </p>
 
@@ -165,7 +165,7 @@ export default function ComingSoon() {
                                     <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             </div>
-                            <p>You're on the list — we'll email <b>{submittedEmail}</b> when we launch.</p>
+                            <p>You're on the list. We'll email <b>{submittedEmail}</b> when we launch.</p>
                         </div>
                     ) : (
                         <>

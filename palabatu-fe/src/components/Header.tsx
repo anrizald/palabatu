@@ -186,6 +186,7 @@ export default function Header() {
                             <>
                                 {isAdmin && <Link to="/admin/reports" className="nav-link">Reports</Link>}
                                 {isAdmin && <Link to="/admin/merge-requests" className="nav-link">Merges</Link>}
+                                {isAdmin && <Link to="/admin/needs-attention" className="nav-link">Tidy</Link>}
                                 {isOwner && <Link to="/developer" className="nav-link">Developer</Link>}
                                 <Link to={`/profile/${user.slug}`} className={`nav-link ${isProfileActive ? 'active' : ''}`}>Profile</Link>
                                 <NotificationBell />

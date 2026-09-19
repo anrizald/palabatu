@@ -1,3 +1,5 @@
+import type { PhotoCredit } from './photocredit.js'
+
 import type { Shape } from './annotation.js'
 
 // "boulder" or "wall" (handoff.md decision 1: cliffs are in scope). Drives
@@ -38,6 +40,10 @@ export type BoulderListItem = Boulder & {
     creator_name: string | null
     problem_count: number
     sample_problem_name: string | null
+    // Present on GET /api/boulders/:id only, never on the crag's rock list --
+    // omitempty on the Go side. See photocredit.ts for why a photo missing
+    // from this array is credited to creator_name rather than "unknown".
+    image_credits?: PhotoCredit[]
 }
 
 // Mirrors boulders.CreateBoulderRequest (see
@@ -50,20 +56,31 @@ export type CreateBoulderRequest = {
     lat: number | null
     lng: number | null
     image_urls: string[]
+    // Records which of the add sheet's two picks the person made when a rock
+    // is created implicitly under a problem: true for "Not sure which one",
+    // false for "It's a new rock", null/absent when the question never came
+    // up (the rock intent's own form, or a spot with no rocks at all). The Go
+    // side is a *bool for exactly this three-state reason -- see
+    // handoff-add-sheet.md C11 and handoff.md open item 9.
+    filed_uncertain?: boolean | null
 }
 
 // Mirrors boulders.UpdateBoulderRequest -- no image_urls (images are only
 // ever mutated via the dedicated add/delete endpoints below). crag_id
 // re-parents the boulder to a different spot when non-empty (handoff.md
-// decision 13); empty string means "leave as is", same convention as every
-// other plain-string field here.
+// decision 13); empty string means "leave as is". Every other field is
+// optional and keeps the rock's current value when omitted. An empty name or
+// rock_type is a real value (it un-names the rock), whereas an empty type
+// also means "leave as is". lat/lng are the rock's pin and move as a pair:
+// omit both to leave the pin alone, send either to replace both with what
+// was sent (null clears).
 export type UpdateBoulderRequest = {
     crag_id: string
-    name: string
-    type: BoulderType | ''
-    rock_type: string
-    lat: number | null
-    lng: number | null
+    name?: string
+    type?: BoulderType | ''
+    rock_type?: string
+    lat?: number | null
+    lng?: number | null
 }
 
 // Mirrors boulders.AddBoulderImagesRequest / DeleteBoulderImageRequest.
@@ -135,3 +152,26 @@ export type MergeRequestListItem = {
 export type SuggestMergeRequest = { target_boulder_id: string; reason: string }
 export type ObjectToMergeRequest = { body: string }
 export type ResolveMergeRequestRequest = { action: 'merge' | 'reject'; survivor_id: string; override_hold: boolean }
+
+// Mirrors boulders.NeedsAttentionItem (GET /api/boulders/needs-attention),
+// the admin tidy-up queue from handoff.md open item 9. reason is a closed
+// set: 'said_unsure' is the contributor's own words recorded at creation
+// time, 'looks_unsure' is the unnamed + photoless + one-problem heuristic
+// inferred after the fact. sibling_count is how many other rocks are at the
+// same spot, which is what decides whether a merge is even possible.
+export type NeedsAttentionReason = 'said_unsure' | 'looks_unsure'
+
+export type NeedsAttentionItem = {
+    id: string
+    name: string | null
+    crag_id: string
+    crag_name: string
+    image_count: number
+    problem_count: number
+    sample_problem_name: string | null
+    sibling_count: number
+    created_by: string | null
+    creator_name: string | null
+    reason: NeedsAttentionReason
+    created_at: string
+}

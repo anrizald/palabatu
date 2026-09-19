@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
@@ -40,6 +41,8 @@ func UploadStream(ctx context.Context, file io.Reader, folder string) (string, e
 
 var versionPrefix = regexp.MustCompile(`^v\d+/`)
 
+const destroyTimeout = 10 * time.Second
+
 // DestroyByURL derives a Cloudinary public_id from a stored secure URL
 // (strip everything up to and including "/upload/", drop a leading
 // "vNNN/" version segment, drop the file extension) and destroys the
@@ -56,6 +59,13 @@ func DestroyByURL(ctx context.Context, url string) error {
 		publicID = publicID[:idx]
 	}
 
+	// Every caller destroys after its rows are already gone, often in a loop
+	// (a purge, a whole-entity delete), so the request's deadline
+	// (middleware.Timeout) or a disconnecting client must not cut the loop
+	// short and orphan the remaining assets. Detach, and bound each call on
+	// its own instead.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), destroyTimeout)
+	defer cancel()
 	_, err := client.Upload.Destroy(ctx, uploader.DestroyParams{PublicID: publicID})
 	return err
 }

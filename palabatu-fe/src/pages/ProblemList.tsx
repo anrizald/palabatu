@@ -1,10 +1,11 @@
 import { api } from '../lib/api.js';
 import { enrichProblems } from '../lib/cragCache.js';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, ArrowLeft, RotateCcw, Compass, Plus } from 'lucide-react';
+import { Search, RotateCcw, Compass, Plus } from 'lucide-react';
 import { GRADE_SCALES, detectGradeScale, boulderTypeToGradeType, type ProblemType } from '../lib/constants.js';
 import { ProblemCard } from '../components/ProblemCard.js';
+import { DirectorySegmentedControl } from '../components/DirectorySegmentedControl.js';
 import { useAuth } from '../lib/useAuth.js';
 import { useAddSheet } from '../lib/useAddSheet.js';
 import { haversineKm, type Geo } from '../lib/geo.js';
@@ -69,7 +70,7 @@ function compareGrades(a: string, b: string): number {
 
 // Which scale a problem's grade belongs to (V-Scale/Font/YDS/French), for
 // the Scale/Grade quick filters below. Type itself no longer comes from
-// here (handoff-directory.md decision 5/finding 4) — it comes straight from
+// here — it comes straight from
 // the rock's boulder_type via boulderTypeToGradeType, since that's
 // authoritative and a grade string can't reliably be reverse-guessed into
 // one; scale still has to come from the grade token, since it isn't stored
@@ -93,9 +94,9 @@ export function ProblemList() {
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [sentFilter, setSentFilter] = useState<SentFilter>('all');
     const [mySentIds, setMySentIds] = useState<Set<string>>(new Set());
-    // handoff-directory.md decision 12: newest by default, nearest once
-    // location is on. A-Z is a filing-cabinet default -- kept as an option,
-    // since it is the right sort once you're hunting a name you already
+    // Newest by default, nearest once location is on. A-Z is a
+    // filing-cabinet default -- kept as an option, since it is the right
+    // sort once you're hunting a name you already
     // know, but not the one a catalog opens on.
     const [sortBy, setSortBy] = useState<SortBy>('newest');
     const [sortTouched, setSortTouched] = useState(false);
@@ -178,8 +179,8 @@ export function ProblemList() {
 
     const scaleOptions = typeFilter === 'All' ? [] : Object.keys(GRADE_SCALES[typeFilter]);
 
-    // Project is its own pill, not a Type/Scale-gated one (handoff-directory.md
-    // decision 4). Picking it clears Type/Scale: an ungraded problem has no
+    // Project is its own pill, not a Type/Scale-gated one. Picking it
+    // clears Type/Scale: an ungraded problem has no
     // scale to belong to, so leaving a stale Scale=Font selected behind it
     // would silently return zero results.
     const handleProjectFilter = () => {
@@ -277,9 +278,7 @@ export function ProblemList() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink text-text font-sans pb-12">
             <div className="max-w-[1100px] mx-auto px-6 pt-6">
-                <Link to="/directory" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-accent transition-colors w-fit mb-4">
-                    <ArrowLeft size={14} className="shrink-0" /> Back to Directory
-                </Link>
+                <DirectorySegmentedControl />
 
                 <h1 className="font-serif text-[32px] font-black text-text mb-1">All Problems</h1>
                 <p className="text-text-muted mb-6">Search the full catalog, filter by grade, sort however works for you.</p>
@@ -296,10 +295,16 @@ export function ProblemList() {
                             className="w-full bg-panel border border-border focus:border-accent rounded-xl pl-10 pr-4 py-3 text-sm text-text placeholder:text-text-dim outline-none transition-colors"
                         />
                     </div>
+                    {/* max-w-full and min-w-0 are load-bearing: a native select
+                        sizes itself to its widest <option>, so one long spot name
+                        made this wider than the viewport and scrolled the whole
+                        page sideways. Constrained, the browser truncates the
+                        displayed label itself and the full name is still readable
+                        in the open dropdown. */}
                     <select
                         value={spotFilter}
                         onChange={(e) => setSpotFilter(e.target.value)}
-                        className="bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
+                        className="max-w-full min-w-0 bg-panel border border-border focus:border-accent rounded-xl px-4 py-3 text-sm text-text outline-none cursor-pointer transition-colors"
                     >
                         <option value="All">All spots</option>
                         {spotOptions.map(([id, name]) => (

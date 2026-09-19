@@ -320,7 +320,7 @@ export default function MapPage() {
                 {/* <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /> */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    attribution="Tiles &copy; Esri &mdash; Source: Esri"
+                    attribution="Tiles &copy; Esri. Source: Esri"
                     maxNativeZoom={18}
                     maxZoom={20}
                 />

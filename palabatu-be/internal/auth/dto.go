@@ -39,14 +39,20 @@ type ResetPasswordRequest struct {
 	Password string `json:"password"`
 }
 
-// UpsertProfileRequest is handleUpsertProfile's request body.
+// UpsertProfileRequest is handleUpsertProfile's request body. Every field is
+// optional, and one the body leaves out keeps the profile's current value.
+// The text fields are pointers so that an omitted key (nil, keep) stays
+// distinct from an empty string (write an empty value, which is how a field
+// is cleared). Title and Tags are raw JSON, where an omitted key is a nil
+// slice and an explicit null decodes to the bytes "null", so the two are
+// already distinguishable and a client can still clear either on purpose.
 type UpsertProfileRequest struct {
-	Username  string          `json:"username"`
+	Username  *string         `json:"username"`
 	Title     json.RawMessage `json:"title"`
 	Tags      json.RawMessage `json:"tags"`
-	AvatarURL string          `json:"avatar_url"`
-	Bio       string          `json:"bio"`
-	Location  string          `json:"location"`
+	AvatarURL *string         `json:"avatar_url"`
+	Bio       *string         `json:"bio"`
+	Location  *string         `json:"location"`
 }
 
 // ChangePasswordRequest is handleChangePassword's request body.

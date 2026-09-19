@@ -18,11 +18,15 @@ func Routes(rg *gin.RouterGroup) {
 	// requires the same wildcard name wherever two route trees share a
 	// path segment, and internal/crags already registered /crags/:id.
 	rg.GET("/crags/:id/boulders", handleListBoulders)
+	// Registered ahead of /boulders/:id so gin matches the literal segment
+	// rather than treating "needs-attention" as a boulder id.
+	rg.GET("/boulders/needs-attention", middleware.RequireAuth, handleNeedsAttention)
 	rg.GET("/boulders/:id", handleGetBoulder)
 	rg.POST("/boulders", middleware.RequireAuth, handleCreateBoulder)
 	rg.PUT("/boulders/:id", middleware.RequireAuth, handleUpdateBoulder)
 	rg.POST("/boulders/:id/images", middleware.RequireAuth, handleAddBoulderImages)
 	rg.DELETE("/boulders/:id/images", middleware.RequireAuth, handleDeleteBoulderImage)
+	rg.DELETE("/boulders/:id", middleware.RequireAuth, handleDeleteBoulder)
 	rg.GET("/boulders/:id/annotations", handleListBoulderAnnotations)
 
 	registerMergeRoutes(rg)
@@ -91,10 +95,12 @@ func handleCreateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.ImageURLs)
+	boulder, err := CreateBoulder(c.Request.Context(), userID, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.ImageURLs, body.FiledUncertain)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	case errors.Is(err, ErrInvalidType):
@@ -108,7 +114,7 @@ func handleCreateBoulder(c *gin.Context) {
 
 // handleUpdateBoulder godoc
 // @Summary      Update a boulder
-// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.
+// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. Any field left out keeps its current value. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin). An empty type also leaves the type alone.
 // @Tags         boulders
 // @Accept       json
 // @Produce      json
@@ -131,10 +137,12 @@ func handleUpdateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng)
+	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)
+	case errors.Is(err, ErrNameTooLong):
+		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Name is too long"})
 	case errors.Is(err, ErrInvalidLocation):
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Location must be within Indonesia"})
 	case errors.Is(err, ErrInvalidType):
@@ -223,6 +231,62 @@ func handleDeleteBoulderImage(c *gin.Context) {
 		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this boulder."})
 	case errors.Is(err, ErrImageNotFound):
 		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Image not found"})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleNeedsAttention godoc
+// @Summary      List rocks that were filed loosely and may need tidying
+// @Description  Admin-only (Council/Associate title). Returns rocks a contribution was filed loosely against, from two signals: the contributor explicitly picked "Not sure which one" (reason "said_unsure"), or the rock is unnamed, photoless and holds exactly one problem (reason "looks_unsure"). Rocks already merged away are excluded.
+// @Tags         boulders
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   boulders.NeedsAttentionItem
+// @Failure      403  {object}  apitypes.ErrorResponse  "not an admin"
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/boulders/needs-attention [get]
+func handleNeedsAttention(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+
+	items, err := ListNeedsAttention(c.Request.Context(), userID)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, items)
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Only an admin can do this."})
+	default:
+		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
+	}
+}
+
+// handleDeleteBoulder godoc
+// @Summary      Delete a rock that has no problems on it
+// @Description  Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.
+// @Tags         boulders
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Boulder ID"
+// @Success      200  {object}  apitypes.SuccessResponse
+// @Failure      403  {object}  apitypes.ErrorResponse  "not the creator and not an admin"
+// @Failure      404  {object}  apitypes.ErrorResponse
+// @Failure      409  {object}  apitypes.ErrorResponse  "rock still has problems on it"
+// @Failure      500  {object}  apitypes.ErrorResponse
+// @Router       /api/boulders/{id} [delete]
+func handleDeleteBoulder(c *gin.Context) {
+	userID := middleware.UserFromContext(c).ID
+	id := c.Param("id")
+
+	err := DeleteBoulder(c.Request.Context(), userID, id)
+	switch {
+	case err == nil:
+		c.JSON(http.StatusOK, apitypes.SuccessResponse{Success: true})
+	case errors.Is(err, ErrNotFound):
+		c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: "Not found"})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: "Not authorized to edit this rock."})
+	case errors.Is(err, ErrHasProblems):
+		c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: "This rock still has problems on it. Move them to another rock first."})
 	default:
 		c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "Server error"})
 	}

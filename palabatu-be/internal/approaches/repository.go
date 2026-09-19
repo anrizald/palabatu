@@ -154,13 +154,30 @@ func getCragCreator(ctx context.Context, cragID string) (*string, error) {
 	return createdBy, nil
 }
 
-func getApproachCreator(ctx context.Context, id string) (*string, error) {
-	var createdBy *string
-	err := db.Pool.QueryRow(ctx, `SELECT created_by FROM approaches WHERE id = $1`, id).Scan(&createdBy)
+// getApproachOwnerAndStepPhotos returns the approach's creator and every
+// step photo URL in one round trip, mirroring
+// boulders.getBoulderOwnerAndImages: DeleteApproach needs the creator to
+// authorize and the URLs to clean up Cloudinary, and neither is worth its
+// own query. The URLs have to be read before the delete -- approach_steps
+// rows go away with the approach via approach_steps_approach_id_fkey's
+// ON DELETE CASCADE (migrations/0017), taking the only record of what was
+// uploaded with them.
+func getApproachOwnerAndStepPhotos(ctx context.Context, id string) (createdBy *string, photoURLs []string, err error) {
+	err = db.Pool.QueryRow(ctx, `
+		SELECT
+			a.created_by,
+			ARRAY(
+				SELECT photo_url FROM approach_steps
+				WHERE approach_id = a.id AND photo_url <> ''
+				ORDER BY position ASC
+			) AS photo_urls
+		FROM approaches a
+		WHERE a.id = $1
+	`, id).Scan(&createdBy, &photoURLs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return createdBy, nil
+	return createdBy, photoURLs, nil
 }
 
 // createApproach inserts the approach row and every step in one

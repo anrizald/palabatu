@@ -13,6 +13,8 @@ type TopoImageProps = {
     canReport: boolean
     onReport: () => void
     onSaved: (shapes: Shape[]) => void
+    /** Passed only for a multi-pitch route, so the editor can tag lines by pitch. */
+    pitchCount?: number | null
     style?: CSSProperties
     className?: string
 }
@@ -32,7 +34,7 @@ const buttonStyle: CSSProperties = {
 // would have hidden — but sized via maxWidth/maxHeight + flex-centering
 // rather than objectFit itself, so the <img>'s own box always matches its
 // visible content for useContainRect to measure (see that hook's note).
-export default function TopoImage({ problemId, url, shapes, canEdit, canReport, onReport, onSaved, style, className }: TopoImageProps) {
+export default function TopoImage({ problemId, url, shapes, canEdit, canReport, onReport, onSaved, pitchCount, style, className }: TopoImageProps) {
     const { containerRef, imgRef, rect } = useContainRect()
     const [isEditing, setIsEditing] = useState(false)
 
@@ -48,7 +50,7 @@ export default function TopoImage({ problemId, url, shapes, canEdit, canReport, 
                 alt="Topo"
                 style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', display: 'block' }}
             />
-            <TopoAnnotationOverlay shapes={shapes} rect={rect} />
+            <TopoAnnotationOverlay shapes={shapes} rect={rect} showPitchLabels />
 
             {canReport && (
                 <button onClick={onReport} title="Report image" style={{ ...buttonStyle, top: '8px', right: '8px' }}>
@@ -72,6 +74,7 @@ export default function TopoImage({ problemId, url, shapes, canEdit, canReport, 
                     initialShapes={shapes}
                     onCancel={() => setIsEditing(false)}
                     onSaved={(newShapes) => { onSaved(newShapes); setIsEditing(false) }}
+                    {...(pitchCount != null ? { pitchCount } : {})}
                 />
             )}
         </div>

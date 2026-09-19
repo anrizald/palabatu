@@ -10,14 +10,18 @@ type Tool = 'pen' | 'circle'
 
 type TopoAnnotationEditorProps = {
     // Omitted when annotating a photo that isn't attached to a saved problem
-    // yet (AddProblemModal's preview thumbnails, before the "Add Problem"
-    // submit): Save then skips the network call and just hands shapes back
+    // yet (the add sheet's staged photo, before the problem is submitted):
+    // Save then skips the network call and just hands shapes back
     // to the caller via onSaved, to be persisted once a problem_id exists.
     problemId?: string
     url: string
     initialShapes: Shape[]
     onCancel: () => void
     onSaved: (shapes: Shape[]) => void
+    /** Set for a multi-pitch route (a wall route with a pitch count): offers a
+     * picker so each line can say which pitch it belongs to. Left unset,
+     * nothing about drawing changes. */
+    pitchCount?: number | null
 }
 
 const genId = () => Math.random().toString(36).slice(2, 10)
@@ -40,11 +44,13 @@ const ICON_FLEX_FIX: CSSProperties = { flexShrink: 0 }
 // so it looks consistent whichever page opened it. Draws into the same
 // TopoAnnotationOverlay the read-only viewer uses (passed the in-progress
 // shape as a live preview), so there is exactly one shape-rendering path.
-export default function TopoAnnotationEditor({ problemId, url, initialShapes, onCancel, onSaved }: TopoAnnotationEditorProps) {
+export default function TopoAnnotationEditor({ problemId, url, initialShapes, onCancel, onSaved, pitchCount }: TopoAnnotationEditorProps) {
     const [shapes, setShapes] = useState<Shape[]>(initialShapes)
     const [tool, setTool] = useState<Tool>('pen')
     const [color, setColor] = useState<string>(ANNOTATION_COLORS[0])
     const [draft, setDraft] = useState<Shape | null>(null)
+    // Which pitch the next line belongs to; null is "not tied to a pitch".
+    const [pitch, setPitch] = useState<number | null>(null)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -66,10 +72,11 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
         e.currentTarget.setPointerCapture(e.pointerId)
         draftingRef.current = true
 
+        const tag = pitch != null ? { pitch } : {}
         setDraft(
             tool === 'pen'
-                ? { id: genId(), type: 'stroke', color, strokeWidth: DEFAULT_STROKE_WIDTH, points: [point] }
-                : { id: genId(), type: 'circle', color, strokeWidth: DEFAULT_STROKE_WIDTH, center: point, radius: 0 }
+                ? { id: genId(), type: 'stroke', color, strokeWidth: DEFAULT_STROKE_WIDTH, points: [point], ...tag }
+                : { id: genId(), type: 'circle', color, strokeWidth: DEFAULT_STROKE_WIDTH, center: point, radius: 0, ...tag }
         )
     }
 
@@ -175,7 +182,7 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
                         style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', display: 'block' }}
                         draggable={false}
                     />
-                    <TopoAnnotationOverlay shapes={shapes} rect={rect} previewShape={draft} />
+                    <TopoAnnotationOverlay shapes={shapes} rect={rect} previewShape={draft} showPitchLabels />
                     <div
                         ref={drawingRef}
                         onPointerDown={handlePointerDown}
@@ -217,6 +224,25 @@ export default function TopoAnnotationEditor({ problemId, url, initialShapes, on
                             />
                         ))}
                     </div>
+
+                    {pitchCount != null && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#967b6a', minWidth: 0 }}>
+                            Line for
+                            <select
+                                value={pitch ?? ''}
+                                onChange={e => setPitch(e.target.value === '' ? null : Number(e.target.value))}
+                                style={{
+                                    background: '#0a0908', border: '1px solid #2a2420', borderRadius: '8px',
+                                    color: '#f0e0c8', fontSize: '12px', padding: '6px 8px', maxWidth: '100%', minWidth: 0,
+                                }}
+                            >
+                                <option value="">Whole route</option>
+                                {Array.from({ length: pitchCount }, (_, i) => i + 1).map(n => (
+                                    <option key={n} value={n}>Pitch {n}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
 
                     <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
                         <button onClick={handleUndo} disabled={shapes.length === 0} title="Undo" style={iconButtonStyle(shapes.length === 0)}>

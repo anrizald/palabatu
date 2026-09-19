@@ -73,9 +73,9 @@ export function invalidateCragCache() {
 // Batch enrichment for card grids/rows showing many problems at once
 // (Directory.tsx, ProblemList.tsx, Landing.tsx). Used to also resolve each
 // problem's thumbnail via a per-*distinct*-crag getBouldersForCrag() fan-out
-// (finding 11's "1 + N requests"); now that handoff-directory.md's tier 1
-// puts the boulder's photo directly on the wire as ProblemListItem.topo_url,
-// that fan-out is gone -- one getAllCrags() call is the whole job, so a cold
+// (a 1 + N requests); now that the backend puts the boulder's photo
+// directly on the wire as ProblemListItem.topo_url, that fan-out is gone --
+// one getAllCrags() call is the whole job, so a cold
 // `/directory/all` is 2 requests total, not 1 + N.
 //
 // mapLat/mapLng now come from the crag only, not "boulder's own pin, falling

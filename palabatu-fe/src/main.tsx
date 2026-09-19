@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register';
 import { AuthProvider } from './lib/AuthContext.js';
+import { installOverflowGuard } from './lib/overflowGuard.js';
+
+// Dev-only; compiled out of production builds. See overflowGuard.ts.
+installOverflowGuard();
 
 // guard clause if root null at runtime
 const rootElement = document.getElementById('root');

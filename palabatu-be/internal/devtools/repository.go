@@ -22,16 +22,29 @@ type ExportedUser struct {
 	CreatedAt       time.Time  `json:"created_at"`
 }
 
+// ExportedProblem lists the columns `problems` has today. Location, lat and lng
+// are gone on purpose: migration 0015 moved them to crags/boulders, and this
+// query kept selecting them, so the export failed outright until it was fixed.
+// The per-pitch rows (problem_pitches) and the high-point records are not in
+// this dump on purpose: it is a fixed allowlist of five flat tables, and the
+// owner can read those two directly. Their problem-level columns are here.
 type ExportedProblem struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Grade     *string   `json:"grade"`
-	Location  *string   `json:"location"`
-	Lat       *float64  `json:"lat"`
-	Lng       *float64  `json:"lng"`
-	CreatedBy *string   `json:"created_by"`
-	ImageURLs []string  `json:"image_urls"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	Grade             *string   `json:"grade"`
+	CragID            string    `json:"crag_id"`
+	BoulderID         string    `json:"boulder_id"`
+	FirstAscensionist *string   `json:"first_ascensionist"`
+	DiscoveredBy      *string   `json:"discovered_by"`
+	LandingHazards    *string   `json:"landing_hazards"`
+	Descent           *string   `json:"descent"`
+	HeightM           *float64  `json:"height_m"`
+	Notes             *string   `json:"notes"`
+	PitchCount        *int      `json:"pitch_count"`
+	CommitmentGrade   *string   `json:"commitment_grade"`
+	CreatedBy         *string   `json:"created_by"`
+	ImageURLs         []string  `json:"image_urls"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type ExportedSend struct {
@@ -86,7 +99,8 @@ func listUsersForExport(ctx context.Context) ([]ExportedUser, error) {
 
 func listProblemsForExport(ctx context.Context) ([]ExportedProblem, error) {
 	rows, err := db.Pool.Query(ctx, `
-		SELECT id, name, grade, location, lat, lng, created_by, image_urls, created_at
+		SELECT id, name, grade, crag_id, boulder_id, first_ascensionist, discovered_by, landing_hazards,
+			descent, height_m, notes, pitch_count, commitment_grade, created_by, image_urls, created_at
 		FROM problems ORDER BY created_at
 	`)
 	if err != nil {
@@ -97,7 +111,10 @@ func listProblemsForExport(ctx context.Context) ([]ExportedProblem, error) {
 	out := []ExportedProblem{}
 	for rows.Next() {
 		var p ExportedProblem
-		if err := rows.Scan(&p.ID, &p.Name, &p.Grade, &p.Location, &p.Lat, &p.Lng, &p.CreatedBy, &p.ImageURLs, &p.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&p.ID, &p.Name, &p.Grade, &p.CragID, &p.BoulderID, &p.FirstAscensionist, &p.DiscoveredBy, &p.LandingHazards,
+			&p.Descent, &p.HeightM, &p.Notes, &p.PitchCount, &p.CommitmentGrade, &p.CreatedBy, &p.ImageURLs, &p.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

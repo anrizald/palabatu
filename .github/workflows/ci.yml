@@ -17,6 +17,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: palabatu-be/go.mod
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
       - run: go vet ./...
       - run: go build ./...
 
@@ -35,4 +43,5 @@ jobs:
           cache-dependency-path: palabatu-fe/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npx tsc --noEmit
       - run: npm run build

@@ -1,6 +1,7 @@
 import type { BoulderType } from '../../types/boulder.js'
 import RockPointMap, { type NearbyRock } from '../RockPointMap.js'
 import type { Geo, NewRockDraft } from './types.js'
+import { MAX_NAME_LEN } from '../../lib/constants.js';
 
 const inputClass = "w-full min-h-11 bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none focus:border-accent"
 const labelClass = "block text-[12.5px] font-medium text-text-muted mb-1.5"
@@ -62,6 +63,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                                     onClick={() => set({
                                         imageFiles: draft.imageFiles.filter((_, i) => i !== idx),
                                         imagePreviews: draft.imagePreviews.filter((_, i) => i !== idx),
+                                        imageUrls: draft.imageUrls.filter((_, i) => i !== idx),
                                     })}
                                     className="absolute top-1 right-1 bg-black/60 text-white border-0 rounded-full w-5 h-5 cursor-pointer flex items-center justify-center"
                                     aria-label="Remove photo"
@@ -75,6 +77,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                                 set({
                                     imageFiles: [...draft.imageFiles, ...files],
                                     imagePreviews: [...draft.imagePreviews, ...files.map(f => URL.createObjectURL(f))],
+                                    imageUrls: [...draft.imageUrls, ...files.map(() => null)],
                                 })
                             }} />
                         </label>
@@ -87,6 +90,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                             set({
                                 imageFiles: [...draft.imageFiles, ...files],
                                 imagePreviews: [...draft.imagePreviews, ...files.map(f => URL.createObjectURL(f))],
+                                imageUrls: [...draft.imageUrls, ...files.map(() => null)],
                             })
                         }} />
                     </label>
@@ -99,6 +103,7 @@ export default function RockFields({ draft, onChange, cragCenter, cragName, near
                     value={draft.name}
                     onChange={e => set({ name: e.target.value })}
                     placeholder={draft.type === 'wall' ? 'the wall by the road' : 'the one with the crack'}
+                    maxLength={MAX_NAME_LEN}
                     className={inputClass}
                 />
                 <p className="text-xs text-text-muted mt-1.5">

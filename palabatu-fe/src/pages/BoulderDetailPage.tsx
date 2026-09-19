@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search, MapPin } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Layers, Pencil, Plus, X, AlertTriangle, GitCompare, Compass, Search, MapPin, Trash2 } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
@@ -16,6 +16,8 @@ import TopoAnnotationOverlay from '../components/topo-annotations/TopoAnnotation
 import MergeSuggestModal from '../components/MergeSuggestModal.js'
 import RockPointMap, { type NearbyRock } from '../components/RockPointMap.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
+import PhotoCreditLine from '../components/PhotoCreditLine.js'
+import { MAX_NAME_LEN } from '../lib/constants.js';
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
@@ -42,6 +44,8 @@ export default function BoulderDetailPage() {
     const isAdmin = useIsAdmin()
     const { openAddSheet } = useAddSheet()
 
+    const navigate = useNavigate()
+
     const [boulder, setBoulder] = useState<BoulderListItem | null>(null)
     const [crag, setCrag] = useState<CragListItem | null>(null)
     const [annotations, setAnnotations] = useState<BoulderAnnotation[]>([])
@@ -60,6 +64,7 @@ export default function BoulderDetailPage() {
     // pinned late can just as easily land on top of one already mapped.
     const [siblingRocks, setSiblingRocks] = useState<BoulderListItem[]>([])
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
     const [removingUrl, setRemovingUrl] = useState<string | null>(null)
 
@@ -105,6 +110,29 @@ export default function BoulderDetailPage() {
     useEffect(load, [id])
 
     const canEdit = !!boulder && !!user && (user.id === boulder.created_by || isAdmin)
+    // Adding a photo is widened to any signed-in user (handoff.md open item
+    // 11, resolved 2026-09-06, authz.CanContribute).
+    const canAddPhoto = !!boulder && !!user
+    // Lines on this photo that belong to problems the viewer didn't create --
+    // what deleting it would take down besides their own work.
+    const foreignLineCount = (url: string) =>
+        annotations.filter(a => a.image_url === url && problems.find(p => p.id === a.problem_id)?.created_by !== user?.id).length
+    // Removing one is open to the rock's creator or -- handoff.md item 15 --
+    // the contributor who uploaded this exact photo, UNLESS some problem the
+    // deleter doesn't own has a topo line drawn on it: a rock's photo is the
+    // shared canvas every problem on it draws against, so deleting it could
+    // take someone else's line down too. Only an admin can override that
+    // (item 18). `annotations` and `problems` are both already loaded on this
+    // page for the topo overlay, so this mirrors the backend's
+    // authorizeBoulderImageDelete/hasForeignAnnotation exactly rather than
+    // optimistically showing a button the backend would reject.
+    const canDeletePhoto = (url: string) => {
+        if (isAdmin) return true
+        if (!user || !boulder) return false
+        const isUploader = boulder.image_credits?.find(c => c.image_url === url)?.uploaded_by === user.id
+        if (user.id !== boulder.created_by && !isUploader) return false
+        return foreignLineCount(url) === 0
+    }
 
     const nearbyRocks: NearbyRock[] = siblingRocks
         .filter((b): b is BoulderListItem & { lat: number; lng: number } => b.lat != null && b.lng != null)
@@ -161,7 +189,8 @@ export default function BoulderDetailPage() {
         if (!window.confirm(`Move this rock to ${target.name}? Every problem on it moves with it.`)) return
         setIsMovingSpot(true)
         try {
-            const body: UpdateBoulderRequest = { crag_id: target.id, name: boulder.name ?? '', type: boulder.type, rock_type: boulder.rock_type ?? '', lat: boulder.lat, lng: boulder.lng }
+            // Only crag_id: the backend keeps every field a body leaves out.
+            const body: UpdateBoulderRequest = { crag_id: target.id }
             const res = await api.put<BoulderListItem | ErrorResponse>(`/api/boulders/${boulder.id}`, body)
             if ('error' in res) { showError(res.error); return }
             invalidateCragCache()
@@ -176,10 +205,10 @@ export default function BoulderDetailPage() {
     const handleSave = async () => {
         if (!boulder) return
         setIsSaving(true)
-        // Both or neither: updateBoulderRow writes lat/lng unconditionally
-        // (there's no "empty means leave as is" convention for them, unlike
-        // the string fields), so this is the one place the rock's pin is
-        // decided -- half a coordinate would persist as half a pin.
+        // Both or neither: the backend replaces the pin as a pair whenever
+        // either key is present (an explicit null clears it), so this is the
+        // one place the rock's pin is decided -- half a coordinate would
+        // persist as half a pin.
         const body: UpdateBoulderRequest = {
             crag_id: '', name: editName, type: boulder.type, rock_type: editRockType,
             lat: editLng == null ? null : editLat,
@@ -214,13 +243,34 @@ export default function BoulderDetailPage() {
     }
 
     const handleRemovePhoto = async (url: string) => {
-        if (!boulder || !window.confirm('Remove this photo? Every line drawn on it goes too.')) return
+        // Only an admin can reach this with foreign lines on the photo (see
+        // canDeletePhoto), so the count is theirs to see before overriding.
+        const foreign = foreignLineCount(url)
+        const message = foreign === 0
+            ? 'Remove this photo? Every line drawn on it goes too.'
+            : `Remove this photo? ${foreign === 1 ? "1 line on someone else's problem goes" : `${foreign} lines on other people's problems go`} with it.`
+        if (!boulder || !window.confirm(message)) return
         setRemovingUrl(url)
         const res = await api.delete<Partial<ErrorResponse>>(`/api/boulders/${boulder.id}/images`, { url })
         setRemovingUrl(null)
         if (res.error) { showError(res.error); return }
         invalidateCragCache()
         load()
+    }
+
+    // Deleting a rock is creator-or-admin (same policy as editing it) and
+    // only when nothing is on it: problems.boulder_id is NO ACTION, so a rock
+    // with lines on it can't go without taking them, and that is a purge, not
+    // a delete. The way out is decision 13's re-parenting -- move the problems
+    // to the rock they actually belong on first.
+    const handleDeleteRock = async () => {
+        if (!boulder || problems.length > 0) return
+        if (!window.confirm('Delete this rock? This cannot be undone.')) return
+        setIsDeleting(true)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/boulders/${boulder.id}`)
+        setIsDeleting(false)
+        if (res.error) { showError(res.error); return }
+        navigate(`/crags/${boulder.crag_id}`)
     }
 
     if (isLoading) {
@@ -302,7 +352,7 @@ export default function BoulderDetailPage() {
                         <div className="flex flex-col gap-3">
                             <div>
                                 <div className={labelClass}>Name</div>
-                                <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Most rocks don't have one" className={inputClass} />
+                                <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Most rocks don't have one" maxLength={MAX_NAME_LEN} className={inputClass} />
                             </div>
                             <div>
                                 <div className={labelClass}>Rock type</div>
@@ -333,11 +383,26 @@ export default function BoulderDetailPage() {
                                     Cancel
                                 </button>
                             </div>
+                            <div className="border-t border-border pt-3 flex flex-col gap-1.5">
+                                <button
+                                    onClick={handleDeleteRock}
+                                    disabled={isDeleting || problems.length > 0}
+                                    className="w-full p-2 bg-danger/10 border border-danger/40 text-danger rounded-lg text-xs cursor-pointer hover:bg-danger/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+                                >
+                                    <Trash2 size={13} className="shrink-0" />
+                                    {isDeleting ? 'Deleting...' : 'Delete this rock'}
+                                </button>
+                                <div className="text-[11px] text-text-muted text-center">
+                                    {problems.length > 0
+                                        ? `Still has ${problems.length} ${problems.length === 1 ? 'problem' : 'problems'} on it. Move them to another rock first.`
+                                        : 'This cannot be undone.'}
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                             <div>
-                                <h1 className="font-serif text-2xl font-black text-text">{boulder.name ?? 'Unnamed rock'}</h1>
+                                <h1 className="font-serif text-2xl font-black text-text break-words">{boulder.name ?? 'Unnamed rock'}</h1>
                                 {boulder.rock_type && <div className="text-xs text-text-muted mt-1">{boulder.rock_type}</div>}
                                 {boulder.creator_name && <div className="text-xs text-text-muted mt-1">Added by {boulder.creator_name}</div>}
                                 {/* An unpinned rock is invisible on the map's
@@ -353,7 +418,12 @@ export default function BoulderDetailPage() {
                                             : 'No pin yet'}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            {/* flex-wrap, and deliberately not shrink-0: the three
+                                buttons together are wider than a 360px viewport's
+                                content column, so pinning the group's width made the
+                                whole page scroll sideways and clipped "Edit" off the
+                                right edge. Wrapping lets them stack instead. */}
+                            <div className="flex items-center gap-2 flex-wrap">
                                 {user && (
                                     <button onClick={() => setShowMergeModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
                                         <GitCompare size={13} className="shrink-0" /> Same rock as...
@@ -384,7 +454,7 @@ export default function BoulderDetailPage() {
                         boulder.image_urls.map(url => (
                             <div key={url} className="relative">
                                 <BoulderPhoto url={url} shapes={annotationsByUrl[url] ?? []} />
-                                {canEdit && (
+                                {canDeletePhoto(url) && (
                                     <button
                                         onClick={() => handleRemovePhoto(url)}
                                         disabled={removingUrl === url}
@@ -392,10 +462,11 @@ export default function BoulderDetailPage() {
                                         aria-label="Remove photo"
                                     ><X size={14} className="shrink-0" /></button>
                                 )}
+                                <PhotoCreditLine url={url} credits={boulder.image_credits} creatorName={boulder.creator_name} />
                             </div>
                         ))
                     )}
-                    {canEdit && (
+                    {canAddPhoto && (
                         <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
                             <Plus size={13} className="shrink-0" /> {isUploadingPhoto ? 'Uploading...' : 'Add a photo'}
                             <input

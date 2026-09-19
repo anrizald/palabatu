@@ -1,19 +1,29 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Compass, Layers, MapPin, Pencil, Plus, Footprints } from 'lucide-react'
+import { Compass, Layers, MapPin, Pencil, Plus, Footprints, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useAuth } from '../lib/useAuth.js'
 import { useIsAdmin } from '../lib/useIsAdmin.js'
 import { useAddSheet } from '../lib/useAddSheet.js'
 import { invalidateCragCache } from '../lib/cragCache.js'
-import type { CragListItem, CragRequest } from '../types/crag.js'
+import type { CragListItem, UpdateCragRequest } from '../types/crag.js'
 import type { BoulderListItem } from '../types/boulder.js'
+import type { TopoUploadResponse } from '../types/problem.js'
 import { START_TYPE_LABELS, type ApproachListItem } from '../types/approach.js'
 import type { ErrorResponse } from '../types/apitypes.js'
 import Toast, { type ToastProps } from '../components/Toast.js'
+import PurgeSpotModal from '../components/PurgeSpotModal.js'
+import PhotoCreditLine from '../components/PhotoCreditLine.js'
+import { MAX_NAME_LEN } from '../lib/constants.js';
 
 const inputClass = "w-full bg-surface border border-border rounded-[10px] px-3.5 py-2.5 text-text-secondary font-sans text-sm outline-none"
 const labelClass = "text-[11px] text-text-muted tracking-[0.1em] uppercase mb-1.5"
+
+// "1 rock, 3 problems and 1 way in" -- a plain spoken list, not
+// `join(' and ')`, which stacks up as "a and b and c" once a spot has more
+// than two kinds of thing on it.
+const listSentence = (parts: string[]) =>
+    parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 
 // A crag's page (handoff.md decision 3: tapping a crag pin opens this).
 // Shows the spot's own info and a photo grid of its rocks -- picked by
@@ -38,6 +48,10 @@ export default function CragDetailPage() {
     const [editDirections, setEditDirections] = useState('')
     const [editAccessNotes, setEditAccessNotes] = useState('')
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [showPurge, setShowPurge] = useState(false)
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+    const [removingPhotoUrl, setRemovingPhotoUrl] = useState<string | null>(null)
 
     const [toast, setToast] = useState<ToastProps | null>(null)
     const showError = (message: string) => setToast({ message, type: 'error', onClose: () => setToast(null) })
@@ -63,13 +77,21 @@ export default function CragDetailPage() {
     useEffect(load, [id])
 
     const canEdit = !!crag && !!user && (user.id === crag.created_by || isAdmin)
+    // Adding a photo is widened to any signed-in user (handoff.md open item
+    // 11, resolved 2026-09-06, authz.CanContribute).
+    const canAddPhoto = !!crag && !!user
+    // Removing one is creator-or-admin (canEdit), or -- handoff.md item 15 --
+    // the contributor who uploaded this exact photo. Crag photos are never
+    // annotated, so unlike boulders this needs no further guard; the backend
+    // enforces the same rule, this only decides whether to show the button.
+    const canDeletePhoto = (url: string) =>
+        canEdit || (!!user && !!crag && crag.image_credits?.find(c => c.image_url === url)?.uploaded_by === user.id)
 
     const handleSave = async () => {
         if (!crag || !editName.trim()) { showError('Please give the spot a name'); return }
         setIsSaving(true)
-        const body: CragRequest = {
-            name: editName, lat: crag.lat, lng: crag.lng,
-            directions: editDirections, access_notes: editAccessNotes,
+        const body: UpdateCragRequest = {
+            name: editName, directions: editDirections, access_notes: editAccessNotes,
         }
         const res = await api.put<CragListItem | ErrorResponse>(`/api/crags/${crag.id}`, body)
         setIsSaving(false)
@@ -77,6 +99,68 @@ export default function CragDetailPage() {
         invalidateCragCache()
         setIsEditing(false)
         load()
+    }
+
+    // Adding a crag photo is gated through authz.CanContribute on the backend
+    // (handoff.md decision 22) -- today that's still creator-or-admin, same
+    // as canEdit, so the frontend gate doesn't need a separate check. Upload
+    // goes through the same generic /api/upload/topo endpoint every other
+    // photo in the app uses (spots, rocks, problems), not just boulder topos.
+    const handleAddPhotos = async (files: File[]) => {
+        if (!crag || files.length === 0) return
+        setIsUploadingPhoto(true)
+        try {
+            const uploads = await Promise.all(files.map(file => {
+                const formData = new FormData()
+                formData.append('image', file)
+                return api.upload<Partial<TopoUploadResponse & ErrorResponse>>('/api/upload/topo', formData)
+            }))
+            const uploadedUrls = uploads.filter((r): r is TopoUploadResponse => !!r.url).map(r => r.url)
+            if (uploadedUrls.length === 0) return
+            const res = await api.post<CragListItem | ErrorResponse>(`/api/crags/${crag.id}/images`, { image_urls: uploadedUrls })
+            if ('error' in res) { showError(res.error); return }
+            invalidateCragCache()
+            load()
+        } finally {
+            setIsUploadingPhoto(false)
+        }
+    }
+
+    const handleRemovePhoto = async (url: string) => {
+        if (!crag || !window.confirm('Remove this photo?')) return
+        setRemovingPhotoUrl(url)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/crags/${crag.id}/images`, { url })
+        setRemovingPhotoUrl(null)
+        if (res.error) { showError(res.error); return }
+        invalidateCragCache()
+        load()
+    }
+
+    // Deleting a spot is admin-only and empty-only (handoff.md open item 8:
+    // duplicate spots have no merge flow, so an admin re-parents the rocks off
+    // the duplicate and then removes the husk). The counts are already on
+    // CragListItem, so the page can name what's in the way instead of letting
+    // the request fail -- the backend still refuses either way.
+    //
+    // A way in counts as a blocker even though the FK would happily cascade
+    // it: an approach guide is somebody's photographed walk, and decision 21
+    // calls the reading view the actual deliverable. Deleting the approach
+    // first has to be a deliberate act, not a side effect.
+    const deleteBlockers = crag ? [
+        crag.boulder_count > 0 ? `${crag.boulder_count} ${crag.boulder_count === 1 ? 'rock' : 'rocks'}` : null,
+        crag.problem_count > 0 ? `${crag.problem_count} ${crag.problem_count === 1 ? 'problem' : 'problems'}` : null,
+        crag.approach_count > 0 ? `${crag.approach_count} ${crag.approach_count === 1 ? 'way in' : 'ways in'}` : null,
+    ].filter((b): b is string => b !== null) : []
+
+    const handleDelete = async () => {
+        if (!crag || deleteBlockers.length > 0) return
+        if (!window.confirm(`Delete "${crag.name}"? This cannot be undone.`)) return
+        setIsDeleting(true)
+        const res = await api.delete<Partial<ErrorResponse>>(`/api/crags/${crag.id}`)
+        setIsDeleting(false)
+        if (res.error) { showError(res.error); return }
+        invalidateCragCache()
+        navigate('/directory/spots')
     }
 
     if (isLoading) {
@@ -99,6 +183,14 @@ export default function CragDetailPage() {
     return (
         <div className="min-h-[var(--content-h)] bg-ink font-sans px-6 pt-6 pb-12">
             {toast && <Toast {...toast} />}
+            {showPurge && crag && (
+                <PurgeSpotModal
+                    cragId={crag.id}
+                    cragName={crag.name}
+                    onClose={() => setShowPurge(false)}
+                    onPurged={() => { invalidateCragCache(); navigate('/directory/spots') }}
+                />
+            )}
 
             <div className="max-w-[820px] mx-auto flex flex-col gap-5">
                 <div className="bg-panel border border-border rounded-2xl p-5 flex flex-col gap-3">
@@ -106,7 +198,7 @@ export default function CragDetailPage() {
                         <div className="flex flex-col gap-3">
                             <div>
                                 <div className={labelClass}>Name</div>
-                                <input value={editName} onChange={e => setEditName(e.target.value)} className={inputClass} />
+                                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={MAX_NAME_LEN} className={inputClass} />
                             </div>
                             <div>
                                 <div className={labelClass}>Patokan (directions)</div>
@@ -124,13 +216,43 @@ export default function CragDetailPage() {
                                     Cancel
                                 </button>
                             </div>
+                            {isAdmin && (
+                                <div className="border-t border-border pt-3 flex flex-col gap-1.5">
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={isDeleting || deleteBlockers.length > 0}
+                                        className="w-full p-2 bg-danger/10 border border-danger/40 text-danger rounded-lg text-xs cursor-pointer hover:bg-danger/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+                                    >
+                                        <Trash2 size={13} className="shrink-0" />
+                                        {isDeleting ? 'Deleting...' : 'Delete this spot'}
+                                    </button>
+                                    <div className="text-[11px] text-text-muted text-center">
+                                        {deleteBlockers.length > 0
+                                            ? `Still has ${listSentence(deleteBlockers)}. Move or remove those first.`
+                                            : 'Admins only. This cannot be undone.'}
+                                    </div>
+                                    {deleteBlockers.length > 0 && (
+                                        <button
+                                            onClick={() => setShowPurge(true)}
+                                            className="w-full p-2 bg-transparent border border-danger/30 text-danger/80 rounded-lg text-[11px] cursor-pointer hover:bg-danger/10 transition-colors"
+                                        >
+                                            Or purge it and everything on it
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <>
                             <div className="flex items-start justify-between gap-3 flex-wrap">
-                                <div className="flex items-center gap-2">
-                                    <Compass size={20} className="shrink-0 text-accent" />
-                                    <h1 className="font-serif text-2xl font-black text-text">{crag.name}</h1>
+                                {/* items-start, not items-center: a long spot name wraps to
+                                    several lines here, and centring parked the compass in the
+                                    middle of the text block. min-w-0 lets the heading shrink
+                                    inside the flex row, and break-words handles a long name
+                                    with no spaces in it, which nothing else would break. */}
+                                <div className="flex items-start gap-2 min-w-0">
+                                    <Compass size={20} className="shrink-0 text-accent mt-1" />
+                                    <h1 className="font-serif text-2xl font-black text-text break-words min-w-0">{crag.name}</h1>
                                 </div>
                                 {canEdit && (
                                     <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-border rounded-lg text-text-muted text-xs cursor-pointer">
@@ -157,6 +279,52 @@ export default function CragDetailPage() {
                                 <div className="text-xs text-text-muted">Added by {crag.creator_name}</div>
                             )}
                         </>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    <h2 className="font-serif text-lg font-black text-text">Photos</h2>
+                    {crag.image_urls.length === 0 ? (
+                        <div className="rounded-2xl bg-panel border border-dashed border-text-faint flex flex-col items-center justify-center gap-2 py-8">
+                            <Layers size={24} className="shrink-0 text-text-faint" />
+                            <div className="text-sm text-text-muted">No photo yet</div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {crag.image_urls.map(url => (
+                                <div key={url} className="relative">
+                                    <div className="aspect-square rounded-2xl overflow-hidden border border-border">
+                                        <img src={url} className="w-full h-full object-cover" alt={crag.name} />
+                                    </div>
+                                    {canDeletePhoto(url) && (
+                                        <button
+                                            onClick={() => handleRemovePhoto(url)}
+                                            disabled={removingPhotoUrl === url}
+                                            className="absolute top-2 right-2 bg-black/60 text-white border-0 rounded-full w-7 h-7 cursor-pointer flex items-center justify-center disabled:opacity-50"
+                                            aria-label="Remove photo"
+                                        ><X size={14} className="shrink-0" /></button>
+                                    )}
+                                    <PhotoCreditLine url={url} credits={crag.image_credits} creatorName={crag.creator_name} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {canAddPhoto && (
+                        <label className={`self-start flex items-center gap-1.5 px-3 py-2 bg-transparent border border-dashed border-text-faint rounded-lg text-text-muted text-xs ${isUploadingPhoto ? 'opacity-50' : 'cursor-pointer'}`}>
+                            <Plus size={13} className="shrink-0" /> {isUploadingPhoto ? 'Uploading...' : 'Add a photo'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                disabled={isUploadingPhoto}
+                                className="hidden"
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files || [])
+                                    e.target.value = ''
+                                    handleAddPhotos(files)
+                                }}
+                            />
+                        </label>
                     )}
                 </div>
 
@@ -199,7 +367,7 @@ export default function CragDetailPage() {
                             >
                                 <Plus size={13} className="shrink-0" /> Add another way in
                             </button>
-                            <p className="text-xs text-text-muted">More than one is fine &mdash; people arrive from different directions.</p>
+                            <p className="text-xs text-text-muted">More than one is fine. People arrive from different directions.</p>
                         </>
                     )}
                 </div>

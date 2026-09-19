@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { GRADE_SCALES, detectGradeScale, type ProblemType } from '../lib/constants.js';
+import { GRADE_SCALES, detectGradeScale, type ProblemType, MAX_NAME_LEN } from '../lib/constants.js';
+import type { PitchFormState } from '../lib/pitches.js';
+import PitchFields from './PitchFields.js';
 
 export type ProblemEditFormFields = {
     name: string;
@@ -10,6 +12,9 @@ export type ProblemEditFormFields = {
     descent: string;
     height_m: string;
     notes: string;
+    /** Multi-pitch detail (handoff.md open item 14); edited only while the
+     * route is on a wall, see onWall. */
+    pitch: PitchFormState;
 };
 
 type ProblemEditFormProps = {
@@ -18,6 +23,9 @@ type ProblemEditFormProps = {
     onSave: () => void;
     onCancel: () => void;
     isProcessing: boolean;
+    /** Whether the route's rock is a wall. A boulder hides pitch detail, so
+     * the fields are not offered there (nothing stored is deleted). */
+    onWall: boolean;
 };
 
 function detectGrade(grade: string): { type: ProblemType; scale: string; from: string; to: string; isRange: boolean } {
@@ -40,7 +48,7 @@ const segmentBtnClass = (active: boolean) =>
 // moved to the boulder (a problem has no image_urls/lat/lng of its own,
 // see handoff.md decisions 2/4); manage a rock's photos from its own page
 // (/boulders/:id) instead.
-export default function ProblemEditForm({ form, onChange, onSave, onCancel, isProcessing }: ProblemEditFormProps) {
+export default function ProblemEditForm({ form, onChange, onSave, onCancel, isProcessing, onWall }: ProblemEditFormProps) {
     const [detected] = useState(() => detectGrade(form.grade));
     const [problemType, setProblemType] = useState<ProblemType>(detected.type);
     const [gradeScale, setGradeScale] = useState<string>(detected.scale);
@@ -84,6 +92,7 @@ export default function ProblemEditForm({ form, onChange, onSave, onCancel, isPr
                     value={form.name}
                     onChange={e => onChange({ ...form, name: e.target.value })}
                     placeholder="e.g. Slab Mantap"
+                    maxLength={MAX_NAME_LEN}
                     className={inputClass}
                 />
             </div>
@@ -135,6 +144,8 @@ export default function ProblemEditForm({ form, onChange, onSave, onCancel, isPr
                     })}
                 </div>
             </div>
+
+            {onWall && <PitchFields value={form.pitch} onChange={pitch => onChange({ ...form, pitch })} />}
 
             <div>
                 <div className={labelClass}>First ascent by</div>

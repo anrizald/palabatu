@@ -3,6 +3,7 @@ package boulders
 import "errors"
 
 var (
+	ErrNameTooLong     = errors.New("name too long")
 	ErrNotFound        = errors.New("not found")
 	ErrForbidden       = errors.New("forbidden")
 	ErrCragNotFound    = errors.New("crag not found")
@@ -10,6 +11,7 @@ var (
 	ErrInvalidType     = errors.New("invalid type")
 	ErrImageNotFound   = errors.New("image not found")
 	ErrNoImages        = errors.New("no images provided")
+	ErrHasProblems     = errors.New("boulder still has problems")
 	ErrCannotMergeSelf = errors.New("cannot merge a boulder with itself")
 	ErrNotMergeCreator = errors.New("only the boulder's creator may object")
 	ErrAlreadyResolved = errors.New("merge request already resolved")

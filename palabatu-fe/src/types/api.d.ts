@@ -482,6 +482,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/boulders/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rocks that were filed loosely and may need tidying
+         * @description Admin-only (Council/Associate title). Returns rocks a contribution was filed loosely against, from two signals: the contributor explicitly picked "Not sure which one" (reason "said_unsure"), or the rock is unnamed, photoless and holds exactly one problem (reason "looks_unsure"). Rocks already merged away are excluded.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_boulders.NeedsAttentionItem"][];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/boulders/{id}": {
         parameters: {
             query?: never;
@@ -533,7 +590,7 @@ export interface paths {
         };
         /**
          * Update a boulder
-         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.
+         * @description Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. Any field left out keeps its current value. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin). An empty type also leaves the type alone.
          */
         put: {
             parameters: {
@@ -600,7 +657,69 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Delete a rock that has no problems on it
+         * @description Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Boulder ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description not the creator and not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description rock still has problems on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1220,7 +1339,7 @@ export interface paths {
         };
         /**
          * Update a crag
-         * @description Allowed for admins (Council/Associate title) on any crag, or the crag's own creator.
+         * @description Allowed for admins (Council/Associate title) on any crag, or the crag's own creator. Any field left out keeps its current value, and an empty string clears directions or access_notes.
          */
         put: {
             parameters: {
@@ -1287,7 +1406,69 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        /**
+         * Delete an empty crag
+         * @description Admin-only (Council/Associate title). Refuses any crag that still has rocks, problems, or approach guides -- the cure half of handoff.md open item 8: re-parent the rocks off a duplicate spot first, then delete the emptied husk.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description crag still has rocks, problems or approach guides */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1506,6 +1687,426 @@ export interface paths {
                     };
                 };
                 /** @description crag or image not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crags/{id}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge a crag and everything under it
+         * @description Admin-only, irreversible. Deletes the crag, its rocks, its problems, and every send, comment, drawn line, report and approach guide beneath them, destroys the associated Cloudinary assets, and notifies each affected problem creator. The request must carry the exact counts returned by the preview: if the crag has changed since, the purge is refused rather than silently taking the difference with it. The response body holds the only surviving record of what was deleted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Counts confirmed from the preview */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_crags.CragPurgeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_crags.CragPurgeResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description confirmation does not match what is there now */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/crags/{id}/purge-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview what purging a crag would destroy
+         * @description Admin-only. Returns the counts a purge would remove and the full snapshot of every row involved, so an admin can save the record before committing. Read-only -- nothing is deleted.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Crag ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_crags.CragPurgePreview"];
+                    };
+                };
+                /** @description not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's own add-sheet drafts
+         * @description Newest-updated first. List items omit payload -- the drafts overlay only needs id/intent/label/updated_at to render its rows.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.DraftListItem"][];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a draft
+         * @description The first autosave of an add-sheet session (handoff-drafts.md decision 3) -- created lazily, on the first real edit, not on opening the sheet.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New draft */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_drafts.CreateDraftRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one draft's full payload
+         * @description Fetched when resuming a draft from the drafts overlay.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update a draft
+         * @description Every autosave after the first. Any photo URL the previous version carried that this one doesn't is a provisional upload this write orphaned, and is best-effort destroyed in Cloudinary (handoff-drafts.md decision 10).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Updated draft */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_drafts.UpdateDraftRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_drafts.Draft"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a draft
+         * @description Explicit removal from the drafts overlay, or the client's own best-effort cleanup after the draft was submitted for real (handoff-drafts.md decision 5). Destroys every photo the draft ever staged, unless keep_photos=true -- the post-submit case, where those URLs are now the real problem/boulder/crag's own photo.
+         */
+        delete: {
+            parameters: {
+                query?: {
+                    /** @description Skip Cloudinary cleanup -- pass true only when the draft's photos were just reused as a real entity's own photo */
+                    keep_photos?: boolean;
+                };
+                header?: never;
+                path: {
+                    /** @description Draft ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -1927,7 +2528,7 @@ export interface paths {
         put?: never;
         /**
          * Create a problem
-         * @description Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.
+         * @description Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly. pitch_count (2 or more; omit or null for a single pitch), commitment_grade (F, PD, AD, D, TD or ED) and pitches are the multi-pitch detail, accepted only when the boulder is a wall. pitches needs a pitch_count.
          */
         post: {
             parameters: {
@@ -2029,7 +2630,7 @@ export interface paths {
         };
         /**
          * Update a problem
-         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).
+         * @description Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null. The multi-pitch fields work the same way: pitch_count is cleared (single pitch) by null, commitment_grade by an empty string, and pitches, when present, replaces the whole documented set (an empty array clears it). Sending pitch detail for a route on a boulder is a 400, and moving a route onto a boulder hides its stored pitch detail without deleting it.
          */
         put: {
             parameters: {
@@ -2373,6 +2974,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/problems/{id}/high-point": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record how far up a multi-pitch route the authenticated user got
+         * @description A private high point for a route the caller turned back from, one per climber per route (a new one replaces the old). Never counted as a send, notifies no one, and is cleared when the caller sends the route. Only a multi-pitch route on a wall has one, and pitch must be from 1 to the route's pitch count.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Pitch reached */
+            requestBody: {
+                content: {
+                    "application/json": Record<string, never> | components["schemas"]["internal_social.SetHighPointRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description the caller has already sent this route */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Clear the authenticated user's high point on a route
+         * @description Idempotent: clearing one that is not there still succeeds.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Problem ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.SuccessResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["palabatu-be_internal_apitypes.ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems/{id}/images": {
         parameters: {
             query?: never;
@@ -2646,7 +3365,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether the authenticated user has sent this problem */
+        /** Whether the authenticated user has sent this problem, and their own high point on it */
         get: {
             parameters: {
                 query?: never;
@@ -2736,7 +3455,10 @@ export interface paths {
                 };
             };
         };
-        /** Update a profile */
+        /**
+         * Update a profile
+         * @description Only the profile's own user may call this. Any field left out keeps its current value. An empty string clears a text field, and title and tags are cleared by sending null. Changing title is refused unless the caller already holds an admin title.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -4147,6 +4869,14 @@ export interface components {
             created_by?: string;
             creator_name?: string;
             id?: string;
+            /**
+             * @description ImageCredits is populated by GetBoulder only, never by listBoulders --
+             *     hence omitempty, so list responses stay byte-identical. An image with
+             *     no entry here was added by this boulder's own creator; see
+             *     internal/photocredits for why absent means the creator rather than
+             *     unknown.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             lat?: number;
             lng?: number;
@@ -4159,6 +4889,14 @@ export interface components {
         };
         "internal_boulders.CreateBoulderRequest": {
             crag_id?: string;
+            /**
+             * @description FiledUncertain records that the contributor said "Not sure which one"
+             *     rather than "It's a new rock" when this rock was created implicitly by
+             *     the add sheet (handoff-add-sheet.md C11). Three-state on purpose:
+             *     true said so, false said it was new, nil was never asked -- every
+             *     other creation path leaves it nil rather than guessing.
+             */
+            filed_uncertain?: boolean;
             image_urls?: string[];
             lat?: number;
             lng?: number;
@@ -4200,6 +4938,20 @@ export interface components {
             suggester_name?: string;
             target_boulder_id?: string;
             target_boulder_name?: string;
+        };
+        "internal_boulders.NeedsAttentionItem": {
+            crag_id?: string;
+            crag_name?: string;
+            created_at?: string;
+            created_by?: string;
+            creator_name?: string;
+            id?: string;
+            image_count?: number;
+            name?: string;
+            problem_count?: number;
+            reason?: string;
+            sample_problem_name?: string;
+            sibling_count?: number;
         };
         "internal_boulders.ObjectToMergeRequest": {
             body?: string;
@@ -4244,11 +4996,39 @@ export interface components {
             creator_name?: string;
             directions?: string;
             id?: string;
+            /**
+             * @description ImageCredits is populated by GetCrag only, never by listCrags -- hence
+             *     omitempty, so list responses stay byte-identical. See
+             *     internal/photocredits for why an absent entry means this crag's own
+             *     creator rather than an unknown uploader.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             lat?: number;
             lng?: number;
             name?: string;
             problem_count?: number;
+        };
+        "internal_crags.CragPurgePreview": {
+            counts?: components["schemas"]["internal_crags.PurgeCounts"];
+            crag_id?: string;
+            crag_name?: string;
+            snapshot?: components["schemas"]["internal_crags.CragSnapshot"];
+        };
+        "internal_crags.CragPurgeRequest": {
+            expected?: components["schemas"]["internal_crags.PurgeCounts"];
+        };
+        "internal_crags.CragPurgeResult": {
+            creators_notified?: number;
+            deleted?: components["schemas"]["internal_crags.PurgeCounts"];
+            photos_destroyed?: number;
+            photos_failed?: number;
+            snapshot?: components["schemas"]["internal_crags.CragSnapshot"];
+        };
+        "internal_crags.CragSnapshot": {
+            data?: Record<string, never>;
+            purged_at?: string;
+            purged_by?: string;
         };
         "internal_crags.CreateCragRequest": {
             access_notes?: string;
@@ -4261,12 +5041,51 @@ export interface components {
         "internal_crags.DeleteCragImageRequest": {
             url?: string;
         };
+        "internal_crags.PurgeCounts": {
+            approaches?: number;
+            boulders?: number;
+            comments?: number;
+            high_points?: number;
+            lines?: number;
+            photos?: number;
+            pitches?: number;
+            problems?: number;
+            reports?: number;
+            sends?: number;
+        };
         "internal_crags.UpdateCragRequest": {
             access_notes?: string;
             directions?: string;
             lat?: number;
             lng?: number;
             name?: string;
+        };
+        "internal_drafts.CreateDraftRequest": {
+            intent?: string;
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
+        };
+        "internal_drafts.Draft": {
+            created_at?: string;
+            id?: string;
+            intent?: string;
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
+            updated_at?: string;
+        };
+        "internal_drafts.DraftListItem": {
+            id?: string;
+            intent?: string;
+            label?: string;
+            thumbnail_url?: string;
+            updated_at?: string;
+        };
+        "internal_drafts.UpdateDraftRequest": {
+            label?: string;
+            payload?: number[];
+            photo_urls?: string[];
         };
         "internal_feedback.Feedback": {
             created_at?: string;
@@ -4314,6 +5133,7 @@ export interface components {
         };
         "internal_problems.CreateProblemRequest": {
             boulder_id?: string;
+            commitment_grade?: string;
             descent?: string;
             discovered_by?: string;
             first_ascensionist?: string;
@@ -4323,14 +5143,23 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
         };
         "internal_problems.DeleteProblemImageRequest": {
             url?: string;
+        };
+        "internal_problems.Pitch": {
+            grade?: string;
+            length_m?: number;
+            notes?: string;
+            pitch_number?: number;
         };
         "internal_problems.ProblemDetail": {
             boulder_id?: string;
             boulder_name?: string;
             boulder_type?: string;
+            commitment_grade?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -4343,10 +5172,26 @@ export interface components {
             grade?: string;
             height_m?: number;
             id?: string;
+            /**
+             * @description ImageCredits covers this problem's own beta/action shots only -- the
+             *     topo photo belongs to the boulder and carries the boulder's credits.
+             *     Populated by GetProblem only, never by listProblems, hence omitempty.
+             *     See internal/photocredits for why an absent entry means this problem's
+             *     own creator rather than an unknown uploader.
+             */
+            image_credits?: components["schemas"]["palabatu-be_internal_photocredits.Credit"][];
             image_urls?: string[];
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            /**
+             * @description Pitches is the documented part of a multi-pitch route, in order -- empty
+             *     for a single-pitch one. It need not add up to PitchCount: how much of the
+             *     route somebody has written down is allowed to lag the claim about it.
+             *     Populated by GetProblem only, like ImageCredits.
+             */
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
             send_count?: number;
             topo_line?: number[];
             topo_url?: string;
@@ -4355,6 +5200,7 @@ export interface components {
             boulder_id?: string;
             boulder_name?: string;
             boulder_type?: string;
+            commitment_grade?: string;
             crag_id?: string;
             crag_name?: string;
             created_at?: string;
@@ -4371,12 +5217,14 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
             send_count?: number;
             topo_line?: number[];
             topo_url?: string;
         };
         "internal_problems.ProblemRow": {
             boulder_id?: string;
+            commitment_grade?: string;
             crag_id?: string;
             created_at?: string;
             created_by?: string;
@@ -4390,6 +5238,7 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
         };
         "internal_problems.ProblemSummary": {
             boulder_id?: string;
@@ -4408,6 +5257,7 @@ export interface components {
         };
         "internal_problems.UpdateProblemRequest": {
             boulder_id?: string;
+            commitment_grade?: string;
             descent?: string;
             discovered_by?: string;
             first_ascensionist?: string;
@@ -4416,6 +5266,8 @@ export interface components {
             landing_hazards?: string;
             name?: string;
             notes?: string;
+            pitch_count?: number;
+            pitches?: components["schemas"]["internal_problems.Pitch"][];
         };
         "internal_report.Report": {
             comment_content?: string;
@@ -4467,6 +5319,10 @@ export interface components {
         };
         "internal_social.SendStatusResponse": {
             hasSent?: boolean;
+            highPoint?: number;
+        };
+        "internal_social.SetHighPointRequest": {
+            pitch?: number;
         };
         "internal_waitlist.AlreadyJoinedResponse": {
             already_joined?: boolean;
@@ -4490,6 +5346,12 @@ export interface components {
         };
         "palabatu-be_internal_apitypes.SuccessResponse": {
             success?: boolean;
+        };
+        "palabatu-be_internal_photocredits.Credit": {
+            created_at?: string;
+            image_url?: string;
+            uploaded_by?: string;
+            username?: string;
         };
     };
     responses: never;

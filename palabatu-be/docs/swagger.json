@@ -495,6 +495,14 @@
                     "id": {
                         "type": "string"
                     },
+                    "image_credits": {
+                        "description": "ImageCredits is populated by GetBoulder only, never by listBoulders --\nhence omitempty, so list responses stay byte-identical. An image with\nno entry here was added by this boulder's own creator; see\ninternal/photocredits for why absent means the creator rather than\nunknown.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "image_urls": {
                         "items": {
                             "type": "string"
@@ -533,6 +541,10 @@
                 "properties": {
                     "crag_id": {
                         "type": "string"
+                    },
+                    "filed_uncertain": {
+                        "description": "FiledUncertain records that the contributor said \"Not sure which one\"\nrather than \"It's a new rock\" when this rock was created implicitly by\nthe add sheet (handoff-add-sheet.md C11). Three-state on purpose:\ntrue said so, false said it was new, nil was never asked -- every\nother creation path leaves it nil rather than guessing.",
+                        "type": "boolean"
                     },
                     "image_urls": {
                         "items": {
@@ -660,6 +672,47 @@
                     },
                     "target_boulder_name": {
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_boulders.NeedsAttentionItem": {
+                "properties": {
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "crag_name": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "creator_name": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "image_count": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "problem_count": {
+                        "type": "integer"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "sample_problem_name": {
+                        "type": "string"
+                    },
+                    "sibling_count": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -794,6 +847,14 @@
                     "id": {
                         "type": "string"
                     },
+                    "image_credits": {
+                        "description": "ImageCredits is populated by GetCrag only, never by listCrags -- hence\nomitempty, so list responses stay byte-identical. See\ninternal/photocredits for why an absent entry means this crag's own\ncreator rather than an unknown uploader.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "image_urls": {
                         "items": {
                             "type": "string"
@@ -812,6 +873,65 @@
                     },
                     "problem_count": {
                         "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragPurgePreview": {
+                "properties": {
+                    "counts": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    },
+                    "crag_id": {
+                        "type": "string"
+                    },
+                    "crag_name": {
+                        "type": "string"
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/internal_crags.CragSnapshot"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragPurgeRequest": {
+                "properties": {
+                    "expected": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragPurgeResult": {
+                "properties": {
+                    "creators_notified": {
+                        "type": "integer"
+                    },
+                    "deleted": {
+                        "$ref": "#/components/schemas/internal_crags.PurgeCounts"
+                    },
+                    "photos_destroyed": {
+                        "type": "integer"
+                    },
+                    "photos_failed": {
+                        "type": "integer"
+                    },
+                    "snapshot": {
+                        "$ref": "#/components/schemas/internal_crags.CragSnapshot"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_crags.CragSnapshot": {
+                "properties": {
+                    "data": {
+                        "type": "object"
+                    },
+                    "purged_at": {
+                        "type": "string"
+                    },
+                    "purged_by": {
+                        "type": "string"
                     }
                 },
                 "type": "object"
@@ -851,6 +971,41 @@
                 },
                 "type": "object"
             },
+            "internal_crags.PurgeCounts": {
+                "properties": {
+                    "approaches": {
+                        "type": "integer"
+                    },
+                    "boulders": {
+                        "type": "integer"
+                    },
+                    "comments": {
+                        "type": "integer"
+                    },
+                    "high_points": {
+                        "type": "integer"
+                    },
+                    "lines": {
+                        "type": "integer"
+                    },
+                    "photos": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "type": "integer"
+                    },
+                    "problems": {
+                        "type": "integer"
+                    },
+                    "reports": {
+                        "type": "integer"
+                    },
+                    "sends": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
             "internal_crags.UpdateCragRequest": {
                 "properties": {
                     "access_notes": {
@@ -867,6 +1022,107 @@
                     },
                     "name": {
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.CreateDraftRequest": {
+                "properties": {
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.Draft": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.DraftListItem": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "intent": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_drafts.UpdateDraftRequest": {
+                "properties": {
+                    "label": {
+                        "type": "string"
+                    },
+                    "payload": {
+                        "items": {
+                            "type": "integer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "photo_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1033,6 +1289,9 @@
                     "boulder_id": {
                         "type": "string"
                     },
+                    "commitment_grade": {
+                        "type": "string"
+                    },
                     "descent": {
                         "type": "string"
                     },
@@ -1063,6 +1322,16 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1071,6 +1340,23 @@
                 "properties": {
                     "url": {
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_problems.Pitch": {
+                "properties": {
+                    "grade": {
+                        "type": "string"
+                    },
+                    "length_m": {
+                        "type": "number"
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "pitch_number": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1084,6 +1370,9 @@
                         "type": "string"
                     },
                     "boulder_type": {
+                        "type": "string"
+                    },
+                    "commitment_grade": {
                         "type": "string"
                     },
                     "crag_id": {
@@ -1122,6 +1411,14 @@
                     "id": {
                         "type": "string"
                     },
+                    "image_credits": {
+                        "description": "ImageCredits covers this problem's own beta/action shots only -- the\ntopo photo belongs to the boulder and carries the boulder's credits.\nPopulated by GetProblem only, never by listProblems, hence omitempty.\nSee internal/photocredits for why an absent entry means this problem's\nown creator rather than an unknown uploader.",
+                        "items": {
+                            "$ref": "#/components/schemas/palabatu-be_internal_photocredits.Credit"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "image_urls": {
                         "items": {
                             "type": "string"
@@ -1137,6 +1434,17 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "description": "Pitches is the documented part of a multi-pitch route, in order -- empty\nfor a single-pitch one. It need not add up to PitchCount: how much of the\nroute somebody has written down is allowed to lag the claim about it.\nPopulated by GetProblem only, like ImageCredits.",
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "send_count": {
                         "type": "integer"
@@ -1165,6 +1473,9 @@
                     "boulder_type": {
                         "type": "string"
                     },
+                    "commitment_grade": {
+                        "type": "string"
+                    },
                     "crag_id": {
                         "type": "string"
                     },
@@ -1217,6 +1528,9 @@
                     "notes": {
                         "type": "string"
                     },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
                     "send_count": {
                         "type": "integer"
                     },
@@ -1236,6 +1550,9 @@
             "internal_problems.ProblemRow": {
                 "properties": {
                     "boulder_id": {
+                        "type": "string"
+                    },
+                    "commitment_grade": {
                         "type": "string"
                     },
                     "crag_id": {
@@ -1280,6 +1597,9 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1339,6 +1659,9 @@
                     "boulder_id": {
                         "type": "string"
                     },
+                    "commitment_grade": {
+                        "type": "string"
+                    },
                     "descent": {
                         "type": "string"
                     },
@@ -1362,6 +1685,16 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "pitch_count": {
+                        "type": "integer"
+                    },
+                    "pitches": {
+                        "items": {
+                            "$ref": "#/components/schemas/internal_problems.Pitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1505,6 +1838,17 @@
                 "properties": {
                     "hasSent": {
                         "type": "boolean"
+                    },
+                    "highPoint": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "internal_social.SetHighPointRequest": {
+                "properties": {
+                    "pitch": {
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1567,6 +1911,23 @@
                 "properties": {
                     "success": {
                         "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
+            "palabatu-be_internal_photocredits.Credit": {
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "image_url": {
+                        "type": "string"
+                    },
+                    "uploaded_by": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
                     }
                 },
                 "type": "object"
@@ -2103,7 +2464,131 @@
                 ]
             }
         },
+        "/api/boulders/needs-attention": {
+            "get": {
+                "description": "Admin-only (Council/Associate title). Returns rocks a contribution was filed loosely against, from two signals: the contributor explicitly picked \"Not sure which one\" (reason \"said_unsure\"), or the rock is unnamed, photoless and holds exactly one problem (reason \"looks_unsure\"). Rocks already merged away are excluded.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_boulders.NeedsAttentionItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List rocks that were filed loosely and may need tidying",
+                "tags": [
+                    "boulders"
+                ]
+            }
+        },
         "/api/boulders/{id}": {
+            "delete": {
+                "description": "Allowed for admins (Council/Associate title) on any rock, or the rock's own creator. Refuses a rock that still has problems: move them to the right rock first (re-parenting), or purge the whole spot if it is junk.",
+                "parameters": [
+                    {
+                        "description": "Boulder ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not the creator and not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "rock still has problems on it"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete a rock that has no problems on it",
+                "tags": [
+                    "boulders"
+                ]
+            },
             "get": {
                 "parameters": [
                     {
@@ -2154,7 +2639,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.",
+                "description": "Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. Any field left out keeps its current value. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin). An empty type also leaves the type alone.",
                 "parameters": [
                     {
                         "description": "Boulder ID",
@@ -2883,6 +3368,81 @@
             }
         },
         "/api/crags/{id}": {
+            "delete": {
+                "description": "Admin-only (Council/Associate title). Refuses any crag that still has rocks, problems, or approach guides -- the cure half of handoff.md open item 8: re-parent the rocks off a duplicate spot first, then delete the emptied husk.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "crag still has rocks, problems or approach guides"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete an empty crag",
+                "tags": [
+                    "crags"
+                ]
+            },
             "get": {
                 "parameters": [
                     {
@@ -2933,7 +3493,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any crag, or the crag's own creator.",
+                "description": "Allowed for admins (Council/Associate title) on any crag, or the crag's own creator. Any field left out keeps its current value, and an empty string clears directions or access_notes.",
                 "parameters": [
                     {
                         "description": "Crag ID",
@@ -3295,6 +3855,488 @@
                 "summary": "Add images to a crag",
                 "tags": [
                     "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}/purge": {
+            "post": {
+                "description": "Admin-only, irreversible. Deletes the crag, its rocks, its problems, and every send, comment, drawn line, report and approach guide beneath them, destroys the associated Cloudinary assets, and notifies each affected problem creator. The request must carry the exact counts returned by the preview: if the crag has changed since, the purge is refused rather than silently taking the difference with it. The response body holds the only surviving record of what was deleted.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_crags.CragPurgeRequest",
+                                        "summary": "body",
+                                        "description": "Counts confirmed from the preview"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Counts confirmed from the preview",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.CragPurgeResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "confirmation does not match what is there now"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Purge a crag and everything under it",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/crags/{id}/purge-preview": {
+            "get": {
+                "description": "Admin-only. Returns the counts a purge would remove and the full snapshot of every row involved, so an admin can save the record before committing. Read-only -- nothing is deleted.",
+                "parameters": [
+                    {
+                        "description": "Crag ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_crags.CragPurgePreview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Preview what purging a crag would destroy",
+                "tags": [
+                    "crags"
+                ]
+            }
+        },
+        "/api/drafts": {
+            "get": {
+                "description": "Newest-updated first. List items omit payload -- the drafts overlay only needs id/intent/label/updated_at to render its rows.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/internal_drafts.DraftListItem"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List the caller's own add-sheet drafts",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "post": {
+                "description": "The first autosave of an add-sheet session (handoff-drafts.md decision 3) -- created lazily, on the first real edit, not on opening the sheet.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_drafts.CreateDraftRequest",
+                                        "summary": "body",
+                                        "description": "New draft"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "New draft",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a draft",
+                "tags": [
+                    "drafts"
+                ]
+            }
+        },
+        "/api/drafts/{id}": {
+            "delete": {
+                "description": "Explicit removal from the drafts overlay, or the client's own best-effort cleanup after the draft was submitted for real (handoff-drafts.md decision 5). Destroys every photo the draft ever staged, unless keep_photos=true -- the post-submit case, where those URLs are now the real problem/boulder/crag's own photo.",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Skip Cloudinary cleanup -- pass true only when the draft's photos were just reused as a real entity's own photo",
+                        "in": "query",
+                        "name": "keep_photos",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete a draft",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "get": {
+                "description": "Fetched when resuming a draft from the drafts overlay.",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get one draft's full payload",
+                "tags": [
+                    "drafts"
+                ]
+            },
+            "put": {
+                "description": "Every autosave after the first. Any photo URL the previous version carried that this one doesn't is a provisional upload this write orphaned, and is best-effort destroyed in Cloudinary (handoff-drafts.md decision 10).",
+                "parameters": [
+                    {
+                        "description": "Draft ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_drafts.UpdateDraftRequest",
+                                        "summary": "body",
+                                        "description": "Updated draft"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Updated draft",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_drafts.Draft"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update a draft",
+                "tags": [
+                    "drafts"
                 ]
             }
         },
@@ -3670,7 +4712,7 @@
                 ]
             },
             "post": {
-                "description": "Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly.",
+                "description": "Any authenticated user may create a problem; no role gate. boulder_id is required -- crag_id is derived from the boulder, not supplied directly. pitch_count (2 or more; omit or null for a single pitch), commitment_grade (F, PD, AD, D, TD or ED) and pitches are the multi-pitch detail, accepted only when the boulder is a wall. pitches needs a pitch_count.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -3850,7 +4892,7 @@
                 ]
             },
             "put": {
-                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one).",
+                "description": "Allowed for admins (Council/Associate title) on any problem, or the problem's own creator. A non-empty boulder_id re-parents the problem to a different rock, dropping any annotation it had (a line on the old rock's photo means nothing on the new one). Any field left out keeps its current value. An empty string clears a text field, and height_m is cleared by sending null. The multi-pitch fields work the same way: pitch_count is cleared (single pitch) by null, commitment_grade by an empty string, and pitches, when present, replaces the whole documented set (an empty array clears it). Sending pitch detail for a route on a boulder is a 400, and moving a route onto a boulder hides its stored pitch detail without deleting it.",
                 "parameters": [
                     {
                         "description": "Problem ID",
@@ -4207,6 +5249,148 @@
                     }
                 ],
                 "summary": "Add a comment to a problem",
+                "tags": [
+                    "social"
+                ]
+            }
+        },
+        "/api/problems/{id}/high-point": {
+            "delete": {
+                "description": "Idempotent: clearing one that is not there still succeeds.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Clear the authenticated user's high point on a route",
+                "tags": [
+                    "social"
+                ]
+            },
+            "put": {
+                "description": "A private high point for a route the caller turned back from, one per climber per route (a new one replaces the old). Never counted as a send, notifies no one, and is cleared when the caller sends the route. Only a multi-pitch route on a wall has one, and pitch must be from 1 to the route's pitch count.",
+                "parameters": [
+                    {
+                        "description": "Problem ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "type": "object"
+                                    },
+                                    {
+                                        "$ref": "#/components/schemas/internal_social.SetHighPointRequest",
+                                        "summary": "body",
+                                        "description": "Pitch reached"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "description": "Pitch reached",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.SuccessResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "the caller has already sent this route"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/palabatu-be_internal_apitypes.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Record how far up a multi-pitch route the authenticated user got",
                 "tags": [
                     "social"
                 ]
@@ -4575,7 +5759,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "summary": "Whether the authenticated user has sent this problem",
+                "summary": "Whether the authenticated user has sent this problem, and their own high point on it",
                 "tags": [
                     "social"
                 ]
@@ -4632,6 +5816,7 @@
                 ]
             },
             "put": {
+                "description": "Only the profile's own user may call this. Any field left out keeps its current value. An empty string clears a text field, and title and tags are cleared by sending null. Changing title is refused unless the caller already holds an admin title.",
                 "parameters": [
                     {
                         "description": "Profile ID",

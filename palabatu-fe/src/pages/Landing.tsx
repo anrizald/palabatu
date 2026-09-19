@@ -154,8 +154,8 @@ export default function Landing() {
             })
     ), [problems]);
 
-    // Recent is asked at the rock level and Near You at the spot level
-    // (handoff-directory.md decision 2), matching Directory's rows. Both
+    // Recent is asked at the rock level and Near You at the spot level,
+    // matching Directory's rows. Both
     // used to be problem-granular here, which meant a rock's eight lines
     // rendered as eight copies of the same photograph -- and, since a
     // problem's map point is its crag's, eight copies of the same distance
@@ -435,7 +435,7 @@ export default function Landing() {
                             <span className="dot" />
                             <span><b>{totalSends}</b> sends logged</span>
                             <span className="dot" />
-                            <span><b>{climberCount ?? '—'}</b> climbers</span>
+                            <span><b>{climberCount ?? '-'}</b> climbers</span>
                         </div>
                     </div>
 
@@ -550,7 +550,7 @@ export default function Landing() {
 
                         <p style={{ fontSize: '14px', color: '#967b6a', fontFamily: "'DM Sans', sans-serif", margin: '28px 0 0' }}>
                             Anyone can add a boulder. Anyone can log a send.<br />
-                            Join the cause —{' '}
+                            Join the cause:{' '}
                             <Link to="/signup" style={{ color: '#c87a30', textDecoration: 'none', fontWeight: 600 }}>
                                 Create your profile
                             </Link>
@@ -637,7 +637,7 @@ export default function Landing() {
                                 <div className="pat-lane">
                                     <h4 style={labelStyle}>Tenaga</h4>
                                     <p style={bodyStyle}>
-                                        Devs, illustrators, writers, translators — or anyone who knows a crag
+                                        Devs, illustrators, writers, translators, or anyone who knows a crag
                                         well enough to fix what we got wrong.
                                     </p>
                                     <div className="pat-icons">

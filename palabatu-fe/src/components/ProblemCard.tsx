@@ -9,9 +9,9 @@ export type FooterStat = { icon: LucideIcon; label: string };
 // The grade badge, or a "Project" chip when there isn't one yet. The add
 // sheet actively invites skipping the grade ("skip it if it's still a
 // project"), so rendering the badge unconditionally means the single most
-// encouraged new state in the add flow shows up as an empty accent pill
-// (handoff-directory.md finding 3). Weathered Stone, not accent -- decision
-// 4: this is information about the problem, not an achievement.
+// encouraged new state in the add flow shows up as an empty accent pill.
+// Weathered Stone, not accent -- this is information about the problem,
+// not an achievement.
 function GradeChip({ grade, className = '' }: { grade: string | null; className?: string }) {
     if (grade) {
         return (
@@ -27,10 +27,10 @@ function GradeChip({ grade, className = '' }: { grade: string | null; className?
     );
 }
 
-// The spot, and the rock if it has a name -- both real links
-// (handoff-directory.md decision 6). The spot answers "can I get there",
-// the rock answers "what else is on it". Skips the rock segment when the
-// boulder has no name rather than inventing a fallback label -- that's a
+// The spot, and the rock if it has a name -- both real links. The spot
+// answers "can I get there", the rock answers "what else is on it". Skips
+// the rock segment when the boulder has no name rather than inventing a
+// fallback label -- that's a
 // rock-list concern (BoulderListItem.sample_problem_name), not this card's.
 function SpotLine({ problem, tone }: { problem: EnrichedProblem; tone: 'dim' | 'secondary' }) {
     const color = tone === 'dim' ? 'text-text-muted' : 'text-text-secondary';
@@ -62,8 +62,8 @@ function SpotLine({ problem, tone }: { problem: EnrichedProblem; tone: 'dim' | '
 
 // Shared photo card: Directory's curated rows (Hot/Recent/Near You) and its
 // Spotlight hero, the All Problems grid (ProblemList.tsx), and Landing's
-// Explore rows all render this one component (handoff-directory.md finding
-// 12 -- there used to be three of these). Defined at module scope rather
+// Explore rows all render this one component (there used to be three of
+// these). Defined at module scope rather
 // than nested in a page so it keeps a stable component identity across
 // renders -- a nested definition would remount every card (losing
 // hover/focus state and re-firing image loads) on every keystroke in a

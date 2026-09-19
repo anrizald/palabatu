@@ -10,11 +10,13 @@ package approaches
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 
 	"palabatu-be/internal/auth"
 	"palabatu-be/internal/authz"
+	"palabatu-be/internal/cloudinary"
 )
 
 func ListApproaches(ctx context.Context, cragID string) ([]ApproachListItem, error) {
@@ -73,8 +75,17 @@ func CreateApproach(ctx context.Context, userID, cragID, name, startType string,
 // alongside every additive mechanism: the approach's own creator, or an
 // admin -- ordinary ownership, not the widen-later CanContribute mechanism
 // (removing your own contribution isn't "adding to someone else's").
+//
+// The step photos are destroyed in Cloudinary first. An approach is
+// nothing but photographs -- decision 21's "each a photo plus one line" --
+// so deleting one without this orphaned every image it was made of, which
+// is the largest per-row leak in the app rather than a stray avatar. This
+// is the only path that reaches it: crags.DeleteCrag refuses outright
+// while a crag still has approaches, precisely so approaches_crag_id_fkey's
+// ON DELETE CASCADE can never silently take a jalan masuk (and its photos)
+// with it.
 func DeleteApproach(ctx context.Context, userID, approachID string) error {
-	createdBy, err := getApproachCreator(ctx, approachID)
+	createdBy, stepPhotoURLs, err := getApproachOwnerAndStepPhotos(ctx, approachID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -88,6 +99,16 @@ func DeleteApproach(ctx context.Context, userID, approachID string) error {
 	}
 	if !authz.CanEditOwned(userID, createdBy, titles) {
 		return ErrForbidden
+	}
+
+	// Best-effort, matching crags.DeleteCrag and boulders.DeleteBoulderImage:
+	// a Cloudinary failure is logged, never fatal. The row going away is the
+	// operation; an orphaned asset is a cost, not a reason to refuse someone
+	// the removal of their own contribution.
+	for _, url := range stepPhotoURLs {
+		if err := cloudinary.DestroyByURL(ctx, url); err != nil {
+			log.Printf("failed to delete approach step photo from Cloudinary: %v", err)
+		}
 	}
 
 	return deleteApproachRow(ctx, approachID)
