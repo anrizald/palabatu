@@ -84,9 +84,10 @@ Vite proxies `/api` and `/auth` to the backend in dev, so `http://localhost:5173
 
 - `npx playwright test` — end-to-end suite in `tests/` (browser binaries are already installed; `playwright.config.ts` auto-starts both the Go API and the Vite dev server, or reuses ones you already have running)
 - `cd palabatu-fe && npm run lint` — ESLint
-- `cd palabatu-be && go vet ./...` — Go static checks
+- `cd palabatu-fe && npx tsc --noEmit` — type-check (`npm run build` is only `vite build`, which does not type-check)
+- `cd palabatu-be && go vet ./...` — Go static checks; `gofmt -l .` should print nothing
 - No unit test suite yet on either side — no Vitest config, no `_test.go` files
-- `.github/workflows/ci.yml` runs `go vet`/`go build` and `npm run lint`/`npm run build` on every PR and on push to `dev`
+- `.github/workflows/ci.yml` runs `gofmt`/`go vet`/`go build` and `npm run lint`/`tsc --noEmit`/`npm run build` on every PR and on push to `dev`
 
 ## Database
 

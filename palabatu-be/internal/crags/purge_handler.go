@@ -2,13 +2,20 @@ package crags
 
 import (
 	"errors"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"palabatu-be/internal/apitypes"
 	"palabatu-be/internal/middleware"
 )
+
+// purgeWriteDeadline is how long handlePurgeCrag may take before its response
+// can no longer be written. Admin-only and rare, so generous: a purge of
+// ~100 photos takes about 30s when Cloudinary is healthy.
+const purgeWriteDeadline = 5 * time.Minute
 
 // registerPurgeRoutes mounts the purge pair onto the same /api group
 // crags.Routes uses, mirroring how boulders.registerMergeRoutes keeps its
@@ -72,6 +79,15 @@ func handlePurgeCrag(c *gin.Context) {
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "Invalid request body"})
 		return
+	}
+
+	// The server's own WriteTimeout (30s, cmd/api/main.go) runs from when the
+	// request headers were read, and a big purge outlasts it: the Cloudinary
+	// destroys are serial and each may take up to 10s. The purge would still
+	// finish, but the response -- the only surviving snapshot of what was
+	// destroyed -- could never be written. This one route asks for longer.
+	if err := http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(purgeWriteDeadline)); err != nil {
+		log.Printf("purge: could not extend write deadline: %v", err)
 	}
 
 	result, err := PurgeCrag(c.Request.Context(), userID, id, body.Expected)

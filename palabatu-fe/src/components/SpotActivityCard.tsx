@@ -80,7 +80,7 @@ export function SpotActivityCard({ activity, navigate, className = '' }: {
                     // directly above this row.
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-4 text-center">
                         <Mountain size={32} className="text-text-faint shrink-0" />
-                        <p className="text-xs text-text-faint">No photo of this rock yet</p>
+                        <p className="text-xs text-text-muted">No photo of this rock yet</p>
                     </div>
                 )}
             </div>

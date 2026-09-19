@@ -40,14 +40,14 @@ type DeleteCragImageRequest struct {
 // handoff.md open item 8's purge decision: an admin has to have looked at
 // the number before the number is allowed to become zero.
 type PurgeCounts struct {
-	Boulders    int `json:"boulders"`
-	Problems    int `json:"problems"`
-	Sends       int `json:"sends"`
-	Comments    int `json:"comments"`
-	Lines       int `json:"lines"`
-	Approaches  int `json:"approaches"`
-	Reports     int `json:"reports"`
-	Photos      int `json:"photos"`
+	Boulders   int `json:"boulders"`
+	Problems   int `json:"problems"`
+	Sends      int `json:"sends"`
+	Comments   int `json:"comments"`
+	Lines      int `json:"lines"`
+	Approaches int `json:"approaches"`
+	Reports    int `json:"reports"`
+	Photos     int `json:"photos"`
 }
 
 // CragPurgePreview is GET /api/crags/{id}/purge-preview's response: what
@@ -76,9 +76,9 @@ type CragPurgeRequest struct {
 // rather than implying success: a failed destroy leaves a real orphan, and
 // the admin is the only one who can act on knowing that.
 type CragPurgeResult struct {
-	Deleted         PurgeCounts  `json:"deleted"`
-	PhotosDestroyed int          `json:"photos_destroyed"`
-	PhotosFailed    int          `json:"photos_failed"`
-	CreatorsNotified int         `json:"creators_notified"`
-	Snapshot        CragSnapshot `json:"snapshot"`
+	Deleted          PurgeCounts  `json:"deleted"`
+	PhotosDestroyed  int          `json:"photos_destroyed"`
+	PhotosFailed     int          `json:"photos_failed"`
+	CreatorsNotified int          `json:"creators_notified"`
+	Snapshot         CragSnapshot `json:"snapshot"`
 }

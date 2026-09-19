@@ -10,8 +10,8 @@ type Tool = 'pen' | 'circle'
 
 type TopoAnnotationEditorProps = {
     // Omitted when annotating a photo that isn't attached to a saved problem
-    // yet (AddProblemModal's preview thumbnails, before the "Add Problem"
-    // submit): Save then skips the network call and just hands shapes back
+    // yet (the add sheet's staged photo, before the problem is submitted):
+    // Save then skips the network call and just hands shapes back
     // to the caller via onSaved, to be persisted once a problem_id exists.
     problemId?: string
     url: string
