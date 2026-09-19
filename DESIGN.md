@@ -135,7 +135,7 @@ Three things deliberately keep Dusk/Faint Stone, and they are the rule's own car
 
 ## Layout
 
-Primarily flexbox; CSS Grid appears in exactly one place (the profile page's sidebar+content split) and isn't a general pattern yet. Page sections use a `1100px` max-width, centered container; modals and cards instead size themselves per-component (`440px`–`760px`) rather than sharing one container class.
+Primarily flexbox. CSS Grid is used for card and photo grids (All Problems, the crag page's rock and photo grids) and for the profile page's sidebar+content split, not as a page-level layout system. Page sections use a `1100px` max-width, centered container; modals and cards instead size themselves per-component (`440px`–`760px`) rather than sharing one container class.
 
 Responsive behavior is currently split between two systems: Tailwind's `sm:` prefix (the only Tailwind breakpoint in use — no `md:`/`lg:`/`xl:`) on newer components, and hand-written `@media` queries at `640px` and `768px` on older ones. Both target roughly the same phone/tablet boundary; treat `640px`–`768px` as the one real breakpoint band in this system rather than a full multi-tier grid.
 
@@ -157,7 +157,7 @@ Depth is tonal, not shadow-based, for anything sitting flat on the page: Deep Ba
 
 ## Shapes
 
-Corners are consistently soft, never sharp, but the exact scale isn't fully unified yet — treat the values below as the canonical scale going forward, and read the Do's/Don'ts for the one known inconsistency to fix rather than propagate.
+Corners are consistently soft, never sharp, and the values below are the canonical scale. The Do's/Don'ts record the one inconsistency this scale was written to remove, so it doesn't come back.
 
 - **`sm` (8px):** small pill buttons, the nav sign-up CTA.
 - **`md` (10px):** the most common radius — inputs, small buttons, image thumbnails.
@@ -203,7 +203,7 @@ The single most identity-defining visual move in this system is the accent-color
 
 ### Don't:
 - **Don't** introduce a second accent hue for a general "primary" role — Moss Green and Ember Red are semantic-only (success/associate, danger).
-- **Don't** mix modal radii — `AddProblemModal`/`Login`/`ReportModal`/the profile avatar card use 20px while `ProblemDetails`' main modal uses 24px (`rounded-3xl`) for the same "large modal panel" role; converge new and touched modals on `xl` (20px).
+- **Don't** mix modal radii — large modal panels use `xl` (20px). The one 24px (`rounded-3xl`) outlier this rule was written against, the old `ProblemDetails` map modal, was deleted in the crags/boulders/problems restructure, and nothing uses `rounded-3xl` now. Keep it that way.
 - **Don't** add a neutral-gray `shadow-md`/`shadow-lg` Tailwind utility to static page content (cards, list rows, panels) — this system has never used plain Tailwind shadow utilities, only arbitrary values reserved for floating UI.
 - **Don't** use Playfair Display below headline size, or DM Sans for a hero-scale headline — the two-font split is role-based, not just a stylistic default.
 - **Don't** add a third Tailwind breakpoint tier (`md:`/`lg:`/`xl:`) without a real reason — the system has deliberately stayed at one phone/wider-than-phone boundary.

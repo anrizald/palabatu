@@ -1,5 +1,13 @@
 # Problem Add/Edit addendum — design handoff
 
+**Where this stands, 2026-09-17.** Everything in this document is built,
+with two exceptions. **Open item 18** is open: a rock's creator or an admin
+can delete a shared rock photo without checking whose lines are drawn on
+it, and the fix shape needs a product call. **Open item 14** (multi-pitch
+detail) is deferred until its trigger fires. The status paragraph below is
+the 2026-08-08 (d) snapshot. The add wizard it describes was replaced by the
+single add sheet in revision (h).
+
 Status: **schema, backend, and frontend all implemented and verified
 locally (2026-08-08 (d)).** Migrations 0014/0015 are applied to the local
 Docker DB, the one-off backfill has run and been hand-checked, and
@@ -251,7 +259,7 @@ current one. Everything below is now superseded by what shipped.*
 - No crag/area entity anywhere. "Location" is a string retyped on every
   problem; every problem gets its own map pin.
 - Edit rights today: Founder (creator) or Council/Associate admin only
-  (`authz.CanEditProblem`) — unchanged by anything below.
+  (`authz.CanEditOwned`) — unchanged by anything below.
 - Trigger: places like Goa Agung / Citatah are one name covering many
   individually-graded sub-crags/boulders, and the flat model can't express
   that (duplicated directions per problem, no canonical name, no way to
@@ -706,9 +714,11 @@ current one. Everything below is now superseded by what shipped.*
       exactly as today. Not in scope, still deferred.
 
     **Shape.** A single policy function in `internal/authz`, sibling to
-    `CanEditProblem` and following the same stateless "takes already-fetched
+    `CanEditOwned` and following the same stateless "takes already-fetched
     data as args" rule that keeps the domain graph acyclic:
-    `authz.CanContribute(userID, entity, kind, ownerID, titles)`, where
+    `authz.CanContribute(userID, entity, kind, ownerID, titles)` (shipped
+    without the `entity` argument, as `CanContribute(userID, kind, ownerID,
+    titles)`), where
     `kind` distinguishes `add_photo` / `add_approach` / `add_note` from
     `edit_field` / `delete`. Ship it returning **creator-or-admin for
     everything**, i.e. today's behaviour exactly, so nothing changes on
@@ -725,7 +735,9 @@ current one. Everything below is now superseded by what shipped.*
       lose the creators.
 
     Deliberately not decided here: which `kind`s widen, and whether
-    widening is global or per-crag. That is the TBA.
+    widening is global or per-crag. That is the TBA. *(Decided 2026-09-06
+    in open item 11: photo and approach adds widen to any signed-in user,
+    globally.)*
 
 23. **Multi-pitch is a property of the route, not the rock.** *(Proposed
     2026-09-04, not yet built — no schema/backend/frontend work has
@@ -1748,7 +1760,8 @@ up from here.
     backend caught up to it. `KindAddNote` has no call site yet and is
     untouched.
 
-    **Nothing is open in this document any more.**
+    **Nothing in item 11 is open any more.** (This line used to say nothing
+    in the whole document was open. Items 14 and 18, below, are.)
 13. ~~**What the crag pin actually means, given decision 21.**~~
     **Resolved 2026-08-09(g): three layers, chosen by zoom.** Decision 4
     said the crag's `lat`/`lng` is "the approach/parking point". Decision
@@ -2044,7 +2057,7 @@ up from here.
     (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
     already correct, it is just not being asked on this branch.
 
-**The design is amended and partly unbuilt** (2026-08-09(g)). Items 1-6
+**Status of the open items** (updated 2026-09-17). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
 8 narrowed, and 12 and 13 resolved, in (g); 7 and 8 were both closed
 2026-09-06 — 7 by amending merge design note 6 to match the shipped default,
@@ -2079,6 +2092,9 @@ If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend
 
+*Historical: everything below shipped in revision (h), 2026-08-10. Kept as
+the scoping record.*
+
 Scoping note for whoever picks this up — the backend and schema are
 untouched by this revision except where noted:
 
@@ -2110,10 +2126,10 @@ untouched by this revision except where noted:
 - General collaborative editing (non-creator users editing existing
   crag/boulder/problem detail) — still deferred, see `ROADMAP.md` and the
   `collaborative-problem-editing` memory. Decision 6 only covers *adding*
-  new things, never editing existing ones. Open item 11 asks whether
-  adding a photo to someone else's rock should be carved out of this
-  deferral, since it's additive rather than an edit — that carve-out is
-  the only part of this question in play here.
+  new things, never editing existing ones. Open item 11 carved out the
+  additive part on 2026-09-06: any signed-in user may add a photo or an
+  approach to someone else's entity. Changing or removing someone else's
+  words stays deferred.
 - Sensitive/approximate crag locations (GPS fuzzing) — still deferred, see
   the `sensitive-crag-locations` memory. A crag entity is a natural future
   home for that flag (applied per-area instead of per-problem) but that's a

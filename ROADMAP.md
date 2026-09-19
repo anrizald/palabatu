@@ -9,12 +9,12 @@ This file tracks direction across sessions. Update it as items complete or scope
 Everything on the original deployability punch list (validation, rate limiting, CI, shareable URLs, moderation queue, topo annotation, notifications) is done. Two open items remain:
 
 - **Deployment services** — decide and provision the production tier for every third-party service the app actually depends on, currently all wired up on dev/free-tier credentials only:
-  - **Email (Resend)** — on the free tier today, which can only send from the shared `onboarding@resend.dev` sandbox address to the account owner's own inbox. Needs a paid tier + a verified custom domain before signup/reset emails can reach real users.
+  - **Email (Resend)** — the sending domain is done: the deploy doc (`hostinger_vps_deployment_handoff.md`, on `stage`) records `marketing.palabatu.id` as Resend-verified, with production using `EMAIL_FROM=noreply@marketing.palabatu.id`. (This line used to say only the `onboarding@resend.dev` sandbox address worked; that predates the domain.) Still open: confirm the account's plan and sending limits cover signup/reset volume at launch.
   - **Image storage/CDN (Cloudinary)** — confirm the production plan and limits; currently a dev account.
-  - ~~**App hosting**~~ — **done.** The Go binary (which also serves the built frontend, per the shareable-URL work) runs on a Hostinger VPS as one Docker image, behind Caddy. A Railway alternative was written up and abandoned; see `railway_prod_deployment_handoff.md`'s superseded header.
+  - ~~**App hosting**~~ — **done.** The Go binary (which also serves the built frontend, per the shareable-URL work) runs on a Hostinger VPS as one Docker image, behind Caddy. A Railway alternative was written up and abandoned, and its doc was deleted in `5b7afb6` (`git show 5b7afb6^:railway_prod_deployment_handoff.md` still reads it). The real deploy write-up is `hostinger_vps_deployment_handoff.md`, which lives on `stage` only (`git show stage:hostinger_vps_deployment_handoff.md`).
   - ~~**DNS/domain**~~ — **done.** palabatu.id resolves to the VPS and serves over TLS.
-  - **Edge protection** — still open, and now urgent rather than theoretical, since the origin is publicly reachable. Caddy fronts the app but its config lives on the box, not in this repo, and no CDN/WAF is in play. See CLAUDE.md's Known WIP rough edges.
-- **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (plus-button FAB, profile reactions, boulder/rope toggle, send-counter icon, inline pin glyph, verify-email illustration); map pinpoint + cluster art already shipped.
+  - **Edge protection** — still open, and now urgent rather than theoretical, since the origin is publicly reachable. The plan is already written, as step 10 of `hostinger_vps_deployment_handoff.md`: Cloudflare's free tier in front, plus two changes that must ship together (rewrite `X-Forwarded-For` from `CF-Connecting-IP` in `deploy/Caddyfile`, and restrict `ufw` to Cloudflare's published ranges). `edge_protection_handoff.md` adds one post-launch check. Both docs and the Caddy/compose config live on `stage` only. As of 2026-09-17 none of it has happened: `palabatu.id`'s nameservers are still Hostinger's, and responses carry no `cf-ray`. See CLAUDE.md's Known WIP rough edges.
+- **Art assets** — replace remaining placeholder art (OG/social preview image, generic icons) with final hand-drawn assets. Owned by the user personally — in progress, not blocked on anyone else. See the icon asset plan for the specific remaining list (profile reactions, the rock/wall choice in the add sheet, send-counter icon, verify-email illustration). Already shipped: map pinpoint + cluster art, the plus-button FAB, and the locate-me button. The inline pin glyph was settled as Lucide's `MapPin` rather than custom art.
 - ~~**Feedback / bug report form**~~ — **built 2026-07-28.** A global "Feedback" entry point in `Header.tsx` (desktop) and `Sidebar.tsx` (mobile), opening `FeedbackModal.tsx` (mirrors `ReportModal.tsx`'s visual language). Open to logged-out visitors as well as signed-in users: `POST /api/feedback` (`internal/feedback/`) sits behind `middleware.RateLimit` (per-IP, same pattern as `internal/waitlist`) instead of `middleware.RequireAuth`, and runs the new `middleware.OptionalAuth` so a logged-in submitter's `user_id` gets attached without requiring a session. Submissions land in their own `feedback` table (migrations/0012) and trigger an immediate email via `mailer.SendFeedbackNotification`, sent to whatever inbox `OWNER_USER_ID` resolves to (`auth.GetUserEmail`) rather than a second owner-email env var. Review list is a 5th tab ("Feedback") on the Developer page, listing open submissions and marking them reviewed via `POST /api/feedback/:id/reviewed` — same owner-only gate as the rest of that page.
 
 ## Phase 1.5 — Crags/boulders/problems restructure (done 2026-08-08)
@@ -62,6 +62,11 @@ contributions exist. Both schema/backend and frontend are now complete.
   review page (`AdminMergeRequests`); the three merge notification types
   wired into the existing bell/page icon maps. tsc/eslint/go vet clean;
   smoke-tested live against the local Docker DB (not just typechecked).
+  **The wizard didn't last.** `handoff.md` revisions (f)-(h) replaced it on
+  2026-08-10 with one scrolling add sheet (`components/add-sheet/`: three
+  intents, spot / rock / problem, each saving on its own), and shipped
+  approach guides ("jalan masuk"), the map's three zoom layers, and
+  re-parenting alongside it. `components/add-flow/` is deleted.
 - **Directory & All Problems (read surfaces) — done 2026-09-05.** The
   frontend pass above only mechanically rejoined `Directory.tsx`/
   `ProblemList.tsx` to the new hierarchy via `cragCache.ts`; both still
@@ -108,14 +113,29 @@ contributions exist. Both schema/backend and frontend are now complete.
   widens, a photo with no credit was added by the entity's creator, which is
   what `CanEditOwned` enforced, so the UI falls back to `creator_name`.
 
-  **What this does and doesn't unblock.** `KindAddApproach` could already
-  widen on a product call alone (approaches carry `created_by`); now
-  `KindAddPhoto` can too. **Which kinds widen, and whether globally or
-  per-crag, is still an open product call** — nothing about this change
-  alters today's creator-or-admin behaviour. Also still open: the crag
-  detail page has no surface that renders a crag's own photo at full size
-  (they appear only as card thumbnails on Directory/SpotList/SpotCard), so
-  crag credits are recorded and returned but have nowhere to display yet.
+  **The policy call followed the same day.** `authz.CanContribute` now lets
+  any signed-in user add a photo or an approach, globally rather than
+  per-crag; removal stays creator-or-admin. The same pass gave
+  `CragDetailPage` its own photo gallery, which it had never had, so crag
+  credits now render through `PhotoCreditLine` like the rock and problem
+  pages.
+
+  Opening photo adds to anyone raised four follow-ups (`handoff.md` open
+  items 15-18):
+  - **Self-delete (item 15), done 2026-09-06.** Whoever uploaded a photo can
+    remove it. On a rock this is refused if another founder has drawn a
+    line on that photo.
+  - **Bring your own photo (item 16), done 2026-09-17.** A new problem on a
+    rock that already has a photo can draw its line on a photo of its own.
+    Reusing the shared photo stays the default.
+  - **No approval step (item 17), decided 2026-09-17.** Drawing a line on
+    someone's shared photo touches nothing they made, and `internal/report`
+    already covers abuse.
+  - **Still open (item 18).** A rock's creator, or any admin, can delete a
+    shared rock photo without the item 15 check, which silently deletes
+    every other founder's line on it: `authorizeBoulderImageDelete` returns
+    before `hasForeignAnnotation` runs. The fix shape (hard block,
+    confirm-with-count, or admin-only override) needs a product call.
 - **Add-sheet drafts (autosave) — M1 done 2026-08-17, M2 done 2026-09-17.**
   Full design lived in `handoff-drafts.md`, removed now that both milestones
   shipped; see `git log -- handoff-drafts.md` for the complete record.
@@ -132,7 +152,7 @@ contributions exist. Both schema/backend and frontend are now complete.
   except the one case the design doc got wrong: a *submitted* draft's
   cleanup must not destroy its photo, since that URL is by then the real
   problem/boulder/crag's own (`keep_photos`, fixed the day it was found —
-  see `internal/drafts`'s Architecture entry above). M2 was gated in the
+  see `internal/drafts`' entry in CLAUDE.md's Architecture section). M2 was gated in the
   original doc on M1 proving drafts get resumed rather than abandoned —
   built anyway, deliberately, once it was clear IndexedDB-only M1 had no way
   to ever produce that signal for anyone to wait on. Both milestones
@@ -165,7 +185,7 @@ contributions exist. Both schema/backend and frontend are now complete.
 
 Separate from the four product phases above — public-facing presence around palabatu.id. None of this blocks the app itself shipping.
 
-- **Waitlist / coming-soon page** — gated email capture, being built in a separate session as of 2026-07-26. Planned flow: submitted emails land in a new `waitlist_subscribers` table (source of truth, owned data) and are also synced to a Resend Audience via its Audiences API, so Resend Automations (instant welcome email, drip sequences) and Broadcasts (manual one-off sends) can actually reach them — Resend already being the transactional-email provider means no second email service is needed.
+- **Waitlist / coming-soon page** — **partly built.** The `waitlist_subscribers` table (migrations/0010), the rate-limited `POST /api/waitlist` (`internal/waitlist`) and `ComingSoon.tsx` all exist. A confirmation email (`mailer.SendWaitlistConfirmation`) exists on `stage` only. Not built: the planned sync to a Resend Audience via its Audiences API, so Resend Automations (welcome email, drip sequences) and Broadcasts can't reach subscribers yet. The table stays the source of truth either way, and Resend being the transactional-email provider already means no second email service is needed. **Note what's live:** `stage` shows `UnderConstruction.tsx`, which has no email field, so production collects no emails today (see the deploy doc's "Which curtain ships" note).
 - **Discord community** — a direct feedback/beta-testing channel ahead of in-app social features (Crew, Phase 3). Open question not yet decided: public-open vs. invite-gated off the waitlist.
 - ~~**Support section on the Landing page**~~ — **built.** Verified in place 2026-09-06 (this entry still described it as unbuilt and specced it in detail; the spec is left below only as the record of what was asked for). `Landing.tsx` carries a `#support` panel inside the existing `about` section, with the `scroll-margin-top` and the hash-scroll handler that make a direct link from a Discord bio land on it. Both lanes shipped: **Duit** (Saweria for IDR, Ko-fi for USD) and **Tenaga** (a call for devs, illustrators, writers and translators, with Discord and Instagram as the intake), in the section's own bespoke inline-style aesthetic rather than the app's Tailwind tokens.
 
@@ -188,7 +208,7 @@ Internal tooling for the user themselves, not community-facing — distinct from
 ## Deferred, no committed phase
 
 - **Sensitive/approximate crag locations** — obscure exact GPS coordinates for spots with land-access or overcrowding concerns. Cheap to build once decided, but the policy itself needs outside input the user doesn't have: an outdoor-bouldering-access perspective and/or legal advice (Indonesian land-access/liability norms), not just an internal call. Moved out of Phase 1 — not launch-blocking, revisit once that input exists.
-- Collaborative problem editing — letting non-creators add photos/beta to a problem they didn't create, without being an admin. Explicitly unresolved: additive-only vs. destructive edit, moderation needs, and whether this is really just "comments already do this." No implementation should start until the product shape is decided.
+- **Collaborative problem editing** — the additive half is decided and built (see Photo attribution under Phase 1.5): any signed-in user can add photos and approach guides. Still deferred: letting non-creators *change* existing fields (name, grade, description), and structured beta notes (`authz.KindAddNote` has no call site). No implementation should start on those until the product shape is decided.
 - **Topo line rendering on Directory/All Problems cards** — draw a problem's own drawn line (`topo_annotations`) over its rock's shared photo on card thumbnails, so several problems on one boulder stop rendering as identical photos. The data half is done (`ProblemListItem.topo_url`/`.topo_line`), but every card today crops its photo (`object-fit: cover`) and the existing annotation overlay's coordinate math assumes an uncropped, letterboxed photo — building crop-aware math risked a subtly wrong line, worse than none. Asked directly during `handoff-directory.md`'s design; the call was to skip it for now rather than letterbox every card app-wide. Revisit only if a safe crop-aware transform becomes available.
 - **Server-side pagination/search for the problem catalog** — `GET /api/problems` is one unpaginated fetch, fine at today's scale but the wrong shape for the surface meant to *be* the browse experience. Named threshold so it isn't re-argued later: build it when a cold `/directory/all` load exceeds ~300 problems or the response exceeds ~250KB. Below that, client-side filtering is faster (no round-trip per keystroke) and simpler.
 - **Ranked search across the catalog** — today's search (`ProblemList.tsx`) is an unranked substring match over name/crag-name/boulder-name. Typo tolerance and Indonesian spelling variants (e.g. "Citatah" vs. "Citata") are a real future need; not started, no design yet.

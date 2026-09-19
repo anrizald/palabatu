@@ -82,7 +82,7 @@ Vite proxies `/api` and `/auth` to the backend in dev, so `http://localhost:5173
 
 ## Testing & CI
 
-- `npx playwright test` — end-to-end suite in `tests/` (browser binaries are already installed; the dev server auto-starts via `playwright.config.ts`)
+- `npx playwright test` — end-to-end suite in `tests/` (browser binaries are already installed; `playwright.config.ts` auto-starts both the Go API and the Vite dev server, or reuses ones you already have running)
 - `cd palabatu-fe && npm run lint` — ESLint
 - `cd palabatu-be && go vet ./...` — Go static checks
 - No unit test suite yet on either side — no Vitest config, no `_test.go` files
@@ -108,14 +108,14 @@ It runs as one image built from the root `Dockerfile`: `palabatu-be`'s Go binary
 
 Two things are easy to trip over:
 
-- **The `Dockerfile` lives only on `stage`.** It's not on `main`, `dev`, `ci`, or `devtools`. If you're on one of those and don't see it, nothing is missing — check `git cat-file -e stage:Dockerfile` before recreating it.
+- **The `Dockerfile` lives only on `stage`**, along with `deploy/` (the compose file and Caddyfile) and the deploy docs. None of them are on `main`, `dev`, `ci`, or `devtools`. If you're on one of those and don't see them, nothing is missing — check `git cat-file -e stage:Dockerfile` before recreating anything.
 - **`STATIC_DIR` is production-only.** Leave it unset in dev, where Vite serves the frontend and proxies the API. Setting it locally makes the Go server shadow the dev server in confusing ways.
 
-[railway_prod_deployment_handoff.md](railway_prod_deployment_handoff.md) documents an abandoned plan to host this on Railway instead. The VPS is the real production host; read that file as history, and don't follow it as setup instructions.
+The full deploy write-up, `hostinger_vps_deployment_handoff.md`, is on `stage` (`git show stage:hostinger_vps_deployment_handoff.md`). An earlier plan to host on Railway was abandoned, and its doc was deleted in `5b7afb6`.
 
 ## Roadmap
 
-Auth, profiles, the interactive map, comments, send tracking, topo annotation, and in-app notifications are all live in dev, as is the crags → boulders → problems hierarchy the catalog is built on (a spot you park at, a rock at that spot, a way up that rock) along with its approach guides, duplicate-rock merge flow, and photo attribution. What's left before the first production deploy — and everything planned after it — is tracked in [ROADMAP.md](ROADMAP.md) rather than duplicated here, so it doesn't go stale.
+Auth, profiles, the interactive map, comments, send tracking, topo annotation, and in-app notifications are all live in dev, as is the crags → boulders → problems hierarchy the catalog is built on (a spot you park at, a rock at that spot, a way up that rock) along with its approach guides, duplicate-rock merge flow, and photo attribution. What's left before public launch — and everything planned after it — is tracked in [ROADMAP.md](ROADMAP.md) rather than duplicated here, so it doesn't go stale.
 
 ## Contributing
 
@@ -125,9 +125,9 @@ Solo/small-team project, not yet accepting outside contributions while pre-launc
 
 Five long-lived branches, each with a distinct job:
 
-- **`main`** — production. What deploys to `palabatu.id` once the site is actually hosted, though the first deploy is planned off `stage` (that's where the `Dockerfile` is).
+- **`main`** — meant to be production, but it isn't what runs: `palabatu.id` is deployed from `stage`, which is where the `Dockerfile` and `deploy/` config live.
 - **`dev`** — primary integration branch. Day-to-day feature work merges here first; CI (`go vet`, `go build`, ESLint, frontend build) runs on every PR and on every push to `dev`.
-- **`stage`** — public-facing holding branch. Deliberately kept behind `dev`, pinned at whatever state is safe to show the public (currently the "coming soon" gate) while `dev` races ahead with the live app for internal testing.
+- **`stage`** — the deployed branch. Deliberately kept behind `dev`, pinned at whatever state is safe to show the public (currently the under-construction screen) while `dev` races ahead with the live app for internal testing. Nothing in the repo deploys it automatically: a redeploy is a manual `git pull` plus `docker compose up` on the VPS.
 - **`ci`** — sandbox for iterating on `.github/workflows` changes in isolation, so a broken CI config never blocks real feature work on `dev`/`main`.
 - **`devtools`** — long-lived home for owner-only internal tooling (the Developer page, feedback system, and similar admin-facing features), merged into `dev` periodically but kept separable from the main app's feature history.
 

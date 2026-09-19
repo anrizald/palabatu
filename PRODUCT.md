@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Indonesian bouldering climbers, primarily discovering spots and logging ascents from their phone at (or on the way to) an outdoor bouldering area. Three roles exist in the product today: a regular climber (browses the map, sends problems, comments, maintains a profile); a "Founder" (the climber who added a given spot/problem, with edit rights over just that problem); and an admin (`Council`/`Associate` title, full CRUD over any problem, report-queue moderation).
+Indonesian bouldering climbers, primarily discovering spots and logging ascents from their phone at (or on the way to) an outdoor bouldering area. Three roles exist in the product today: a regular climber (browses the map, sends problems, comments, maintains a profile); a "Founder" (the climber who added a given spot, rock or problem, with edit rights over just what they added); and an admin (`Council`/`Associate` title, full CRUD over any problem, report-queue moderation).
 
 ## Product Purpose
 
@@ -20,18 +20,19 @@ The Indonesia-first alternative to global climbing-log apps (Mountain Project, 2
 
 ## Operating Context
 
-Used outdoors, at or en route to remote bouldering spots — often on patchy mobile data and lower-end Android devices, not fast wifi on flagship phones. Installed as a PWA rather than opened as a bookmarked site. Pre-launch: nothing is deployed to production yet (`palabatu.id` unregistered, all third-party services — Resend email, Cloudinary — on dev/free tiers). Solo/small-team, community-run project; not yet accepting outside code contributions.
+Used outdoors, at or en route to remote bouldering spots — often on patchy mobile data and lower-end Android devices, not fast wifi on flagship phones. Installed as a PWA rather than opened as a bookmarked site. Pre-launch: `palabatu.id` is deployed but shows only an under-construction screen, with an empty production database. Cloudinary is still a dev account, and Resend has a verified sending domain but no confirmed plan for launch volume. Solo/small-team, community-run project; not yet accepting outside code contributions.
 
 ## Capabilities and Constraints
 
-- Interactive spot map with marker clustering; problem/route CRUD with photo topo annotation (drawn route lines/holds on a problem's photo).
+- Interactive spot map with marker clustering; a spot -> rock -> problem hierarchy (a rock can also be a wall with roped routes), with photo topo annotation (each problem's line drawn on its rock's shared photo) and step-by-step approach guides ("jalan masuk") per spot.
 - Send tracking (tick toggle) and comments per problem.
 - Climber profiles with a public badge/title.
 - JWT auth with email verification, password reset; image uploads via Cloudinary.
 - In-app notifications (reactions, edits, deletes, mentions).
 - Editing/deleting a problem is limited to its Founder or an admin (`Council`/`Associate`) — not open to any signed-in user.
-- Explicitly undecided, do not assume an answer: whether non-creators can add photos/beta to a problem they didn't create (collaborative editing); whether exact GPS coordinates get obscured for land-access-sensitive spots (needs outdoor-access and/or legal input before it's a product decision, not just an engineering one).
-- No production deploy yet — art assets, feedback-form entry point, and hosting/DNS/paid-tier third-party services are still open Phase 1 work (see ROADMAP.md).
+- Decided 2026-09-06: any signed-in user can add photos and approach guides to anything, credited to whoever added them, and removable by that person or by the creator or an admin.
+- Explicitly undecided, do not assume an answer: whether non-creators can change existing details they didn't create (collaborative editing beyond adding); whether exact GPS coordinates get obscured for land-access-sensitive spots (needs outdoor-access and/or legal input before it's a product decision, not just an engineering one).
+- Deployed but not launched. Art assets, production tiers for third-party services, and edge protection in front of the server are still open Phase 1 work (see ROADMAP.md).
 
 ## Brand Commitments
 
