@@ -69,14 +69,16 @@ export type CreateBoulderRequest = {
 // ever mutated via the dedicated add/delete endpoints below). crag_id
 // re-parents the boulder to a different spot when non-empty (handoff.md
 // decision 13); empty string means "leave as is", same convention as every
-// other plain-string field here.
+// other plain-string field here. lat/lng are the rock's pin and move as a
+// pair: omit both to leave the pin alone, send either to replace both with
+// what was sent (null clears). name/type/rock_type are written as sent.
 export type UpdateBoulderRequest = {
     crag_id: string
     name: string
     type: BoulderType | ''
     rock_type: string
-    lat: number | null
-    lng: number | null
+    lat?: number | null
+    lng?: number | null
 }
 
 // Mirrors boulders.AddBoulderImagesRequest / DeleteBoulderImageRequest.

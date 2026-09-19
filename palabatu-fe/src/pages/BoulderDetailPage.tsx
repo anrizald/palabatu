@@ -204,10 +204,10 @@ export default function BoulderDetailPage() {
     const handleSave = async () => {
         if (!boulder) return
         setIsSaving(true)
-        // Both or neither: updateBoulderRow writes lat/lng unconditionally
-        // (there's no "empty means leave as is" convention for them, unlike
-        // the string fields), so this is the one place the rock's pin is
-        // decided -- half a coordinate would persist as half a pin.
+        // Both or neither: the backend replaces the pin as a pair whenever
+        // either key is present (an explicit null clears it), so this is the
+        // one place the rock's pin is decided -- half a coordinate would
+        // persist as half a pin.
         const body: UpdateBoulderRequest = {
             crag_id: '', name: editName, type: boulder.type, rock_type: editRockType,
             lat: editLng == null ? null : editLat,

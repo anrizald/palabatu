@@ -114,7 +114,7 @@ func handleCreateBoulder(c *gin.Context) {
 
 // handleUpdateBoulder godoc
 // @Summary      Update a boulder
-// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it.
+// @Description  Allowed for admins (Council/Associate title) on any boulder, or the boulder's own creator. A non-empty crag_id re-parents the boulder to a different spot, cascading its problems' denormalized crag_id along with it. lat and lng move as a pair: omit both to leave the rock's pin alone, or send either to replace both with what was sent (null clears the pin).
 // @Tags         boulders
 // @Accept       json
 // @Produce      json
@@ -137,7 +137,7 @@ func handleUpdateBoulder(c *gin.Context) {
 		return
 	}
 
-	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng)
+	boulder, err := UpdateBoulder(c.Request.Context(), userID, id, body.CragID, body.Name, body.Type, body.RockType, body.Lat, body.Lng, body.HasCoords)
 	switch {
 	case err == nil:
 		c.JSON(http.StatusOK, boulder)

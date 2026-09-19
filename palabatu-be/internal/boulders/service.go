@@ -91,7 +91,7 @@ func CreateBoulder(ctx context.Context, createdBy, cragID, name, boulderType, ro
 // the missing inverse of "not sure which rock", now real. Re-parenting
 // cascades the denormalized crag_id onto every problem already on this
 // boulder (reparentBoulder, repository.go).
-func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulderType, rockType string, lat, lng *float64) (*Boulder, error) {
+func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulderType, rockType string, lat, lng *float64, hasCoords bool) (*Boulder, error) {
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
@@ -123,6 +123,12 @@ func UpdateBoulder(ctx context.Context, userID, boulderID, cragID, name, boulder
 			}
 			return nil, err
 		}
+	}
+
+	// updateBoulderRow writes the pin unconditionally, so "the request said
+	// nothing about it" has to be turned into "write back what is there".
+	if !hasCoords {
+		lat, lng = current.Lat, current.Lng
 	}
 
 	return updateBoulderRow(ctx, boulderID, name, normalizedType, rockType, lat, lng)

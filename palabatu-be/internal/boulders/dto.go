@@ -1,6 +1,10 @@
 package boulders
 
-import "time"
+import (
+	"encoding/json"
+	"strings"
+	"time"
+)
 
 // CreateBoulderRequest is handleCreateBoulder's request body. Type is
 // "boulder" or "wall" (handoff.md decision 1: cliffs are in scope) -- empty
@@ -25,6 +29,11 @@ type CreateBoulderRequest struct {
 // re-parents the boulder to a different spot when non-empty (handoff.md
 // decision 13) -- empty string means "leave as is", mirroring every other
 // plain-string field's already-established convention in this codebase.
+//
+// Lat and Lng are the rock's pin, and move as a pair: a body with neither key
+// leaves the pin alone, while a body with either one replaces both with what
+// was sent, where null clears. Name, Type and RockType have no such
+// protection: they are written as sent.
 type UpdateBoulderRequest struct {
 	CragID   string   `json:"crag_id"`
 	Name     string   `json:"name"`
@@ -32,6 +41,32 @@ type UpdateBoulderRequest struct {
 	RockType string   `json:"rock_type"`
 	Lat      *float64 `json:"lat"`
 	Lng      *float64 `json:"lng"`
+
+	// HasCoords is whether the body carried a "lat" or "lng" key at all. It
+	// is filled by UnmarshalJSON because a *float64 cannot tell an omitted key
+	// from an explicit null, and null is how a client clears a pin on purpose.
+	HasCoords bool `json:"-"`
+}
+
+// UnmarshalJSON decodes as usual, then records whether either coordinate key
+// was present. Keys are matched case-insensitively, as encoding/json itself
+// does, so a spelling that fills Lat is also seen as present.
+func (r *UpdateBoulderRequest) UnmarshalJSON(data []byte) error {
+	type plain UpdateBoulderRequest // no methods, so no recursion
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return err
+	}
+	r.HasCoords = false
+	for k := range keys {
+		if strings.EqualFold(k, "lat") || strings.EqualFold(k, "lng") {
+			r.HasCoords = true
+		}
+	}
+	return nil
 }
 
 // AddBoulderImagesRequest is handleAddBoulderImages's request body: URLs
