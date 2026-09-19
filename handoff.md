@@ -1,9 +1,12 @@
 # Problem Add/Edit addendum — design handoff
 
 **Where this stands, 2026-09-19.** Everything in this document is built,
-with one exception: **open item 14** (multi-pitch detail) is deferred until
-its trigger fires. Item 18, the last open one, was resolved 2026-09-19 as an
-admin-only override. The status paragraph below is
+with two exceptions: **open item 14** (multi-pitch detail) is deferred until
+its trigger fires, and **open item 19** is a tidy-up (the problem move
+button re-sends a whole record to change one field; the rock's was fixed
+2026-09-19), with nothing blocked on it.
+Item 18 was resolved 2026-09-19 as an admin-only override. The status
+paragraph below is
 the 2026-08-08 (d) snapshot. The add wizard it describes was replaced by the
 single add sheet in revision (h).
 
@@ -1611,7 +1614,7 @@ up from here.
     `/problems/:id` and the Go package stays `problems` — the user never
     sees either (UX principle 6). Revision (a)'s "Problem, not Route" call
     still stands for boulders, which is what it was actually deciding.
-11. **Who may add a photo to an existing rock.** Today it's
+11. ~~**Who may add a photo to an existing rock.**~~ Today it's
     creator-or-admin (`authorizeBoulderEdit`), while *adding* rocks and
     problems is open to anyone (decision 6) — so the shared artifact the
     whole middle level exists for is the most restricted write in the app,
@@ -1760,7 +1763,32 @@ up from here.
     untouched.
 
     **Nothing in item 11 is open any more.** (This line used to say nothing
-    in the whole document was open. Items 14 and 18, below, are.)
+    in the whole document was open. Items 14 and 19, below, are.)
+12. ~~**A DESIGN.md change falls out of decision 20's prototype.**~~
+    *(2026-08-09(g).)* Drawing the sheet against DESIGN.md's real tokens
+    put three text tiers below WCAG AA at the sizes this UI actually uses:
+    Faint Stone (`#4a3c30`) helper text measured **1.76:1** — not subtle,
+    invisible — and Weathered Stone (`#8a7060`) measured **3.91:1** at
+    11–12 px against both panel and surface, where 4.5:1 is required.
+    PRODUCT.md names the operating context as *outdoors, patchy data,
+    lower-end Android*; these values assume a dark room and a good panel,
+    which is the opposite.
+
+    Proposed, and applied in `add-flow-v2.html`: raise Weathered Stone to
+    **`#967b6a`** (4.58:1 on surface, 4.75:1 on panel — a ~6% lift,
+    visually near-identical, crosses AA), and **retire Faint Stone for
+    anything containing words**, keeping it for hairlines, disabled
+    states, and decoration. The system rule to write into DESIGN.md:
+    *if it's a sentence, it's at least Weathered Stone.* Note DESIGN.md
+    currently invites the failure — it describes Faint Stone as "reserve
+    for text that should barely register", which is the bug in one
+    sentence.
+
+    **Resolved 2026-08-09(g): applied.** `DESIGN.md` now carries the
+    raised value, demotes Dusk Stone and Faint Stone to non-text roles,
+    and states it as **The Sentence Rule** — if it is made of words, it
+    is at least Weathered Stone. Screens still using the old value are
+    not a regression to chase separately; they get it as they are touched.
 13. ~~**What the crag pin actually means, given decision 21.**~~
     **Resolved 2026-08-09(g): three layers, chosen by zoom.** Decision 4
     said the crag's `lat`/`lng` is "the approach/parking point". Decision
@@ -1800,31 +1828,6 @@ up from here.
       invent positions for the rest, and do not make the field required
       just to fill the layer.
 
-12. **A DESIGN.md change falls out of decision 20's prototype.**
-    *(2026-08-09(g).)* Drawing the sheet against DESIGN.md's real tokens
-    put three text tiers below WCAG AA at the sizes this UI actually uses:
-    Faint Stone (`#4a3c30`) helper text measured **1.76:1** — not subtle,
-    invisible — and Weathered Stone (`#8a7060`) measured **3.91:1** at
-    11–12 px against both panel and surface, where 4.5:1 is required.
-    PRODUCT.md names the operating context as *outdoors, patchy data,
-    lower-end Android*; these values assume a dark room and a good panel,
-    which is the opposite.
-
-    Proposed, and applied in `add-flow-v2.html`: raise Weathered Stone to
-    **`#967b6a`** (4.58:1 on surface, 4.75:1 on panel — a ~6% lift,
-    visually near-identical, crosses AA), and **retire Faint Stone for
-    anything containing words**, keeping it for hairlines, disabled
-    states, and decoration. The system rule to write into DESIGN.md:
-    *if it's a sentence, it's at least Weathered Stone.* Note DESIGN.md
-    currently invites the failure — it describes Faint Stone as "reserve
-    for text that should barely register", which is the bug in one
-    sentence.
-
-    **Resolved 2026-08-09(g): applied.** `DESIGN.md` now carries the
-    raised value, demotes Dusk Stone and Faint Stone to non-text roles,
-    and states it as **The Sentence Rule** — if it is made of words, it
-    is at least Weathered Stone. Screens still using the old value are
-    not a regression to chase separately; they get it as they are touched.
 14. **Whether to build multi-pitch pitch-level detail at all yet.**
     *(2026-09-04. Counts corrected and a trigger added 2026-09-06.)*
     Decision 23 settles *where* it would live if built; it does not
@@ -2066,6 +2069,107 @@ up from here.
     (`authorizeBoulderImageDelete`) plus its frontend mirror
     (`canDeletePhoto`) — `hasForeignAnnotation` already exists and is
     already correct, it is just not being asked on this branch.
+19. **The problem "move" button rebuilds and re-sends the whole record to
+    change one field. (The rock's did too, and was fixed 2026-09-19.)**
+    *(2026-09-19, found while making the boulder `PUT` keep whatever a body
+    leaves out. Nothing here is broken in a way a user can see today, and
+    nothing is blocked on it: this is tidy-up, filed so it is not
+    rediscovered.)* "Move to another spot" on `BoulderDetailPage`
+    (`handleMoveToSpot`) and "Move to another rock" on `ProblemDetailPage`
+    (`handleMoveToRock`) each exist to change exactly one field (`crag_id`,
+    `boulder_id`). Each does it by building the entire update body from the
+    copy of the record the page loaded and `PUT`ting all of it back. That
+    was the only way to do it while both endpoints overwrote every column
+    they were given, so it was correct when written. For rocks it stopped
+    being necessary on 2026-09-19, when `UpdateBoulder` began keeping any
+    field a body omits (CLAUDE.md's "A rock's own `lat`/`lng`" bullet has the
+    mechanism), and `handleMoveToSpot` now sends only `{ crag_id }`. For
+    problems it is still necessary, which is the medium item below.
+
+    **What the write-back costs**, at its real size (the rock side no longer
+    pays it; the problem button still does):
+    - *NULL becomes an empty string.* An unnamed rock is sent back as
+      `boulder.name ?? ''`, so its NULL name (and rock type) is stored as
+      `''`. Harmless for the name: `ListNeedsAttention` tests
+      `b.name IS NULL OR b.name = ''`, and the frontend reads both as
+      "unnamed". **Not audited for `rock_type`**, so treat that half as
+      unverified rather than as fine.
+    - *A lost update, in a small window.* The body is built from the copy
+      the page loaded, so anything that changed since (someone else
+      renaming the rock or moving its pin, or the same account in a second
+      tab) is silently put back to its old value by the move. The window
+      is however long the page has been open, including the confirm dialog
+      and the picker. On a rock the loss is a name, type, rock type or pin;
+      on a problem it is the name, grade, height, hazards, descent or notes,
+      which is more text to lose. Two people editing one record at once is
+      rare before launch and rarer against an empty production database,
+      which is why this is filed rather than fixed.
+    - Neither cost touches the move itself, which works.
+
+    **The work, by difficulty:**
+
+    *Easy, done 2026-09-19: `handleMoveToSpot` sends only
+    `{ crag_id: target.id }`.* Checked live against the local database with
+    exactly that body: a rock with a NULL name, a NULL rock type and 3
+    problems was moved to another spot and back. Both responses were 200,
+    the name and rock type stayed NULL, the pin did not move, and all three
+    problems' `crag_id` followed the rock each way; afterwards the rock and
+    its problems matched the pre-test snapshot exactly. Driven through the
+    API, not the browser UI, so the button itself was not clicked.
+
+    *Medium: give `PUT /api/problems/:id` the same keep-on-omit treatment,
+    then shrink `handleMoveToRock` to `{ boulder_id: target.id }`.* This
+    cannot be done from the frontend alone: `UpdateProblem` and
+    `updateProblemRow` write every column as sent, and an empty grade passes
+    `validateGrade` (it returns nil for `""`) while `validateName` only caps
+    length, so a `{ boulder_id }`-only body would go through validation and
+    blank the name, grade, hazards, descent and notes. Do not rely on
+    validation as a guard here. The shape is the boulder fix again:
+    - the text fields become `*string` (nil means keep; an empty string is
+      still a real value, so a field can be cleared);
+    - `height_m` is already a `*float64` where null means "clear the height",
+      so it needs presence detection exactly as `lat`/`lng` did
+      (`UpdateBoulderRequest.HasCoords`, filled by an `UnmarshalJSON`);
+    - `UpdateProblem` takes 11 positional arguments and should take the
+      request struct, as `UpdateBoulder` now does;
+    - then `.\scripts\gen-api-docs.ps1`, `npm run gen:types`, the
+      hand-written mirror in `src/types/problem.ts`, and the CLAUDE.md
+      sentence that describes the boulder behavior, extended to cover this.
+    `UpdateProblem` also calls `notifyProblemEdited` on every update, so a
+    move currently sends the creator an "edited" notification. Keep or
+    change that on purpose rather than by accident. Verify as the boulder
+    fix was: run one probe against the old code and again against the new,
+    snapshot the rows and restore them afterwards, and include the
+    null-versus-omitted case for `height_m` and a NULL-versus-empty check on
+    each text column. Pace any script at about 350 ms per call: the blanket
+    `/api` limiter (10 req/s, burst 20) answers a fast probe with 429, which
+    reads like a failure and is not.
+
+    *Medium, optional and low value: the same for `PUT /api/crags/:id`.*
+    Nothing is at risk today. `CragDetailPage.handleSave` is a genuine
+    whole-form edit, and crags have no move-style caller because a crag is
+    never re-parented. The hazard is for a future client that sends a partial
+    body: `name`, `directions` and `access_notes` omitted would be written
+    as empty, whereas an omitted `lat`/`lng` arrives as 0 (they are plain
+    `float64`), falls outside the longitude range 94.5 to 141.5 that
+    `validateLatLng` allows, and is rejected with a 400. That is a loud
+    failure rather than a silent one, so only the text half is a real gap.
+    Worth doing when a second client (the Phase 4 app in ROADMAP.md) is
+    actually being built, not before.
+
+    *Hard, and not recommended as its own project: one partial-update
+    convention across the whole API.* Either PATCH verbs or "every field
+    optional" on every `PUT`, applied to boulders, problems, crags and
+    profiles, with the contract and every hand-written mirror type moving
+    together. The per-endpoint route above gets the same protection where a
+    partial body actually occurs, at a fraction of the change to the
+    generated contract. Revisit only if the mobile client makes the
+    current behavior a recurring problem. **What was and was not audited:**
+    there are seven `PUT` routes. Boulders (fixed 2026-09-19), problems and
+    crags (above) were read. `PUT /api/problems/:id/annotations` and
+    `PUT /api/drafts/:id` replace a whole payload by design and are not the
+    same hazard. `PUT /api/profiles/:id` and `PUT /auth/password` were **not**
+    looked at.
 
 **Status of the open items** (updated 2026-09-19). Items 1-6
 were resolved before implementation and remain resolved; 10 was resolved and
@@ -2099,6 +2203,13 @@ guard, so a boulder's photo can be deleted out from under other founders'
 lines with no check and no warning. 18 was resolved 2026-09-19 as an
 admin-only override: the creator is now blocked like an uploader, and only
 an admin can force the delete through.
+
+Fixing the boulder `PUT` to keep whatever a body leaves out (2026-09-19)
+filed **19** in turn: the two "move" buttons rebuilt a whole record to change
+one field. The rock's was fixed and checked live the same day. What remains
+is a medium half (the problem `PUT` needs the same backend treatment first),
+a low-value optional one (crags) and a hard one that is not recommended (one
+convention for the whole API). It blocks nothing.
 If something here turns out wrong, edit this file rather than the chat log.
 
 ### What decisions 11-20 invalidate in the shipped frontend

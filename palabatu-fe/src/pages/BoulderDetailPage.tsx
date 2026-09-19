@@ -189,7 +189,8 @@ export default function BoulderDetailPage() {
         if (!window.confirm(`Move this rock to ${target.name}? Every problem on it moves with it.`)) return
         setIsMovingSpot(true)
         try {
-            const body: UpdateBoulderRequest = { crag_id: target.id, name: boulder.name ?? '', type: boulder.type, rock_type: boulder.rock_type ?? '', lat: boulder.lat, lng: boulder.lng }
+            // Only crag_id: the backend keeps every field a body leaves out.
+            const body: UpdateBoulderRequest = { crag_id: target.id }
             const res = await api.put<BoulderListItem | ErrorResponse>(`/api/boulders/${boulder.id}`, body)
             if ('error' in res) { showError(res.error); return }
             invalidateCragCache()
