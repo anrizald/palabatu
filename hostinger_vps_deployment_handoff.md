@@ -23,36 +23,68 @@ root, no long-running processes and no Docker. None of them can run a Go
 binary at any price. KVM VPS is the only product that fits, and every KVM
 tier from KVM 1 up has full root and a Docker-ready OS template.
 
-## Current status (as of this handoff)
+## Current status (re-verified 2026-09-19, updated from the 2026-09-02 snapshot below)
+
+The site is deployed and serving (the served bundle's Last-Modified is
+2026-09-03). Re-checked against the public origin rather than assumed. Steps
+1 through 7 and 9 are evidently done; step 8 (migrations) is unconfirmed, see
+below:
+
+- **DNS resolves to the box and Caddy is serving.** `curl -I https://palabatu.id`
+  returns `200`, `Via: 1.1 Caddy`, and advertises HTTP/3 — TLS is issued and
+  auto-renewing. Nothing here is still "waiting on DNS propagation."
+- **The backend is live and connected to its real database**, not just
+  static files: `GET /api/waitlist/count` and `GET /auth/users/count` both
+  return real (currently `0`) counts rather than an error, so `deploy/.env`
+  on the box holds a working `DATABASE_URL` and the app can reach it. That
+  also means the "Neon schema is behind" bullet from the original handoff is
+  resolved in the sense that whatever version is applied is enough to serve
+  traffic. The exact `schema_migrations` version is still unconfirmed:
+  reading it needs a shell on the box (or a local `migrate version` against
+  the production `DATABASE_URL`, read-only), so verify it before applying
+  anything new.
+- **Which curtain ships is still exactly the open decision this doc
+  flagged.** `App.tsx` on `stage` has both `SITE_LIVE = false` and
+  `UNDER_CONSTRUCTION = true`, and the latter still wins — confirmed live,
+  not just read from source. That means visitors get `UnderConstruction.tsx`
+  (a static screen, no email field), not `ComingSoon.tsx` (the one wired to
+  `POST /api/waitlist`). The waitlist table, the Resend sending domain, and
+  the confirmation email are all still unused in production as a result —
+  this hasn't changed since the doc was first written.
+- **Step 10 (Cloudflare) has not happened.** `nslookup -type=NS palabatu.id`
+  still returns Hostinger's `dns-parking.com` nameservers, not Cloudflare's —
+  so the origin IP is still directly exposed and the `CF-Connecting-IP`
+  block already sitting commented-out in `deploy/Caddyfile` is still inert.
+  See `edge_protection_handoff.md` for why this is the one piece of this
+  handoff that still matters operationally, not just as a checklist item.
+- **`/healthz` is a real route, but a shallow one, and `curl -I` cannot see
+  it.** `cmd/api/main.go` registers `r.GET("/healthz", ...)`, which returns a
+  bare `200` with no body and never touches the database. gin's `r.GET` does
+  not answer `HEAD`, so `curl -I https://palabatu.id/healthz` falls through
+  to `static.go`'s `NoRoute` handler and returns the SPA shell (`200`,
+  `text/html`, same length as `/`), which proves only that Caddy and the Go
+  process are up. A plain GET (`curl -s -o /dev/null -w '%{http_code}'
+  https://palabatu.id/healthz`) returns `200` with an empty body, and that is
+  what `deploy/compose.yml`'s `wget -qO-` healthcheck sends, so the container
+  healthcheck is a valid liveness probe. Neither form checks that the
+  database is reachable; if that matters, `/healthz` needs a
+  `db.Pool.Ping` with a short timeout (and a rate limit, since it is public).
+
+**Historical, as of the original 2026-09-02 handoff (kept for the ordering
+record in steps 1-9 below; superseded by the bullets above):**
 
 - Neon remains production Postgres. The VPS runs one stateless container,
   which is what keeps rebuilding or replacing the box risk-free.
-- **Neon's schema is behind.** The Railway-era handoff recorded it at
-  `schema_migrations` version 12, clean; `migrations/` is at 0018. Verify
-  and apply before deploying anything past the coming-soon gate (step 8).
 - `marketing.palabatu.id` is set up as the Resend-verified sending domain;
   `EMAIL_FROM=noreply@marketing.palabatu.id`.
-- Domain is registered at Hostinger, currently unpointed (still shows
-  Hostinger's parking page).
-- **The box is provisioned and ready** (`148.230.97.16`, steps 1 through 3
-  complete): Ubuntu 24.04.4, `deploy` user with key-only SSH and passwordless
-  sudo, root login and password auth both off, ufw active on 22/80/443,
-  unattended-upgrades on, Docker 29.7.2 + Compose v5.5.0, `/opt/palabatu`
-  created and owned by `deploy`. Nothing is listening on 80/443 yet.
-- Still missing on the hosting side: DNS records, Cloudflare, the GitHub
-  deploy key, and `deploy/.env`. Ask anrizald (ghul) for the real secret
-  values (Neon `DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`, Cloudinary
-  keys) — don't regenerate blind.
-- `stage` now carries the merged app (`under-construction-page` merged in),
-  the root `Dockerfile`, `deploy/compose.yml`, `deploy/Caddyfile`, and the
-  trusted-proxies change from step 6. The repo side is ready; what's left is
-  ordering the box, the secrets, DNS, and the Neon migration.
-- **Which curtain ships is still a live decision.** `App.tsx` has both
-  `SITE_LIVE = false` and `UNDER_CONSTRUCTION = true`, and the latter wins.
-  That means `UnderConstruction.tsx`, which is a static screen with no email
-  field. `ComingSoon.tsx` is the one wired to `POST /api/waitlist`. Shipping
-  as currently flagged launches with no email capture at all, leaving the
-  waitlist table, the Resend domain and the confirmation email unused.
+- The box was provisioned at `148.230.97.16` (steps 1 through 3): Ubuntu
+  24.04.4, `deploy` user with key-only SSH and passwordless sudo, root login
+  and password auth both off, ufw active on 22/80/443, unattended-upgrades
+  on, Docker 29.7.2 + Compose v5.5.0, `/opt/palabatu` created and owned by
+  `deploy`.
+- `stage` carries the merged app (`under-construction-page` merged in), the
+  root `Dockerfile`, `deploy/compose.yml`, `deploy/Caddyfile`, and the
+  trusted-proxies change from step 6.
 
 ## 1. Order the VPS
 
@@ -406,7 +438,8 @@ Two follow-ups that matter once traffic is proxied:
 ## 11. Verify
 
 ```sh
-curl -I https://palabatu.id/healthz            # 200
+curl -s -o /dev/null -w '%{http_code}
+' https://palabatu.id/healthz   # 200 (GET; -I sends HEAD and hits the SPA fallback)
 curl https://palabatu.id/api/waitlist/count    # {"count": N}
 curl -I https://palabatu.id/metrics            # 404, blocked at Caddy
 curl -I http://palabatu.id                     # 308 redirect to https
@@ -429,10 +462,11 @@ ssh deploy@<vps-ip> 'cd /opt/palabatu && git pull && \
   docker compose -f deploy/compose.yml up -d --build'
 ```
 
-Worth wrapping in a `scripts/deploy.ps1` once the values are real. There is
-a brief gap while the container restarts; a zero-downtime story (build the
-new image, start it alongside, let Caddy switch, drop the old) is a later
-problem, not a launch blocker.
+Wrapped in `scripts/deploy.ps1` (run from the Windows machine, uses the
+`palabatu` SSH alias, curls the site afterward to confirm it came back up).
+There is a brief gap while the container restarts; a zero-downtime story
+(build the new image, start it alongside, let Caddy switch, drop the old)
+is a later problem, not a launch blocker.
 
 ## 13. What we now own that Railway did for us
 
